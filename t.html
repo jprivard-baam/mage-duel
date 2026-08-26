@@ -146,6 +146,13 @@ html, body {
   text-align: center;
   line-height: 1.6;
 }
+.home-ver {
+  margin-top: 10px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: #c4b6e0;
+  text-align: center;
+}
 .btn-play:disabled {
   opacity: .38;
   cursor: not-allowed;
@@ -531,7 +538,7 @@ html, body {
     </div>
     <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
     <p class="home-hint">Choisis une classe · E pour le sort<br>Force secondaire au level up</p>
-    <p class="home-hint" id="build-id">b.1deg</p>
+    <p class="home-ver" id="build-id">v69</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -605,6 +612,8 @@ html, body {
 <script>
 (function () {
 "use strict";
+
+const GAME_VER = 69; // bump GAME_VER and the visible vN on EVERY deploy
 
 const DEBUG = true; // playtest: dmg/regen joueur ×5. Virer cette ligne + les if (DEBUG).
 
