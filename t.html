@@ -147,10 +147,12 @@ html, body {
   line-height: 1.6;
 }
 .home-ver {
-  margin-top: 10px;
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  color: #c4b6e0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #f4e4a6;
+  margin: 8px 0 0;
+  text-transform: none;
   text-align: center;
 }
 .btn-play:disabled {
@@ -523,6 +525,7 @@ html, body {
 <div id="home">
   <div class="home-hero">
     <h1>Cubemancy</h1>
+    <p class="home-ver" id="build-id">Version 70</p>
     <div class="gold-rule"></div>
     <div class="sub">Survive. Cast. Cube.</div>
     <div class="tag-wrap">
@@ -538,7 +541,6 @@ html, body {
     </div>
     <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
     <p class="home-hint">Choisis une classe · E pour le sort<br>Force secondaire au level up</p>
-    <p class="home-ver" id="build-id">v69</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -613,7 +615,7 @@ html, body {
 (function () {
 "use strict";
 
-const GAME_VER = 69; // bump GAME_VER and the visible vN on EVERY deploy
+const GAME_VER = 70; // bump GAME_VER and the visible vN on EVERY deploy
 
 const DEBUG = true; // playtest: dmg/regen joueur ×5. Virer cette ligne + les if (DEBUG).
 
@@ -3186,7 +3188,7 @@ function emitShotTrail(s) {
     const tx = s.x + (-(s.vx || 0) / hl) * 0.4;
     const tz = s.z + (-(s.vz || 0) / hl) * 0.4;
     for (let i = 0; i < 4; i++) {
-      pushPart({ x: tx, y: s.y, z: tz, vx: (Math.random() - 0.5) * 0.3, vy: 1.2, vz: (Math.random() - 0.5) * 0.3, r: 1.00, g: 0.92, b: 0.40, life: 0.16, age: 0, s: 0.10, style: "spark" });
+      pushPart({ x: tx, y: s.y, z: tz, vx: (Math.random() - 0.5) * 0.3, vy: 1.2, vz: (Math.random() - 0.5) * 0.3, r: 1.00, g: 0.22, b: 0.04, life: 0.16, age: 0, s: 0.11, style: "spark" });
     }
   } else if (s.kind === "glace") {
     for (let i = 0; i < 3; i++) {
@@ -3207,14 +3209,14 @@ function impactFeu(x, y, z, q) {
   const gy = highest(x, z) + STEP_UP;
   const nStar = q ? 10 : 8;
   const nEmb = q ? 12 : 8;
-  fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.07, s: q ? 0.70 : 0.55, r: 1.00, g: 0.95, b: 0.35, glow: 1 });
+  fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.07, s: q ? 0.70 : 0.55, r: 1.00, g: 0.45, b: 0.12, glow: 1 });
   for (let i = 0; i < nStar; i++) {
     const a = (i / nStar) * Math.PI * 2;
     const spark = (i % 2) === 0;
     pushPart({
       x: x, y: y + 0.08, z: z,
       vx: Math.cos(a) * 5, vy: 1.2, vz: Math.sin(a) * 5,
-      r: 1.00, g: spark ? 0.92 : 0.42, b: spark ? 0.40 : 0.06,
+      r: spark ? 1.00 : 0.80, g: spark ? 0.20 : 0.06, b: spark ? 0.04 : 0.02,
       life: 0.20, age: 0, s: 0.14, style: "spark"
     });
   }
@@ -3866,26 +3868,27 @@ function drawFireShot(s) {
   const hl = Math.hypot(s.vx || 0, s.vz || 0) || 1;
   const bx = -(s.vx || 0) / hl, bz = -(s.vz || 0) / hl;
   const sx = -bz, sz = bx;
-  const CORE = [1.00, 0.95, 0.35, 1.00];
-  const MID = [1.00, 0.42, 0.06, 0.75];
-  const RIM = [0.90, 0.10, 0.04, 0.40];
+  const CORE = [1.00, 0.55, 0.12, 1.00];
+  const MID = [0.98, 0.16, 0.04, 0.80];
+  const RIM = [0.72, 0.04, 0.02, 0.45];
+  const HIGH = [1.00, 0.605, 0.132, 1.00];
   function pix(x, y, z, sz, col) {
     const s0 = sz * k;
     drawCube(x, y, z, s0, s0, s0, 0, col[0], col[1], col[2], col[3]);
   }
-  pix(s.x, s.y, s.z, 0.34, CORE);
+  pix(s.x, s.y, s.z, 0.22, CORE);
   const faces = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
   for (let i = 0; i < 6; i++) {
     const f = faces[i];
-    pix(s.x + f[0] * 0.15 * k, s.y + f[1] * 0.15 * k, s.z + f[2] * 0.15 * k, 0.20, MID);
+    pix(s.x + f[0] * 0.14 * k, s.y + f[1] * 0.14 * k, s.z + f[2] * 0.14 * k, 0.22, MID);
   }
-  pix(s.x + (-bx) * 0.06 * k, s.y + 0.10 * k, s.z + (-bz) * 0.06 * k, 0.14, CORE);
+  pix(s.x + (-bx) * 0.06 * k, s.y + 0.10 * k, s.z + (-bz) * 0.06 * k, 0.10, HIGH);
   pix(s.x, s.y - 0.16 * k, s.z, 0.16, RIM);
-  pix(s.x + bx * 0.22 * k, s.y + 0.04 * k, s.z + bz * 0.22 * k, frame ? 0.16 : 0.20, MID);
+  pix(s.x + bx * 0.22 * k, s.y + 0.04 * k, s.z + bz * 0.22 * k, 0.18, RIM);
   const s1 = frame ? 1 : -1;
-  pix(s.x + (bx * 0.36 + sx * 0.10 * s1) * k, s.y, s.z + (bz * 0.36 + sz * 0.10 * s1) * k, 0.13, RIM);
+  pix(s.x + (bx * 0.36 + sx * 0.10 * s1) * k, s.y, s.z + (bz * 0.36 + sz * 0.10 * s1) * k, 0.14, RIM);
   const s2 = frame ? -1 : 1;
-  pix(s.x + (bx * 0.48 + sx * 0.06 * s2) * k, s.y + 0.08 * k, s.z + (bz * 0.48 + sz * 0.06 * s2) * k, 0.09, RIM);
+  pix(s.x + (bx * 0.48 + sx * 0.06 * s2) * k, s.y + 0.08 * k, s.z + (bz * 0.48 + sz * 0.06 * s2) * k, 0.11, RIM);
 }
 
 function drawIceShot(s) {
