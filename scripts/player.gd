@@ -8,7 +8,6 @@ const PITCH_MIN := -1.15
 const PITCH_MAX := 0.42
 const CHOP_RANGE := 5.0
 const STRIKE_RANGE := 1.95
-const STRIKE_DAMAGE := 22.0
 const STRIKE_CD := 0.48
 
 @onready var model: Node3D = $Model
@@ -201,7 +200,7 @@ func _try_strike() -> void:
 		var to := enemy.global_position - global_position
 		to.y = 0.0
 		if to.length() <= STRIKE_RANGE and to.normalized().dot(face) > 0.12:
-			enemy.take_damage(STRIKE_DAMAGE)
+			enemy.take_damage(Game.STRIKE_DAMAGE)
 			hit_any = true
 	if hit_any:
 		return

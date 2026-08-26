@@ -7,13 +7,15 @@ signal died
 signal night_changed(is_night: bool)
 signal toasted(message: String)
 
-const MAX_HP := 100.0
+const MAX_HP := 1000.0
 const MAX_HUNGER := 100.0
 const MAX_MANA := 100.0
 const HUNGER_DRAIN := 0.85
 const MANA_REGEN := 14.0
 const STARVE_DPS := 7.0
 const DAY_LENGTH := 150.0
+const STRIKE_DAMAGE := 25.0
+const SUN_DPS := 22.0
 
 const CLASSES := {
 	"feu": {"nom": "Feu", "couleur": Color(0.95, 0.32, 0.08), "robe": Color(0.72, 0.16, 0.08)},
@@ -22,9 +24,38 @@ const CLASSES := {
 }
 
 const SPELLS := {
-	"feu": {"cout": 22.0, "degats": 34.0, "vitesse": 14.0, "couleur": Color(1.0, 0.38, 0.12), "rayon": 0.22},
-	"glace": {"cout": 18.0, "degats": 24.0, "vitesse": 11.0, "couleur": Color(0.42, 0.85, 1.0), "rayon": 0.24},
-	"foudre": {"cout": 20.0, "degats": 40.0, "vitesse": 22.0, "couleur": Color(0.78, 0.52, 1.0), "rayon": 0.18},
+	"feu": {"cout": 22.0, "degats": 40.0, "vitesse": 14.0, "couleur": Color(1.0, 0.38, 0.12), "rayon": 0.22},
+	"glace": {"cout": 18.0, "degats": 28.0, "vitesse": 11.0, "couleur": Color(0.42, 0.85, 1.0), "rayon": 0.24},
+	"foudre": {"cout": 20.0, "degats": 35.0, "vitesse": 22.0, "couleur": Color(0.78, 0.52, 1.0), "rayon": 0.18},
+}
+
+## Stats verrouillées : joueur 1000, loup 220/55, slime 150/35, frappe 25.
+const CREATURES := {
+	"slime": {
+		"nom": "Gelée", "hp": 150.0, "degats": 35.0, "vitesse": 2.45,
+		"portee": 1.5, "cooldown": 1.0, "hostile": true, "burns_sun": true,
+		"faim": 8.0, "aggro": 14.0, "hitbox": Vector3(0.7, 0.72, 0.7),
+	},
+	"loup": {
+		"nom": "Loup", "hp": 220.0, "degats": 55.0, "vitesse": 3.55,
+		"portee": 1.7, "cooldown": 0.85, "hostile": true, "burns_sun": false,
+		"faim": 12.0, "aggro": 15.0, "hitbox": Vector3(0.46, 0.62, 0.82),
+	},
+	"chevreuil": {
+		"nom": "Chevreuil", "hp": 95.0, "degats": 0.0, "vitesse": 4.35,
+		"portee": 0.0, "cooldown": 1.0, "hostile": false, "burns_sun": false,
+		"faim": 45.0, "aggro": 8.5, "hitbox": Vector3(0.42, 0.92, 0.7),
+	},
+	"zombie": {
+		"nom": "Zombie", "hp": 190.0, "degats": 40.0, "vitesse": 1.28,
+		"portee": 1.6, "cooldown": 1.45, "hostile": true, "burns_sun": true,
+		"faim": 6.0, "aggro": 12.0, "hitbox": Vector3(0.5, 1.22, 0.42),
+	},
+	"squelette": {
+		"nom": "Squelette", "hp": 125.0, "degats": 48.0, "vitesse": 2.75,
+		"portee": 1.9, "cooldown": 0.92, "hostile": true, "burns_sun": true,
+		"faim": 4.0, "aggro": 14.0, "hitbox": Vector3(0.4, 1.28, 0.36),
+	},
 }
 
 var player_class: String = ""
@@ -37,6 +68,7 @@ var is_night: bool = false
 var world_time: float = 4.0
 var can_chop: bool = false
 var can_strike: bool = false
+var dawn_burn_announced: bool = false
 
 var move_stick: Vector2 = Vector2.ZERO
 var jump_queued: bool = false
@@ -83,6 +115,7 @@ func reset() -> void:
 	world_time = 4.0
 	can_chop = false
 	can_strike = false
+	dawn_burn_announced = false
 	move_stick = Vector2.ZERO
 	jump_queued = false
 	cast_queued = false
@@ -103,6 +136,7 @@ func tick_survival(delta: float) -> void:
 		is_night = night
 		night_changed.emit(is_night)
 		if is_night:
+			dawn_burn_announced = false
 			toasted.emit("La nuit tombe")
 		else:
 			toasted.emit("Le jour se lève")

@@ -1,6 +1,14 @@
 extends Node3D
 
 const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
+const MAX_CREATURES := 12
+const CAPS := {
+	"chevreuil": 4,
+	"loup": 2,
+	"slime": 3,
+	"zombie": 3,
+	"squelette": 2,
+}
 
 @onready var voxel: VoxelWorld = $VoxelMap
 @onready var player: Player = $Player
@@ -9,7 +17,7 @@ const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 @onready var enemies_root: Node3D = $Enemies
 @onready var fill_light: DirectionalLight3D = $FillLight
 
-var _spawn_acc := 2.0
+var _spawn_acc := 1.2
 var _sky_mat: ProceduralSkyMaterial
 
 
@@ -25,6 +33,9 @@ func _ready() -> void:
 		_sky_mat = env.sky.sky_material
 	Game.night_changed.connect(_on_night_changed)
 	_update_sky()
+	for _i in 3:
+		_try_spawn_kind("chevreuil", 8.0)
+	_try_spawn_kind("loup", 12.0)
 
 
 func _physics_process(delta: float) -> void:
@@ -32,37 +43,73 @@ func _physics_process(delta: float) -> void:
 	_update_sky()
 	if Game.is_dead:
 		return
+	_spawn_acc += delta
 	if Game.is_night:
-		_spawn_acc += delta
-		if _spawn_acc >= 3.2:
+		if _spawn_acc >= 3.4:
 			_spawn_acc = 0.0
-			_try_spawn_enemy()
+			_try_spawn_night()
+	elif _spawn_acc >= 6.5:
+		_spawn_acc = 0.0
+		if randf() < 0.7:
+			_try_spawn_kind("chevreuil", 10.0)
+		else:
+			_try_spawn_kind("loup", 13.0)
 
 
 func _on_night_changed(night: bool) -> void:
 	if night:
 		_spawn_acc = 0.0
-		for i in 4:
-			_try_spawn_enemy()
+		_try_spawn_kind("slime", 8.0)
+		_try_spawn_kind("zombie", 8.0)
+		_try_spawn_kind("zombie", 9.0)
+		_try_spawn_kind("squelette", 8.0)
+		_try_spawn_kind("slime", 10.0)
+		_try_spawn_kind("loup", 12.0)
 
 
-func _try_spawn_enemy() -> void:
-	if enemies_root.get_child_count() >= 6:
-		return
-	for _i in 16:
-		var x := randi_range(5, VoxelWorld.SIZE - 6)
-		var z := randi_range(5, VoxelWorld.SIZE - 6)
+func _try_spawn_night() -> void:
+	var roll := randf()
+	if roll < 0.34:
+		_try_spawn_kind("zombie", 8.0)
+	elif roll < 0.58:
+		_try_spawn_kind("slime", 8.0)
+	elif roll < 0.82:
+		_try_spawn_kind("squelette", 8.0)
+	else:
+		_try_spawn_kind("loup", 12.0)
+
+
+func _count_kind(kind: String) -> int:
+	var n := 0
+	for node in enemies_root.get_children():
+		if node is Enemy and (node as Enemy).kind == kind:
+			n += 1
+	return n
+
+
+func _try_spawn_kind(kind: String, min_dist: float) -> bool:
+	if enemies_root.get_child_count() >= MAX_CREATURES:
+		return false
+	if _count_kind(kind) >= int(CAPS.get(kind, 2)):
+		return false
+	for _i in 18:
+		var x := randi_range(6, VoxelWorld.SIZE - 7)
+		var z := randi_range(6, VoxelWorld.SIZE - 7)
 		var y := voxel.surface_y(x, z)
 		if y < 2:
 			continue
-		var pos := Vector3((x + 0.5) * VoxelWorld.CELL, (y + 1) * VoxelWorld.CELL + 0.2, (z + 0.5) * VoxelWorld.CELL)
-		if pos.distance_to(player.global_position) < 7.0:
+		var pos := Vector3((x + 0.5) * VoxelWorld.CELL, (y + 1) * VoxelWorld.CELL + 0.12, (z + 0.5) * VoxelWorld.CELL)
+		if pos.distance_to(player.global_position) < min_dist:
+			continue
+		if pos.distance_to(player.global_position) > 28.0:
 			continue
 		var e: Enemy = ENEMY_SCENE.instantiate()
 		enemies_root.add_child(e)
+		e.setup(kind)
 		e.global_position = pos
 		e.player = player
-		return
+		return true
+	return false
 
 
 func _update_sky() -> void:

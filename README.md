@@ -42,5 +42,7 @@ L’export iPhone se fait depuis Godot (preset iOS + Xcode), sans réécrire le 
 - Mobile : **Sort** (sort de la classe), **Frapper** (ennemis ou arbres → Bois), **Saut**.
 - Mage cubique 3e personne, monde voxel **96×96**, cubes **0,5**.
 - Terrain seulement : **terre**, **roche**, **arbres**.
-- Survie : PV, faim, mana, jour/nuit, cubes hostiles la nuit.
+- Créatures cubes : **loup** (corps, 4 pattes, museau, oreilles, queue), **chevreuil** (passif, fuit, se mange ; jour), **gelée**, **zombie** et **squelette à l’épée** (nuit, brûlent à l’aube).
+- Combat verrouillé : joueur **1000** PV, loup **220/55**, slime **150/35**, frappe **25**, Feu **40**, Glace **28**, Foudre **35**.
+- Survie : PV, faim, mana, jour/nuit.
 - Mort : « Vous êtes mort » + **Rejouer** (même classe).
