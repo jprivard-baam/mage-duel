@@ -3120,7 +3120,7 @@ function steerBall(s) {
 function ballHitTgt(s, m) {
   if (!m) return false;
   if (m !== player && m.dead) return false;
-  return Math.hypot(m.x - s.x, (m.y + 0.55) - s.y, m.z - s.z) < 1.1;
+  return Math.hypot(m.x - s.x, m.z - s.z) < 1.4 && Math.abs(s.y - (m.y + 0.7)) < 1.6;
 }
 function applyBallHit(s, m) {
   s.x = m.x; s.y = m.y + 0.55; s.z = m.z;
