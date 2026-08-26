@@ -531,7 +531,7 @@ html, body {
     </div>
     <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
     <p class="home-hint">Choisis une classe · E pour le sort<br>Force secondaire au level up</p>
-    <p class="home-hint" id="build-id">b.land</p>
+    <p class="home-hint" id="build-id">b.back</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -4257,8 +4257,10 @@ function update(dt) {
     player.vz = (c * mz - s * mx) * sp;
     if (document.pointerLockElement === canvas) {
       player.face = player.yaw;
-    } else if (ml > 0.12) {
+    } else if (mz > 0.12) {
       player.face = lerpAng(player.face, Math.atan2(player.vx, player.vz), 10 * dt);
+    } else if (mz < -0.12) {
+      player.face = lerpAng(player.face, player.yaw, 10 * dt);
     }
     if (ml > 0.12) {
       player.bob += dt * 10;
