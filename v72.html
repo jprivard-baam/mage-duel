@@ -1563,11 +1563,12 @@ function boostMul() {
 }
 function mageGait(e, pose) {
   const spd = Math.hypot(e.vx || 0, e.vz || 0);
-  const walking = spd > 0.18 && pose !== "cast";
+  const chopping = pose === "farm" && (e.chopAnim || 0) > 0;
+  const walking = spd > 0.18 && pose !== "cast" && !chopping;
   const t = e.bob || 0;
   const w = walking ? t * (6.2 + 3.2 * Math.min(1, spd / 3)) : t * 2.1;
   const sW = Math.sin(w), cW = Math.cos(w);
-  return { spd, walking, t, w, sW, cW };
+  return { spd, walking, t, w, sW, cW, chopping };
 }
 function mageStaffTip(e, pose) {
   const face = e.face;
@@ -3222,11 +3223,19 @@ function updateMobs(dt) {
 
 function emitShotTrail(s) {
   if (s.kind === "feu") {
+    const k = s.q ? 1.25 : 1;
     const hl = Math.hypot(s.vx || 0, s.vz || 0) || 1;
     const tx = s.x + (-(s.vx || 0) / hl) * 0.4;
     const tz = s.z + (-(s.vz || 0) / hl) * 0.4;
+    const gy = highest(s.x, s.z) + STEP_UP;
     for (let i = 0; i < 4; i++) {
-      pushPart({ x: tx, y: s.y, z: tz, vx: (Math.random() - 0.5) * 0.3, vy: 1.2, vz: (Math.random() - 0.5) * 0.3, r: 1.00, g: 0.22, b: 0.04, life: 0.16, age: 0, s: 0.11, style: "spark" });
+      pushPart({ x: tx, y: s.y, z: tz, vx: (Math.random() - 0.5) * 0.3, vy: 2.4, vz: (Math.random() - 0.5) * 0.3, r: 1.00, g: 0.78, b: 0.22, life: 0.20, age: 0, s: 0.09 * k, style: "spark" });
+    }
+    for (let i = 0; i < 2; i++) {
+      pushPart({ x: tx, y: s.y, z: tz, vx: (Math.random() - 0.5) * 0.2, vy: -0.3, vz: (Math.random() - 0.5) * 0.2, r: 0.70, g: 0.05, b: 0.02, life: 0.35, age: 0, s: 0.08 * k, style: "emberg", ground: gy });
+    }
+    for (let i = 0; i < 4; i++) {
+      pushPart({ x: s.x, y: s.y, z: s.z, vx: (Math.random() - 0.5) * 0.3, vy: 1.2, vz: (Math.random() - 0.5) * 0.3, r: 1.00, g: 0.22, b: 0.04, life: 0.16, age: 0, s: 0.11 * k, style: "spark" });
     }
   } else if (s.kind === "glace") {
     for (let i = 0; i < 3; i++) {
@@ -3245,26 +3254,33 @@ function emitShotTrail(s) {
 function impactFeu(x, y, z, q) {
   igniteRadius(x, y, z, q ? 0.9 : 0.85, 0);
   const gy = highest(x, z) + STEP_UP;
-  const nStar = q ? 10 : 8;
-  const nEmb = q ? 12 : 8;
-  fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.07, s: q ? 0.70 : 0.55, r: 1.00, g: 0.45, b: 0.12, glow: 1 });
-  for (let i = 0; i < nStar; i++) {
-    const a = (i / nStar) * Math.PI * 2;
-    const spark = (i % 2) === 0;
+  const k = q ? 1.25 : 1;
+  fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.08, s: 0.65 * k, r: 1.00, g: 0.78, b: 0.22, glow: 1 });
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const hot = i < 6;
     pushPart({
       x: x, y: y + 0.08, z: z,
       vx: Math.cos(a) * 5, vy: 1.2, vz: Math.sin(a) * 5,
-      r: spark ? 1.00 : 0.80, g: spark ? 0.20 : 0.06, b: spark ? 0.04 : 0.02,
-      life: 0.20, age: 0, s: 0.14, style: "spark"
+      r: hot ? 1.00 : 0.70, g: hot ? 0.78 : 0.05, b: hot ? 0.22 : 0.02,
+      life: 0.20, age: 0, s: 0.14 * k, style: "spark"
     });
   }
-  for (let i = 0; i < nEmb; i++) {
-    const a = (i / nEmb) * Math.PI * 2;
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
     pushPart({
-      x: x + Math.cos(a) * 0.35, y: gy + 0.04, z: z + Math.sin(a) * 0.35,
+      x: x + Math.cos(a) * 0.35 * k, y: gy + 0.04, z: z + Math.sin(a) * 0.35 * k,
       vx: 0, vy: 0, vz: 0,
-      r: 0.90, g: 0.10, b: 0.04,
-      life: 0.55, age: 0, s: 0.14, style: "emberg", ground: gy
+      r: 0.70, g: 0.05, b: 0.02,
+      life: 0.55, age: 0, s: 0.14 * k, style: "emberg", ground: gy
+    });
+  }
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI * 0.5 + 0.35;
+    fx.push({
+      type: "box", x: x + Math.cos(a) * 0.22 * k, y: y + 0.15 * k, z: z + Math.sin(a) * 0.22 * k,
+      sx: 0.10 * k, sy: 0.28 * k, sz: 0.10 * k,
+      r: 0.70, g: 0.05, b: 0.02, glow: 0.50, age: 0, life: 0.18
     });
   }
   if (q) {
@@ -3648,10 +3664,10 @@ function drawMage(x, y, z, face, bob, flash, cls, pose, rawBob, chopAnim, vx, vz
   if (pose === "farm") gemGlow = chopping ? 0.55 : 0.40;
   else if (pose === "aggro") gemGlow = 0.85;
   else if (pose === "idle") gemGlow = 0.50;
-  const e = { x: x, y: y, z: z, face: face, bob: rawBob, vx: vx, vz: vz };
+  const e = { x: x, y: y, z: z, face: face, bob: rawBob, vx: vx, vz: vz, chopAnim: chopAnim };
   const g = mageGait(e, pose);
   const sW = g.sW, w = g.w;
-  const walking = g.walking && !chopping;
+  const walking = g.walking;
   const gait = (walking && pose === "aggro") ? 0.7 : 1;
   const armK = pose === "aggro" ? 0.5 : 1;
   let bodyY, leanR, leanF, sway;
@@ -3689,7 +3705,9 @@ function drawMage(x, y, z, face, bob, flash, cls, pose, rawBob, chopAnim, vx, vz
   }
   let armFwd = 0, armY = 0;
   if (chopping) {
-    armY = 0.03 * Math.sin(w) * 2.2;
+    const ct = 1 - Math.min(1, (chopAnim || 0) / 0.28);
+    armY = -0.22 * Math.sin(ct * Math.PI);
+    armFwd = 0.14 * Math.sin(ct * Math.PI);
   } else if (walking) {
     armFwd = -0.14 * sW * armK;
     armY = 0.10 * sW * armK;
@@ -3698,10 +3716,10 @@ function drawMage(x, y, z, face, bob, flash, cls, pose, rawBob, chopAnim, vx, vz
   }
   const headY = walking ? bodyY * 0.6 : (bodyY + 0.010 * Math.sin(w));
   const hyy = y + headY;
-  drawCube(xx - rx * 0.14 + fx * lStride, y + 0.10 + lLift, zz - rz * 0.14 + fz * lStride, 0.18, 0.18, 0.22, face, 0.22, 0.12, 0.07, 0);
-  drawCube(xx + rx * 0.14 + fx * rStride, y + 0.10 + rLift, zz + rz * 0.14 + fz * rStride, 0.18, 0.18, 0.22, face, 0.22, 0.12, 0.07, 0);
-  drawCube(xx - rx * 0.14 + fx * lStride, y + 0.26 + lLift, zz - rz * 0.14 + fz * lStride, 0.16, 0.22, 0.16, face, t2R, t2G, t2B, f * 0.25);
-  drawCube(xx + rx * 0.14 + fx * rStride, y + 0.26 + rLift, zz + rz * 0.14 + fz * rStride, 0.16, 0.22, 0.16, face, t2R, t2G, t2B, f * 0.25);
+  drawCube(xx0 - rx * 0.14 + fx * lStride, y + 0.10 + lLift, zz0 - rz * 0.14 + fz * lStride, 0.18, 0.18, 0.22, face, 0.22, 0.12, 0.07, 0);
+  drawCube(xx0 + rx * 0.14 + fx * rStride, y + 0.10 + rLift, zz0 + rz * 0.14 + fz * rStride, 0.18, 0.18, 0.22, face, 0.22, 0.12, 0.07, 0);
+  drawCube(xx0 - rx * 0.14 + fx * lStride, y + 0.26 + lLift, zz0 - rz * 0.14 + fz * lStride, 0.16, 0.22, 0.16, face, t2R, t2G, t2B, f * 0.25);
+  drawCube(xx0 + rx * 0.14 + fx * rStride, y + 0.26 + rLift, zz0 + rz * 0.14 + fz * rStride, 0.16, 0.22, 0.16, face, t2R, t2G, t2B, f * 0.25);
   drawCube(xx, yy + 0.28, zz, 0.64 + skirtW, 0.22, 0.40 + skirtW, face, terreR, terreG, terreB, f * 0.25);
   drawCube(xx, yy + 0.46, zz, 0.60, 0.20, 0.38, face, terreR, terreG, terreB, f * 0.25);
   drawCube(xx - rx * 0.30 + fx * panL, yy + 0.22, zz - rz * 0.30 + fz * panL, 0.12, 0.28, 0.10, face, t2R, t2G, t2B, f * 0.25);
@@ -3727,7 +3745,7 @@ function drawMage(x, y, z, face, bob, flash, cls, pose, rawBob, chopAnim, vx, vz
   drawCube(xx - rx * 0.42 + fx * armFwd, yy + 0.88 + armY, zz - rz * 0.42 + fz * armFwd, 0.18, 0.16, 0.18, face, t2R, t2G, t2B, f * 0.25);
   drawCube(xx - rx * 0.42 + fx * armFwd, yy + 0.64 + armY, zz - rz * 0.42 + fz * armFwd, 0.16, 0.16, 0.16, face, t2R, t2G, t2B, f * 0.25);
   drawCube(xx - rx * 0.44 + fx * armFwd, yy + 0.48 + armY, zz - rz * 0.44 + fz * armFwd, 0.16, 0.28, 0.16, face, peauR, peauG, peauB, 0);
-  const staff = mageStaffTip({ x: xx0, y: y, z: zz0, face: face, bob: rawBob, vx: vx, vz: vz }, pose);
+  const staff = mageStaffTip({ x: xx0, y: y, z: zz0, face: face, bob: rawBob, vx: vx, vz: vz, chopAnim: chopAnim }, pose);
   const staffGlow = (pose === "aggro" || pose === "cast") ? 0.90 : 0.55;
   drawCube(xx + rx * 0.36 + fx * 0.10, yy + 0.84, zz + rz * 0.36 + fz * 0.10, 0.18, 0.26, 0.18, face, t2R, t2G, t2B, f * 0.25);
   drawCube((xx + rx * 0.36 + fx * 0.10 + staff.hx) / 2, (yy + 0.84 + staff.hy) / 2, (zz + rz * 0.36 + fz * 0.10 + staff.hz) / 2, 0.16, 0.16, 0.16, face, t2R, t2G, t2B, f * 0.25);
@@ -3955,32 +3973,40 @@ function drawSlime(m) {
 
 function drawFireShot(s) {
   const age = s.age || 0;
-  const frame = ((age * 12) | 0) % 2;
+  const frame = ((age * 14) | 0) % 3;
+  const flick = frame === 1 ? 1.10 : frame === 2 ? 0.92 : 1.00;
+  const yaw = age * 9;
   const k = s.q ? 1.25 : 1;
   const hl = Math.hypot(s.vx || 0, s.vz || 0) || 1;
   const bx = -(s.vx || 0) / hl, bz = -(s.vz || 0) / hl;
   const sx = -bz, sz = bx;
-  const CORE = [1.00, 0.55, 0.12, 1.00];
-  const MID = [0.98, 0.16, 0.04, 0.80];
-  const RIM = [0.72, 0.04, 0.02, 0.45];
-  const HIGH = [1.00, 0.605, 0.132, 1.00];
+  const HOT = [1.00, 0.78, 0.22, 1.00];
+  const MID = [0.98, 0.22, 0.05, 0.85];
+  const RIM = [0.70, 0.05, 0.02, 0.50];
+  const HIGH = [1.00, 0.92, 0.45, 1.00];
   function pix(x, y, z, sz, col) {
     const s0 = sz * k;
-    drawCube(x, y, z, s0, s0, s0, 0, col[0], col[1], col[2], col[3]);
+    drawCube(x, y, z, s0, s0, s0, yaw, col[0], col[1], col[2], col[3]);
   }
-  pix(s.x, s.y, s.z, 0.22, CORE);
+  pix(s.x, s.y, s.z, 0.16 * flick, HOT);
   const faces = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
   for (let i = 0; i < 6; i++) {
     const f = faces[i];
-    pix(s.x + f[0] * 0.14 * k, s.y + f[1] * 0.14 * k, s.z + f[2] * 0.14 * k, 0.22, MID);
+    pix(s.x + f[0] * 0.13 * k, s.y + f[1] * 0.13 * k, s.z + f[2] * 0.13 * k, 0.20 * flick, MID);
   }
-  pix(s.x + (-bx) * 0.06 * k, s.y + 0.10 * k, s.z + (-bz) * 0.06 * k, 0.10, HIGH);
-  pix(s.x, s.y - 0.16 * k, s.z, 0.16, RIM);
-  pix(s.x + bx * 0.22 * k, s.y + 0.04 * k, s.z + bz * 0.22 * k, 0.18, RIM);
-  const s1 = frame ? 1 : -1;
-  pix(s.x + (bx * 0.36 + sx * 0.10 * s1) * k, s.y, s.z + (bz * 0.36 + sz * 0.10 * s1) * k, 0.14, RIM);
-  const s2 = frame ? -1 : 1;
-  pix(s.x + (bx * 0.48 + sx * 0.06 * s2) * k, s.y + 0.08 * k, s.z + (bz * 0.48 + sz * 0.06 * s2) * k, 0.11, RIM);
+  pix(s.x + (-bx) * 0.08 * k, s.y + 0.10 * k, s.z + (-bz) * 0.08 * k, 0.09, HIGH);
+  const dance = [1, -1, 0.3][frame];
+  const tongues = [
+    [0.24, 0, 0.02, 0.17, MID],
+    [0.38, 0.12 * dance, 0.10, 0.14, RIM],
+    [0.38, -0.12 * dance, 0.00, 0.14, RIM],
+    [0.54, 0.07 * dance, 0.14, 0.10, RIM],
+    [0.66, -0.05 * dance, 0.06, 0.08, RIM]
+  ];
+  for (let i = 0; i < 5; i++) {
+    const T = tongues[i];
+    pix(s.x + (bx * T[0] + sx * T[1]) * k, s.y + T[2] * k, s.z + (bz * T[0] + sz * T[1]) * k, T[3], T[4]);
+  }
 }
 
 function drawIceShot(s) {
@@ -4143,6 +4169,9 @@ function drawFx(f) {
   } else if (f.type === "gnd") {
     const k = 1 - t;
     drawCube(f.x, f.y, f.z, f.s, 0.06, f.s, 0, f.r, f.g, f.b, (f.glow || 0.2) * k);
+  } else if (f.type === "box") {
+    const fade = 1 - t;
+    drawCube(f.x, f.y, f.z, f.sx || f.s, f.sy || f.s, f.sz || f.s, f.yaw || 0, f.r, f.g, f.b, (f.glow || 0.5) * fade);
   }
 }
 function drawServiteur(m) {
