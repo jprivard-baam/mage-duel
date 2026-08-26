@@ -2957,13 +2957,11 @@ function updateMobs(dt) {
 function emitShotTrail(s) {
   if (s.kind === "feu") {
     const hl = Math.hypot(s.vx || 0, s.vz || 0) || 1;
-    const tx = s.x + (-(s.vx || 0) / hl) * 0.25;
-    const tz = s.z + (-(s.vz || 0) / hl) * 0.25;
+    const tx = s.x + (-(s.vx || 0) / hl) * 0.4;
+    const tz = s.z + (-(s.vz || 0) / hl) * 0.4;
     for (let i = 0; i < 2; i++) {
-      pushPart({ x: tx, y: s.y, z: tz, vx: (Math.random() - 0.5) * 0.5, vy: 1.8, vz: (Math.random() - 0.5) * 0.5, r: 1, g: 0.85, b: 0.3, life: 0.12, age: 0, s: 0.06, style: "spark" });
+      pushPart({ x: tx, y: s.y, z: tz, vx: (Math.random() - 0.5) * 0.3, vy: 1.2, vz: (Math.random() - 0.5) * 0.3, r: 1.00, g: 0.92, b: 0.40, life: 0.16, age: 0, s: 0.10, style: "spark" });
     }
-    pushPart({ x: tx, y: s.y, z: tz, vx: (Math.random() - 0.5) * 0.3, vy: 0.8, vz: (Math.random() - 0.5) * 0.3, r: 1, g: 0.4, b: 0.08, life: 0.22, age: 0, s: 0.10, style: "trail" });
-    pushPart({ x: tx, y: s.y, z: tz, vx: (Math.random() - 0.5) * 0.2, vy: 0.5, vz: (Math.random() - 0.5) * 0.2, r: 0.20, g: 0.10, b: 0.05, life: 0.32, age: 0, s: 0.18, style: "smoke" });
   } else if (s.kind === "glace") {
     pushPart({ x: s.x, y: s.y, z: s.z, vx: (Math.random() - 0.5) * 0.15, vy: -0.8, vz: (Math.random() - 0.5) * 0.15, r: 0.70, g: 0.88, b: 1.00, life: 0.45, age: 0, s: 0.11, style: "frost" });
   } else if (s.kind === "arcane") {
@@ -2979,54 +2977,33 @@ function emitShotTrail(s) {
     pushPart({ x: s.x, y: s.y, z: s.z, vx: (Math.random() - 0.5) * 0.2, vy: 1.0, vz: (Math.random() - 0.5) * 0.2, r: 0.12, g: 0.40, b: 0.20, life: 0.40, age: 0, s: 0.12, style: "smoke" });
   }
 }
-function burstFireBall(x, y, z, q) {
-  const cell = q ? 0.18 : 0.14;
-  for (let ix = -1; ix <= 1; ix++) {
-    for (let iy = -1; iy <= 1; iy++) {
-      for (let iz = -1; iz <= 1; iz++) {
-        const d2 = ix * ix + iy * iy + iz * iz;
-        if (d2 > 2) continue;
-        let r, g, b;
-        if (d2 === 0) { r = 1.00; g = 0.88; b = 0.28; }
-        else if (d2 === 1) { r = 1.00; g = 0.50; b = 0.10; }
-        else { r = 1.00; g = 0.30; b = 0.06; }
-        pushPart({ x: x + ix * cell, y: y + iy * cell, z: z + iz * cell, vx: ix * 4, vy: iy * 4 + 2, vz: iz * 4, r, g, b, life: 0.18, age: 0, s: cell, style: "shard" });
-      }
-    }
-  }
-}
 function impactFeu(x, y, z, q) {
   igniteRadius(x, y, z, q ? 0.9 : 0.85, 0);
   const gy = highest(x, z) + STEP_UP;
-  burstFireBall(x, y, z, q);
-  const k = q ? 1.3 : 1;
-  if (q && qRank() >= 1) {
-    feuQBoom(x, y, z);
-    for (let i = 0; i < Math.round(22 * k); i++) {
-      const a = Math.random() * Math.PI * 2, rad = 0.25 + Math.random() * 1.35;
-      pushPart({ x: x + Math.cos(a) * rad, y: gy + 0.05, z: z + Math.sin(a) * rad, vx: (Math.random() - 0.5) * 0.35, vy: -1.5, vz: (Math.random() - 0.5) * 0.35, r: 0.85, g: 0.22, b: 0.04, r1: 0.18, g1: 0.06, b1: 0.02, life: 0.7 + Math.random() * 0.3, age: 0, s: 0.10 + Math.random() * 0.06, style: "emberg", ground: gy });
-    }
-    for (let i = 0; i < Math.round(14 * k); i++) {
-      const a = Math.random() * Math.PI * 2;
-      pushPart({ x: x, y: y + 0.12, z: z, vx: Math.cos(a) * (2.2 + Math.random() * 2), vy: 1.6 + Math.random() * 2.4, vz: Math.sin(a) * (2.2 + Math.random() * 2), r: 1, g: 0.62, b: 0.16, life: 0.22, age: 0, s: 0.06, style: "spark" });
-    }
-    for (let i = 0; i < Math.round(6 * k); i++) {
-      pushPart({ x: x, y: y + 0.1, z: z, vx: (Math.random() - 0.5) * 0.6, vy: 1.2, vz: (Math.random() - 0.5) * 0.6, r: 0.22, g: 0.12, b: 0.06, life: 0.35, age: 0, s: 0.20, style: "smoke" });
-    }
-    return;
+  const nStar = q ? 10 : 8;
+  const nEmb = q ? 12 : 8;
+  fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.07, s: q ? 0.70 : 0.55, r: 1.00, g: 0.95, b: 0.35, glow: 1 });
+  for (let i = 0; i < nStar; i++) {
+    const a = (i / nStar) * Math.PI * 2;
+    const spark = (i % 2) === 0;
+    pushPart({
+      x: x, y: y + 0.08, z: z,
+      vx: Math.cos(a) * 5, vy: 1.2, vz: Math.sin(a) * 5,
+      r: 1.00, g: spark ? 0.92 : 0.42, b: spark ? 0.40 : 0.06,
+      life: 0.20, age: 0, s: 0.14, style: "spark"
+    });
   }
-  fx.push({ type: "boom", x: x, y: y, z: z, age: 0, life: 0.28, n: 14, r0: 0.2, r1: 1.9, s0: 0.26, s1: 0.10 });
-  fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.08, s: 0.9, r: 1, g: 0.92, b: 0.45, glow: 1 });
-  for (let i = 0; i < 22; i++) {
-    const a = Math.random() * Math.PI * 2, rad = 0.25 + Math.random() * 1.35;
-    pushPart({ x: x + Math.cos(a) * rad, y: gy + 0.05, z: z + Math.sin(a) * rad, vx: (Math.random() - 0.5) * 0.35, vy: -1.5, vz: (Math.random() - 0.5) * 0.35, r: 0.85, g: 0.22, b: 0.04, r1: 0.18, g1: 0.06, b1: 0.02, life: 0.7 + Math.random() * 0.3, age: 0, s: 0.10 + Math.random() * 0.06, style: "emberg", ground: gy });
+  for (let i = 0; i < nEmb; i++) {
+    const a = (i / nEmb) * Math.PI * 2;
+    pushPart({
+      x: x + Math.cos(a) * 0.35, y: gy + 0.04, z: z + Math.sin(a) * 0.35,
+      vx: 0, vy: 0, vz: 0,
+      r: 0.90, g: 0.10, b: 0.04,
+      life: 0.55, age: 0, s: 0.14, style: "emberg", ground: gy
+    });
   }
-  for (let i = 0; i < 14; i++) {
-    const a = Math.random() * Math.PI * 2;
-    pushPart({ x: x, y: y + 0.12, z: z, vx: Math.cos(a) * (2.2 + Math.random() * 2), vy: 1.6 + Math.random() * 2.4, vz: Math.sin(a) * (2.2 + Math.random() * 2), r: 1, g: 0.62, b: 0.16, life: 0.22, age: 0, s: 0.06, style: "spark" });
-  }
-  for (let i = 0; i < 6; i++) {
-    pushPart({ x: x, y: y + 0.1, z: z, vx: (Math.random() - 0.5) * 0.5, vy: 1.2, vz: (Math.random() - 0.5) * 0.5, r: 0.22, g: 0.12, b: 0.06, life: 0.35, age: 0, s: 0.20, style: "smoke" });
+  if (q) {
+    fx.push({ type: "boom", x: x, y: y, z: z, age: 0, life: 0.22, n: 8, r0: 0.4, r1: 1.6, s0: 0.22, s1: 0.10, r: 1.00, g: 0.42, b: 0.06, glow: 0.75 });
   }
 }
 function impactGlace(x, y, z, q) {
@@ -3118,7 +3095,7 @@ function updateShots(dt) {
       else s.vy -= 5.0 * dt;
     }
     s.trail = (s.trail || 0) + dt;
-    const tint = s.kind === "feu" ? 0.010 : s.kind === "glace" ? 0.022 : s.kind === "arcane" ? 0.020 : s.kind === "necro" ? 0.030 : 0.05;
+    const tint = s.kind === "feu" ? 0.03 : s.kind === "glace" ? 0.022 : s.kind === "arcane" ? 0.020 : s.kind === "necro" ? 0.030 : 0.05;
     if (s.kind === "feu" || s.kind === "glace" || s.kind === "arcane" || s.kind === "necro") {
       if (s.trail > tint) { s.trail = 0; emitShotTrail(s); }
     }
@@ -3463,45 +3440,31 @@ function drawSlime(m) {
 
 function drawFireShot(s) {
   const age = s.age || 0;
-  const cell = s.q ? 0.18 : 0.14;
-  const yaw = age * 4;
-  const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const pitch = yaw * 0.35;
-  const cx = Math.cos(pitch), sx = Math.sin(pitch);
-  for (let ix = -1; ix <= 1; ix++) {
-    for (let iy = -1; iy <= 1; iy++) {
-      for (let iz = -1; iz <= 1; iz++) {
-        const d2 = ix * ix + iy * iy + iz * iz;
-        if (d2 > 2) continue;
-        let off = 1, sm = 1, r, g, b, glow;
-        if (d2 === 0) { r = 1.00; g = 0.88; b = 0.28; glow = s.q ? 1.00 : 0.95; }
-        else if (d2 === 1) { off = 0.82; sm = 0.88; r = 1.00; g = 0.50; b = 0.10; glow = 0.75; }
-        else { off = 0.90; sm = 0.78; r = 1.00; g = 0.30; b = 0.06; glow = 0.55; }
-        let ox = ix * cell * off, oy = iy * cell * off, oz = iz * cell * off;
-        let rx = ox * cy + oz * sy, rz = -ox * sy + oz * cy, ry = oy;
-        const py = ry * cx - rz * sx, pz = ry * sx + rz * cx;
-        let sz = cell * sm * (0.88 + 0.12 * Math.sin(age * 22 + ix * 2.1 + iy * 3.4 + iz * 1.7));
-        drawCube(s.x + rx, s.y + py, s.z + pz, sz, sz, sz, yaw, r, g, b, glow);
-      }
-    }
-  }
+  const frame = ((age * 12) | 0) % 2;
+  const k = s.q ? 1.25 : 1;
   const hl = Math.hypot(s.vx || 0, s.vz || 0) || 1;
   const bx = -(s.vx || 0) / hl, bz = -(s.vz || 0) / hl;
-  const flame = [
-    { t: 0.20, u: 0.06, sx: 0.18, sy: 0.16, sz: 0.18, r: 1.00, g: 0.38, b: 0.08, glow: 0.70 },
-    { t: 0.34, u: 0.12, sx: 0.13, sy: 0.14, sz: 0.13, r: 1.00, g: 0.28, b: 0.06, glow: 0.55 },
-    { t: 0.46, u: 0.16, sx: 0.09, sy: 0.12, sz: 0.09, r: 1.00, g: 0.55, b: 0.12, glow: 0.45 },
-  ];
-  for (let i = 0; i < 3; i++) {
-    const f = flame[i];
-    const sy = f.sy * (1 + 0.15 * Math.sin(age * 30 + i));
-    drawCube(s.x + bx * f.t, s.y + f.u, s.z + bz * f.t, f.sx, sy, f.sz, yaw, f.r, f.g, f.b, f.glow);
+  const sx = -bz, sz = bx;
+  const CORE = [1.00, 0.95, 0.35, 1.00];
+  const MID = [1.00, 0.42, 0.06, 0.75];
+  const RIM = [0.90, 0.10, 0.04, 0.40];
+  function pix(x, y, z, sz, col) {
+    const s0 = sz * k;
+    drawCube(x, y, z, s0, s0, s0, 0, col[0], col[1], col[2], col[3]);
   }
-  for (let i = 0; i < 3; i++) {
-    if (Math.sin(age * 18 + i) < -0.2) continue;
-    const ang = age * 14 + i * Math.PI * 2 / 3;
-    drawCube(s.x + Math.cos(ang) * 0.28, s.y + 0.08 * Math.sin(ang), s.z + Math.sin(ang) * 0.28, 0.06, 0.06, 0.06, yaw, 1.00, 0.75, 0.20, 0.80);
+  pix(s.x, s.y, s.z, 0.34, CORE);
+  const faces = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  for (let i = 0; i < 6; i++) {
+    const f = faces[i];
+    pix(s.x + f[0] * 0.15 * k, s.y + f[1] * 0.15 * k, s.z + f[2] * 0.15 * k, 0.20, MID);
   }
+  pix(s.x + (-bx) * 0.06 * k, s.y + 0.10 * k, s.z + (-bz) * 0.06 * k, 0.14, CORE);
+  pix(s.x, s.y - 0.16 * k, s.z, 0.16, RIM);
+  pix(s.x + bx * 0.22 * k, s.y + 0.04 * k, s.z + bz * 0.22 * k, frame ? 0.16 : 0.20, MID);
+  const s1 = frame ? 1 : -1;
+  pix(s.x + (bx * 0.36 + sx * 0.10 * s1) * k, s.y, s.z + (bz * 0.36 + sz * 0.10 * s1) * k, 0.13, RIM);
+  const s2 = frame ? -1 : 1;
+  pix(s.x + (bx * 0.48 + sx * 0.06 * s2) * k, s.y + 0.08 * k, s.z + (bz * 0.48 + sz * 0.06 * s2) * k, 0.09, RIM);
 }
 
 function drawIceShot(s) {
