@@ -56,6 +56,16 @@ func burns_in_sun() -> bool:
 	return bool(_spec.get("burns_sun", true))
 
 
+func look_horizontal(dir: Vector3) -> void:
+	dir.y = 0.0
+	if dir.length() < 0.05 or model == null:
+		return
+	dir = dir.normalized()
+	model.rotation.y = atan2(dir.x, dir.z)
+	_wander_dir = dir
+	_wander_t = 2.4
+
+
 func take_damage(amount: float) -> void:
 	if hp <= 0.0 or amount <= 0.0:
 		return

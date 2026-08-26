@@ -33,9 +33,9 @@ func _ready() -> void:
 		_sky_mat = env.sky.sky_material
 	Game.night_changed.connect(_on_night_changed)
 	_update_sky()
-	for _i in 3:
-		_try_spawn_kind("chevreuil", 8.0)
-	_try_spawn_kind("loup", 12.0)
+	_spawn_ahead("chevreuil", 6.8, -0.42)
+	_spawn_ahead("chevreuil", 7.6, 0.48)
+	_spawn_ahead("loup", 10.5, 0.22)
 
 
 func _physics_process(delta: float) -> void:
@@ -77,6 +77,28 @@ func _try_spawn_night() -> void:
 		_try_spawn_kind("squelette", 8.0)
 	else:
 		_try_spawn_kind("loup", 12.0)
+
+
+func _spawn_ahead(kind: String, dist: float, yaw_off: float) -> void:
+	if not is_instance_valid(player):
+		return
+	var dir := player.facing().rotated(Vector3.UP, yaw_off)
+	var hint := player.global_position + dir * dist
+	var cell := voxel.world_to_cell(hint)
+	var x := clampi(cell.x, 6, VoxelWorld.SIZE - 7)
+	var z := clampi(cell.z, 6, VoxelWorld.SIZE - 7)
+	var y := voxel.surface_y(x, z)
+	if y < 2:
+		_try_spawn_kind(kind, dist)
+		return
+	var pos := Vector3((x + 0.5) * VoxelWorld.CELL, float(y + 1) * VoxelWorld.CELL + 0.12, (z + 0.5) * VoxelWorld.CELL)
+	var e: Enemy = ENEMY_SCENE.instantiate()
+	enemies_root.add_child(e)
+	e.setup(kind)
+	e.global_position = pos
+	e.player = player
+	## Profil 3/4 : pattes, museau, queue visibles depuis la caméra.
+	e.look_horizontal(dir.rotated(Vector3.UP, 1.15))
 
 
 func _count_kind(kind: String) -> int:

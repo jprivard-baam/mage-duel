@@ -39,12 +39,12 @@ const CREATURES := {
 	"loup": {
 		"nom": "Loup", "hp": 220.0, "degats": 55.0, "vitesse": 3.55,
 		"portee": 1.7, "cooldown": 0.85, "hostile": true, "burns_sun": false,
-		"faim": 12.0, "aggro": 15.0, "hitbox": Vector3(0.46, 0.62, 0.82),
+		"faim": 12.0, "aggro": 9.0, "hitbox": Vector3(0.46, 0.62, 0.82),
 	},
 	"chevreuil": {
 		"nom": "Chevreuil", "hp": 95.0, "degats": 0.0, "vitesse": 4.35,
 		"portee": 0.0, "cooldown": 1.0, "hostile": false, "burns_sun": false,
-		"faim": 45.0, "aggro": 8.5, "hitbox": Vector3(0.42, 0.92, 0.7),
+		"faim": 45.0, "aggro": 5.4, "hitbox": Vector3(0.42, 0.92, 0.7),
 	},
 	"zombie": {
 		"nom": "Zombie", "hp": 190.0, "degats": 40.0, "vitesse": 1.28,
