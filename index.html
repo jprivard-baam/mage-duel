@@ -3283,9 +3283,6 @@ function impactFeu(x, y, z, q) {
       r: 0.70, g: 0.05, b: 0.02, glow: 0.50, age: 0, life: 0.18
     });
   }
-  if (q) {
-    fx.push({ type: "boom", x: x, y: y, z: z, age: 0, life: 0.22, n: 8, r0: 0.4, r1: 1.6, s0: 0.22, s1: 0.10, r: 1.00, g: 0.42, b: 0.06, glow: 0.75 });
-  }
 }
 function impactGlace(x, y, z, q) {
   if (q && qRank() >= 1) { impactGlaceQ(x, y, z); return; }
