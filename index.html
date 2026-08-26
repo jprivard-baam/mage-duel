@@ -3398,23 +3398,26 @@ function drawMage(x, y, z, face, bob, flash, cls, pose, rawBob, chopAnim) {
   drawCube(xx, yy + 0.58, zz, 0.68, 0.10, 0.44, face, 0.83, 0.68, 0.22, 0);
   drawCube(xx, yy + 0.80, zz, 0.56, 0.40, 0.38, face, t2R, t2G, t2B, f * 0.25);
   drawCube(xx - fx * 0.10, yy + 0.88, zz - fz * 0.10, 0.64, 0.50, 0.20, face, cuirR, cuirG, cuirB, 0);
-  drawCube(xx + fx * 0.06, yy + 1.10, zz + fz * 0.06, 0.36, 0.36, 0.36, face, peauR, peauG, peauB, f * 0.25);
-  drawCube(xx + fx * 0.02, yy + 1.30, zz + fz * 0.02, 0.60, 0.14, 0.52, face, cuirR, cuirG, cuirB, 0);
-  drawCube(xx, yy + 1.42, zz, 0.24, 0.14, 0.24, face, cuirR, cuirG, cuirB, 0);
-  drawCube(xx + fx * 0.30, yy + 1.30, zz + fz * 0.30, 0.10, 0.10, 0.10, face, gem[0], gem[1], gem[2], 0.45);
+  drawCube(xx + fx * 0.04, yy + 1.30, zz + fz * 0.04, 0.72, 0.12, 0.56, face, cuirR, cuirG, cuirB, 0);
+  drawCube(xx - rx * 0.30 - fx * 0.02, yy + 1.14, zz - rz * 0.30 - fz * 0.02, 0.10, 0.28, 0.10, face, cuirR, cuirG, cuirB, 0);
+  drawCube(xx + rx * 0.30 - fx * 0.02, yy + 1.14, zz + rz * 0.30 - fz * 0.02, 0.10, 0.28, 0.10, face, cuirR, cuirG, cuirB, 0);
+  drawCube(xx, yy + 1.46, zz, 0.22, 0.12, 0.22, face, cuirR, cuirG, cuirB, 0);
+  drawCube(xx + fx * 0.28, yy + 1.30, zz + fz * 0.28, 0.10, 0.10, 0.10, face, gem[0], gem[1], gem[2], 0.45);
+  drawCube(xx + fx * 0.08, yy + 1.10, zz + fz * 0.08, 0.32, 0.30, 0.28, face, peauR, peauG, peauB, f * 0.25);
+  drawCube(xx - rx * 0.08 + fx * 0.20, yy + 1.14, zz - rz * 0.08 + fz * 0.20, 0.07, 0.07, 0.07, face, 0.12, 0.08, 0.06, 0);
+  drawCube(xx + rx * 0.08 + fx * 0.20, yy + 1.14, zz + rz * 0.08 + fz * 0.20, 0.07, 0.07, 0.07, face, 0.12, 0.08, 0.06, 0);
   drawCube(xx - rx * 0.42, yy + 0.80 + lswing, zz - rz * 0.42, 0.18, 0.30, 0.18, face, t2R, t2G, t2B, f * 0.25);
   drawCube(xx - rx * 0.44, yy + 0.48 + lswing, zz - rz * 0.44, 0.16, 0.28, 0.16, face, peauR, peauG, peauB, 0);
   const staff = mageStaffTip({ x: xx, y: y, z: zz, face: face, bob: rawBob }, pose || "idle");
-  const staffGlow = (pose==="aggro"||pose==="cast") ? 0.90 : 0.55;
-  drawCube(xx + rx*0.36 + fx*0.10, yy+0.84, zz + rz*0.36 + fz*0.10, 0.18, 0.26, 0.18, face, t2R, t2G, t2B, f * 0.25);
+  const staffGlow = (pose === "aggro" || pose === "cast") ? 0.90 : 0.55;
+  drawCube(xx + rx * 0.36 + fx * 0.10, yy + 0.84, zz + rz * 0.36 + fz * 0.10, 0.18, 0.26, 0.18, face, t2R, t2G, t2B, f * 0.25);
   drawCube(staff.hx, staff.hy, staff.hz, 0.17, 0.17, 0.17, face, peauR, peauG, peauB, 0);
-  drawCube(staff.hx+fx*0.08, staff.hy, staff.hz+fz*0.08, 0.08, 0.08, 0.08, face, peauR, peauG, peauB, 0);
-  drawCube(staff.hx, staff.hy-0.10, staff.hz, 0.08, 0.48, 0.08, face, 0.42, 0.26, 0.12, 0);
-  const midX=(staff.hx+staff.tipx)/2, midY=(staff.hy+staff.tipy)/2, midZ=(staff.hz+staff.tipz)/2;
-  const lenY=Math.hypot(staff.tipx-staff.hx, staff.tipy-staff.hy, staff.tipz-staff.hz);
-  drawCube(midX, midY, midZ, 0.08, lenY, 0.08, face, 0.42, 0.26, 0.12, 0);
-  drawCube(staff.tipx, staff.tipy-0.16, staff.tipz, 0.14, 0.08, 0.14, face, 0.32, 0.18, 0.08, 0);
-  drawCube(staff.tipx, staff.tipy, staff.tipz, 0.24, 0.24, 0.24, face, gem[0], gem[1], gem[2], staffGlow);
+  const midX = (staff.hx + staff.tipx) / 2, midY = (staff.hy + staff.tipy) / 2, midZ = (staff.hz + staff.tipz) / 2;
+  const lenY = Math.hypot(staff.tipx - staff.hx, staff.tipy - staff.hy, staff.tipz - staff.hz);
+  drawCube(midX, midY, midZ, 0.10, lenY, 0.10, face, 0.42, 0.26, 0.12, 0);
+  drawCube(staff.tipx, staff.tipy - 0.16, staff.tipz, 0.16, 0.08, 0.16, face, 0.32, 0.18, 0.08, 0);
+  drawCube(staff.tipx, staff.tipy, staff.tipz, 0.26, 0.26, 0.26, face, gem[0], gem[1], gem[2], staffGlow);
+  drawCube(staff.tipx, staff.tipy + 0.08, staff.tipz, 0.10, 0.10, 0.10, face, Math.min(1, gem[0] * 1.15), Math.min(1, gem[1] * 1.15), Math.min(1, gem[2] * 1.15), staffGlow + 0.15);
 }
 
 function mobTint(m, r, g, b) {
