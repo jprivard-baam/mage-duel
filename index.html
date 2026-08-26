@@ -462,6 +462,11 @@ html, body {
 .draft-card .dt {
   font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-l); margin-bottom: 8px;
 }
+.draft-card { position: relative; }
+.draft-card .dnum {
+  position: absolute; top: 6px; left: 8px;
+  font-size: 12px; letter-spacing: .08em; color: var(--gold-l); opacity: .85;
+}
 .draft-card .dd { font-size: 11px; letter-spacing: .04em; line-height: 1.35; color: #c4b5fd; font-family: var(--font-u); }
 
 @media (orientation: landscape) {
@@ -567,7 +572,7 @@ html, body {
 </div>
 <div id="lvl-pick" class="hidden">
   <h2 id="lvl-pick-title">Niveau</h2>
-  <p class="home-hint">Choisis 1 carte</p>
+  <p class="home-hint">1 · 2 · 3 pour choisir</p>
   <div class="draft-row" id="draft-row"></div>
 </div>
 <script>
@@ -1773,7 +1778,17 @@ function clearHostiles() {
 }
 
 function isDraftOpen() {
-  return mode === "pick2";
+  const el = $("lvl-pick");
+  return !!(el && !el.classList.contains("hidden"));
+}
+function digitFromEvent(e) {
+  const c = e.code || "";
+  const k = e.key || "";
+  if (c === "Digit1" || c === "Numpad1" || k === "1" || k === "&") return 1;
+  if (c === "Digit2" || c === "Numpad2" || k === "2" || k === "é") return 2;
+  if (c === "Digit3" || c === "Numpad3" || k === "3" || k === "\"") return 3;
+  if (c === "Digit4" || c === "Numpad4" || k === "4" || k === "'") return 4;
+  return 0;
 }
 function useBois() {
   if (mode !== "play" || isDraftOpen()) return;
@@ -1837,8 +1852,12 @@ function usePotMana() {
   beep(700, 0.08, 0.04, "sine");
 }
 function pickDraftKey(i) {
-  if (!isDraftOpen() || !draftCards || !draftCards[i]) return;
-  applyDraft(draftCards[i]);
+  if (!isDraftOpen()) return;
+  const c = draftCards && draftCards[i];
+  if (c) { applyDraft(c); return; }
+  const row = $("draft-row");
+  const btn = row && row.children && row.children[i];
+  if (btn) btn.click();
 }
 function rollPotionDrops(m) {
   let pv = 0, pm = 0;
@@ -3659,27 +3678,34 @@ function uiEl(t) {
 
 window.addEventListener("keydown", (e) => {
   keys[e.code] = true;
+  if (isDraftOpen()) {
+    const d = digitFromEvent(e);
+    if (d) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (d <= 3) pickDraftKey(d - 1);
+      return;
+    }
+    if (e.code === "Space" || e.code === "KeyF" || e.code === "KeyE" || e.code === "KeyQ" || e.code === "KeyR") {
+      e.preventDefault();
+      return;
+    }
+    return;
+  }
   if (e.code === "Space") { e.preventDefault(); jump(); }
   if (e.code === "KeyF") { e.preventDefault(); eatViande(); }
   if (e.code === "KeyE") { e.preventDefault(); if (player.cls) cast(player.cls, 1); }
   if (e.code === "KeyQ") { e.preventDefault(); staffStrike(); }
   if (e.code === "KeyR") { e.preventDefault(); if (player.cls2) cast(player.cls2, 3); }
-  const digit = e.code === "Digit1" || e.code === "Numpad1" ? 1
-    : e.code === "Digit2" || e.code === "Numpad2" ? 2
-    : e.code === "Digit3" || e.code === "Numpad3" ? 3
-    : e.code === "Digit4" || e.code === "Numpad4" ? 4 : 0;
+  const digit = digitFromEvent(e);
   if (digit) {
     e.preventDefault();
-    if (isDraftOpen()) {
-      if (digit <= 3) pickDraftKey(digit - 1);
-      return;
-    }
     if (digit === 1) useBois();
     else if (digit === 2) eatViande();
     else if (digit === 3) usePotVie();
     else if (digit === 4) usePotMana();
   }
-}, { passive: false });
+}, { passive: false, capture: true });
 window.addEventListener("keyup", (e) => { keys[e.code] = false; });
 
 canvas.addEventListener("click", () => {
@@ -3935,9 +3961,11 @@ function renderDraft() {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "draft-card";
-    b.innerHTML = "<div class='dt'></div><div class='dd'></div>";
+    b.innerHTML = "<div class='dnum'></div><div class='dt'></div><div class='dd'></div>";
+    b.querySelector(".dnum").textContent = String(i + 1);
     b.querySelector(".dt").textContent = c.title;
     b.querySelector(".dd").textContent = c.body;
+    b.tabIndex = -1;
     b.addEventListener("click", function () { applyDraft(c); });
     row.appendChild(b);
   }
@@ -3977,7 +4005,7 @@ function applyDraft(c) {
 function openDraft() {
   const el = $("lvl-pick");
   if (!el || !player.draftQueue || !player.draftQueue.length) return;
-  if (mode === "play" || mode === "pick2") mode = "pick2";
+  mode = "pick2";
   el.classList.remove("hidden");
   renderDraft();
 }
