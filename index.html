@@ -529,6 +529,7 @@ const CYCLE = 120;
 const MAX_HP = 1000;
 const TREE_MAX_HP = 100;
 const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 35, DMG_ARCANE = 30, DMG_NECRO = 22;
+const FOUDRE_RANGE = 200;
 const SERV_HP = 90, SERV_ATK = 22, SERV_SPD = 2.0, SERV_ARM = 0.10, SERV_LIFE = 40;
 const SLIME_HP = 150, SLIME_ATK = 35, SLIME_SPD = 1.9, SLIME_ARM = 0.05;
 const WOLF_HP = 220, WOLF_ATK = 55, WOLF_SPD = 3.6, WOLF_ARM = 0.20;
@@ -1410,10 +1411,11 @@ function cast(kind, slot) {
   if (kind === "foudre") {
     beep(880, 0.1, 0.06, "sawtooth");
     const gem = staffGemPos();
-    let hx = ox + d.x * 22, hy = oy + d.y * 22, hz = oz + d.z * 22, hit = null;
+    let hx = ox + d.x * FOUDRE_RANGE, hy = oy + d.y * FOUDRE_RANGE, hz = oz + d.z * FOUDRE_RANGE, hit = null;
     let treeHit = null;
-    for (let t = 0.4; t < 22; t += 0.18) {
+    for (let t = 0.4; t < FOUDRE_RANGE; t += 0.22) {
       const x = ox + d.x * t, y = oy + d.y * t, z = oz + d.z * t;
+      if (x < -4 || x > W + 4 || z < -4 || z > D + 4 || y < -6 || y > 48) break;
       if (t > 1.2) {
         const bx = x | 0, by = y | 0, bz = z | 0;
         const bb = getB(bx, by, bz);
