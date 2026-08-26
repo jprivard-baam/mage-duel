@@ -71,10 +71,12 @@ html, body {
 @keyframes twinkle { 0%,100%{opacity:.25} 50%{opacity:.95} }
 #diorama {
   position: absolute;
-  left: 0; right: 0; top: 0;
-  height: 62%;
+  left: 0; top: 0;
+  width: 100%;
+  height: 58%;
   z-index: 1;
   pointer-events: none;
+  display: block;
 }
 .home-hero { position: relative; z-index: 2; text-align: center; width: 100%; }
 .home-hero h1 {
@@ -530,10 +532,10 @@ html, body {
   const MAX_HP = 30, MAX_MANA = 10, HAND = 4, MANA_EVERY = 1.4;
 
   /* ===== cube engine ===== */
-  const CAM = { hw: 14, hh: 7, vh: 14 };
+  const CAM = { hw: 16, hh: 8, vh: 16 };
   const WX = 9, WY = 11;
-  const ME_POS = { x: 4, y: 8 };
-  const AI_POS = { x: 4, y: 2 };
+  const ME_POS = { x: 6, y: 8 };
+  const AI_POS = { x: 2, y: 2 };
 
   function shade(hex, m) {
     const n = parseInt(hex.slice(1), 16);
@@ -555,10 +557,10 @@ html, body {
     return m;
   }
   const C = {
-    stone: mat("#3d3558"), stone2: mat("#2a2442"), stoneD: mat("#1a152c"),
+    stone: mat("#6a6088"), stone2: mat("#4a4068"), stoneD: mat("#322a4a"),
     gold: mat("#d4af37"), goldL: mat("#f4e4a6"), goldD: mat("#8a6a14"),
-    obsid: mat("#140c18"), obsid2: mat("#1c1018"),
-    ameth: mat("#5b21b6"), amethD: mat("#3b0764"), amethL: mat("#7c3aed"),
+    obsid: mat("#3a1822"), obsid2: mat("#4a2230"),
+    ameth: mat("#7c3aed"), amethD: mat("#4c1d95"), amethL: mat("#a78bfa"),
     robe: mat("#6d28d9"), robeD: mat("#4c1d95"),
     skin: mat("#e0b07a"), hat: mat("#2e1065"),
     wood: mat("#7c4a1e"),
@@ -809,20 +811,18 @@ html, body {
     if (c.width !== pw || c.height !== ph) {
       c.width = pw; c.height = ph;
     }
-    c.style.width = w + "px";
-    c.style.height = h + "px";
     const ctx = c.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return { ctx: ctx, dpr: dpr, w: w, h: h };
   }
 
   function layoutWorld() {
-    const r = els.arena.getBoundingClientRect();
-    worldW = r.width; worldH = r.height;
+    worldW = els.arena.clientWidth;
+    worldH = els.arena.clientHeight;
     if (worldW < 8 || worldH < 8) return;
-    const mid = project(4, 5, 0);
+    const mid = project(4, 5, 3);
     originX = worldW / 2 - mid.x;
-    originY = worldH * 0.28 - mid.y;
+    originY = worldH * 0.48 - mid.y;
     cacheOk = false;
   }
 
@@ -863,7 +863,7 @@ html, body {
       ctx.fillStyle = "rgba(255,255,255," + a + ")";
       ctx.fillRect(s.x * w, s.y * h, s.sz, s.sz);
     }
-    const mw = 22, mh = 22, mx = w * 0.72, my = h * 0.08;
+    const mw = 26, mh = 26, mx = w * 0.82, my = 8;
     ctx.fillStyle = "#e9d5ff";
     ctx.fillRect(mx, my, mw, mh);
     ctx.fillStyle = "#c4b5fd";
@@ -913,6 +913,8 @@ html, body {
   }
 
   function drawWorld(dt) {
+    const aw = els.arena.clientWidth, ah = els.arena.clientHeight;
+    if (aw !== worldW || ah !== worldH) layoutWorld();
     tWorld += dt || 0.016;
     if (shake.me > 0) shake.me = Math.max(0, shake.me - (dt || 0.016));
     if (shake.ai > 0) shake.ai = Math.max(0, shake.ai - (dt || 0.016));
@@ -1086,10 +1088,12 @@ html, body {
         u: -i * 0.04,
         dur: dur,
         arc: 2.2 + (spell.school === "glace" ? 0.6 : 0),
+        life: 2,
         m: pal[i % pal.length],
         done: oneDone
       });
     }
+    setTimeout(finish, Math.round(dur * 1000) + 80);
   }
 
   /* ===== combat (same rules) ===== */
@@ -1547,18 +1551,16 @@ html, body {
 
   function drawDiorama(dt) {
     tWorld += dt || 0.016;
-    const r = els.diorama.getBoundingClientRect();
-    if (r.width < 8 || r.height < 8) return;
-    const sized = fitCanvas(els.diorama, r.width, r.height);
+    const w = els.diorama.clientWidth;
+    const h = els.diorama.clientHeight;
+    if (w < 8 || h < 8) return;
+    const sized = fitCanvas(els.diorama, w, h);
     const ctx = sized.ctx;
-    const w = r.width, h = r.height;
-    ctx.fillStyle = '#00ff66';
-    ctx.fillRect(0, 0, w, h);
     drawSky(ctx, w, h, starsHome);
-    const cam = { hw: 12, hh: 6, vh: 12 };
-    const mid = project(3, 3, 0, cam);
+    const cam = { hw: 16, hh: 8, vh: 16 };
+    const mid = project(3, 3.2, 2, cam);
     const ox = w / 2 - mid.x;
-    const oy = h * 0.42 - mid.y;
+    const oy = h * 0.62 - mid.y;
     drawVoxels(ctx, HOME_STAGE, ox, oy, cam);
     const bobMe = 0.12 * Math.sin(tWorld * 2.2);
     const bobAi = 0.12 * Math.sin(tWorld * 2.2 + 1.7);
@@ -1580,8 +1582,6 @@ html, body {
       m: C.ice
     });
     drawVoxels(ctx, dyn, ox, oy, cam);
-    ctx.fillStyle = 'rgba(0,255,80,0.85)';
-    ctx.fillRect(20, 20, 120, 80);
   }
 
   function startHomeLoop() {
@@ -1627,15 +1627,19 @@ html, body {
     }
   });
 
-  window.addEventListener('error', function (e) {
-    try { console.error('ERR', e.message, e.filename, e.lineno); } catch (x) {}
-  });
   startHomeLoop();
-  drawDiorama(0);
   requestAnimationFrame(function () { drawDiorama(0); });
-  if (/[?&]duel/.test(location.search)) startMatch();
-  var r = els.diorama.getBoundingClientRect();
-  document.title = 'dio ' + Math.round(r.width) + 'x' + Math.round(r.height) + ' cw=' + els.diorama.width + ' ch=' + els.diorama.height + ' homeHidden=' + els.home.classList.contains('hidden');
+  if (/[?&](duel|fx)=/.test(location.search)) {
+    startMatch();
+    if (/fx=/.test(location.search)) {
+      S.me.mana = 10;
+      var idx = 0;
+      for (var i = 0; i < S.me.hand.length; i++) {
+        if (BY_ID[S.me.hand[i]].school === "feu") { idx = i; break; }
+      }
+      setTimeout(function () { executePlay("me", idx, BY_ID[S.me.hand[idx]]); }, 40);
+    }
+  }
 })();
 </script>
 </body>
