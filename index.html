@@ -434,6 +434,22 @@ html, body {
   color: #fecaca;
   text-shadow: 0 0 24px rgba(225,29,72,.6);
 }
+#death-record {
+  font-family: var(--font-d);
+  font-size: 14px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--gold-l);
+}
+#death-stats { text-align: center; display: flex; flex-direction: column; gap: 8px; }
+.death-score {
+  font-family: var(--font-d);
+  font-size: clamp(36px, 10vw, 56px);
+  color: var(--gold-l);
+  letter-spacing: .06em;
+}
+.death-line { font-size: 13px; letter-spacing: .08em; color: #c4b5fd; }
+.death-line b { color: var(--cream); font-weight: 600; }
 #lvl-pick {
   position: fixed; inset: 0; z-index: 6;
   background: rgba(8,0,10,.78);
@@ -568,6 +584,14 @@ html, body {
 </div>
 <div id="death" class="hidden">
   <h2>Vous êtes mort</h2>
+  <p id="death-record" class="hidden">Nouveau record</p>
+  <div id="death-stats">
+    <p class="death-score" id="death-score">0</p>
+    <p class="death-line">N.<b id="death-lvl">1</b> · <b id="death-time">00:00</b></p>
+    <p class="death-line">Kills <b id="death-kills">0</b> · PNJ <b id="death-pnj">0</b></p>
+    <p class="death-line">Perso <b id="death-best">—</b></p>
+    <p class="death-line">Monde <b id="death-world">—</b></p>
+  </div>
   <button class="btn btn-play" id="btn-retry" type="button">Rejouer</button>
 </div>
 <div id="lvl-pick" class="hidden">
@@ -1003,6 +1027,119 @@ let draftCards = [];
 let lastSpell = null;
 const MAX_LVL = 100;
 let runSeed = (Math.random() * 1e9) | 0;
+let runT = 0;
+let runKills = { slime: 0, wolf: 0, zombie: 0, squelette: 0, chevreuil: 0, mage: 0 };
+let bestScore = null;
+let worldScore = null;
+const WORLD_URL = "https://kvdb.io/TRB95RYFXnR52BrbQiJEda/world";
+function resetRunStats() {
+  runT = 0;
+  runKills = { slime: 0, wolf: 0, zombie: 0, squelette: 0, chevreuil: 0, mage: 0 };
+}
+function fmtTime(sec) {
+  sec = Math.max(0, sec | 0);
+  const m = (sec / 60) | 0, s = sec % 60;
+  return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+}
+function runScoreOf(k, L, tSec) {
+  k = k || runKills;
+  L = L == null ? (player.level || 1) : L;
+  tSec = tSec == null ? (runT | 0) : (tSec | 0);
+  return 40 * (L - 1) + 8 * Math.floor(tSec / 10)
+    + 10 * (k.slime | 0) + 25 * (k.wolf | 0) + 30 * (k.zombie | 0)
+    + 28 * (k.squelette | 0) + 5 * (k.chevreuil | 0) + 80 * (k.mage | 0);
+}
+function loadBest() {
+  try {
+    const o = JSON.parse(localStorage.getItem("cubemancy.best") || "null");
+    if (!o || typeof o.score !== "number") return null;
+    return o;
+  } catch (e) { return null; }
+}
+function saveBest(o) {
+  try { localStorage.setItem("cubemancy.best", JSON.stringify(o)); } catch (e) {}
+}
+function worldValid(o) {
+  if (!o || typeof o.score !== "number") return false;
+  const L = o.L | 0, tSec = o.tSec | 0;
+  const slime = o.slime | 0, loup = o.loup | 0, zomb = o.zomb | 0, skel = o.skel | 0, cerf = o.cerf | 0, pnj = o.pnj | 0;
+  const k = { slime: slime, wolf: loup, zombie: zomb, squelette: skel, chevreuil: cerf, mage: pnj };
+  const expect = runScoreOf(k, L, tSec);
+  if (o.score !== expect) return false;
+  if (L < 1 || L > 100) return false;
+  if (tSec < 0 || tSec > 10800) return false;
+  if (slime > 300 || loup > 200 || zomb > 150 || skel > 150 || cerf > 200 || pnj > 80) return false;
+  if (o.score > 40000) return false;
+  const tag = String(o.tag || "").trim();
+  if (!tag || tag.length > 16) return false;
+  return true;
+}
+function fetchWorld() {
+  return fetch(WORLD_URL, { cache: "no-store" }).then((r) => {
+    if (!r.ok) throw new Error("world");
+    return r.json();
+  }).then((o) => {
+    if (o && typeof o.score === "number") worldScore = o;
+    return worldScore;
+  }).catch(() => null);
+}
+function postWorld(doc) {
+  if (!worldValid(doc)) return Promise.resolve(false);
+  if (worldScore && !(doc.score > worldScore.score)) return Promise.resolve(false);
+  return fetch(WORLD_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(doc)
+  }).then((r) => {
+    if (!r.ok) throw new Error("post");
+    worldScore = doc;
+    return true;
+  }).catch(() => fetch(WORLD_URL, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(doc)
+  }).then((r) => {
+    if (!r.ok) return false;
+    worldScore = doc;
+    return true;
+  }).catch(() => false));
+}
+function showDeathScore() {
+  const L = player.level || 1;
+  const tSec = runT | 0;
+  const score = runScoreOf(runKills, L, tSec);
+  const kills = (runKills.slime + runKills.wolf + runKills.zombie + runKills.squelette + runKills.chevreuil + runKills.mage) | 0;
+  const pnj = runKills.mage | 0;
+  const prev = bestScore;
+  const isNew = !prev || score > prev.score;
+  if (isNew) {
+    bestScore = { score: score, L: L, tSec: tSec, kills: kills, pnj: pnj, tag: player.tag || "" };
+    saveBest(bestScore);
+  }
+  const rec = $("death-record");
+  if (rec) rec.classList.toggle("hidden", !isNew);
+  const el = (id, v) => { const n = $(id); if (n) n.textContent = v; };
+  el("death-score", String(score));
+  el("death-lvl", String(L));
+  el("death-time", fmtTime(tSec));
+  el("death-kills", String(kills));
+  el("death-pnj", String(pnj));
+  el("death-best", bestScore ? (bestScore.score + (bestScore.tag ? " · " + bestScore.tag : "")) : "—");
+  const paintWorld = (w) => {
+    el("death-world", w && w.score ? (w.score + (w.tag ? " · " + w.tag : "")) : "—");
+  };
+  paintWorld(worldScore);
+  const tag = sanitizeTag(player.tag || "");
+  const doc = {
+    score: score, L: L, tSec: tSec, kills: kills, pnj: pnj, tag: tag, at: Date.now(),
+    slime: runKills.slime | 0, loup: runKills.wolf | 0, zomb: runKills.zombie | 0,
+    skel: runKills.squelette | 0, cerf: runKills.chevreuil | 0
+  };
+  fetchWorld().then((w) => {
+    paintWorld(w || worldScore);
+    if (tag) postWorld(doc).then(() => paintWorld(worldScore));
+  });
+}
 function xpToNext(level) {
   return 50 + 18 * level + ((level * level * 0.8) | 0);
 }
@@ -1238,6 +1375,7 @@ function killMob(m) {
     grantXp(xpFor(m.kind));
   }
   if (m.kind !== "chevreuil") rollPotionDrops(m);
+  if (runKills[m.kind] != null) runKills[m.kind]++;
 }
 function hurtMob(m, dmg, kx, kz, kb) {
   if (m.kind === "mage") { m.pose = "aggro"; m.leaveT = 0; }
@@ -1257,6 +1395,7 @@ function die() {
   mode = "death";
   player.hp = 0;
   deathEl.classList.remove("hidden");
+  showDeathScore();
   beep(90, 0.5, 0.08, "sawtooth");
 }
 
@@ -1272,6 +1411,7 @@ function resetPlay() {
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
   player.bois = 0; player.viande = 0; player.potVie = 0; player.potMana = 0;
   deathEl.classList.add("hidden");
+  resetRunStats();
   const bn = $("bois-n"); if (bn) bn.textContent = "0";
   const vn = $("viande-n"); if (vn) vn.textContent = "0";
   spawnWildlife();
@@ -1693,8 +1833,77 @@ function npcFaceTo(m, tx, tz, snap) {
   while (d < -Math.PI) d += Math.PI * 2;
   m.face += d * 0.18;
 }
-function npcWalkToward(m, tx, tz, spd) {
+function lerpAng(a, b, step) {
+  let d = b - a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  if (d > step) return a + step;
+  if (d < -step) return a - step;
+  return a + d;
+}
+function bodyR(ent) {
+  if (!ent || ent === player) return 0.45;
+  const k = ent.kind;
+  if (k === "mage") return 0.45;
+  if (k === "serviteur") return 0.38;
+  if (k === "wolf") return 0.42;
+  if (k === "slime") return 0.40;
+  if (k === "zombie") return 0.45;
+  if (k === "squelette") return 0.32;
+  if (k === "chevreuil") return 0.38;
+  return 0.40;
+}
+function pushApart(a, b, wA, wB) {
+  const dx = b.x - a.x, dz = b.z - a.z;
+  let dist = Math.hypot(dx, dz);
+  const overlap = bodyR(a) + bodyR(b) - dist;
+  if (overlap <= 0.02) return;
+  let nx = 1, nz = 0;
+  if (dist > 1e-4) { nx = dx / dist; nz = dz / dist; }
+  const push = Math.min(0.35, overlap);
+  a.x -= nx * push * wA; a.z -= nz * push * wA;
+  b.x += nx * push * wB; b.z += nz * push * wB;
+}
+function separateBodies() {
+  for (let i = 0; i < mobs.length; i++) {
+    const m = mobs[i];
+    if (!m || m.dead) continue;
+    pushApart(player, m, 0.30, 0.70);
+  }
+  const npcs = [];
+  for (let i = 0; i < mobs.length; i++) {
+    const m = mobs[i];
+    if (m && !m.dead && m.kind === "mage") npcs.push(m);
+  }
+  for (let i = 0; i < npcs.length; i++)
+    for (let j = i + 1; j < npcs.length; j++)
+      pushApart(npcs[i], npcs[j], 0.5, 0.5);
+}
+function npcSteerAvoid(m, tx, tz) {
   const dx = tx - m.x, dz = tz - m.z;
+  const d = Math.hypot(dx, dz) || 1;
+  const fx = dx / d, fz = dz / d;
+  const lx = -fz, lz = fx;
+  function consider(ox, oz) {
+    const pdx = ox - m.x, pdz = oz - m.z;
+    const along = pdx * fx + pdz * fz;
+    if (along <= 0.05 || along >= d) return 0;
+    const px = m.x + fx * along, pz = m.z + fz * along;
+    if (Math.hypot(ox - px, oz - pz) >= 1.2) return 0;
+    return (pdx * lx + pdz * lz) >= 0 ? -1 : 1;
+  }
+  let side = consider(player.x, player.z);
+  for (let i = 0; i < mobs.length && !side; i++) {
+    const o = mobs[i];
+    if (!o || o.dead || o === m || o.kind !== "mage") continue;
+    side = consider(o.x, o.z);
+  }
+  if (side) { tx += lx * 1.8 * side; tz += lz * 1.8 * side; }
+  return { x: tx, z: tz };
+}
+function npcWalkToward(m, tx, tz, spd) {
+  const steered = npcSteerAvoid(m, tx, tz);
+  const dx = steered.x - m.x, dz = steered.z - m.z;
   const d = Math.hypot(dx, dz) || 1;
   m.vx = dx / d * spd;
   m.vz = dz / d * spd;
@@ -3434,31 +3643,67 @@ function drawWolf(m) {
   const br = r * 0.68, bg = g * 0.65, bb = b * 0.62;
   const lr = Math.min(1, r * 1.22 + 0.06), lg = Math.min(1, g * 1.18 + 0.05), lb = Math.min(1, b * 1.05 + 0.04);
   const hop = m.hop || 0;
-  drawCube(m.x + s * 0.22, m.y + 0.52, m.z + c * 0.22, 0.42, 0.40, 0.38, yaw, r, g, b, glow);
-  drawCube(m.x - s * 0.28, m.y + 0.50, m.z - c * 0.28, 0.40, 0.36, 0.32, yaw, r, g, b, glow);
-  drawCube(m.x, m.y + 0.36, m.z, 0.34, 0.12, 0.72, yaw, lr, lg, lb, 0);
+  const spd = Math.hypot(m.vx || 0, m.vz || 0);
+  const running = spd > 1.2;
+  const idle = spd < 0.08;
+  let bob = 0, ext = 0, frontLift = 0, backLift = 0, slideF = 0, slideB = 0;
+  if (running) {
+    const tt = hop * 14;
+    ext = Math.sin(tt);
+    bob = 0.07 * Math.abs(Math.sin(tt));
+    frontLift = Math.max(0, 0.22 * Math.sin(tt));
+    backLift = Math.max(0, 0.22 * Math.sin(tt + Math.PI));
+    slideF = 0.10 * Math.sin(tt);
+    slideB = -0.10 * Math.sin(tt);
+  }
+  const chestF = running ? (0.22 + 0.12 * ext) : 0.22;
+  const hipF = running ? (0.28 + 0.10 * ext) : 0.28;
+  const chestY = running ? (0.48 + bob) : 0.52;
+  const hipY = running ? (0.52 + bob) : 0.50;
+  const bellyY = 0.36 + (running ? bob : 0);
+  drawCube(m.x + s * chestF, m.y + chestY, m.z + c * chestF, 0.42, 0.40, 0.38, yaw, r, g, b, glow);
+  drawCube(m.x - s * hipF, m.y + hipY, m.z - c * hipF, 0.40, 0.36, 0.32, yaw, r, g, b, glow);
+  drawCube(m.x + s * 0.10, m.y + bellyY, m.z + c * 0.10, 0.34, 0.12, 0.36, yaw, lr, lg, lb, 0);
+  drawCube(m.x - s * 0.10, m.y + bellyY, m.z - c * 0.10, 0.34, 0.12, 0.36, yaw, lr, lg, lb, 0);
+  drawCube(m.x + s * chestF + c * 0.18, m.y + chestY, m.z + c * chestF - s * 0.18, 0.16, 0.14, 0.16, yaw, r, g, b, glow);
+  drawCube(m.x + s * chestF - c * 0.18, m.y + chestY, m.z + c * chestF + s * 0.18, 0.16, 0.14, 0.16, yaw, r, g, b, glow);
   const legR = r * 0.52, legG = g * 0.48, legB = b * 0.45;
   const legs = [[0.15, 0.4], [-0.15, 0.4], [0.15, -0.4], [-0.15, -0.4]];
   for (let i = 0; i < 4; i++) {
     const L = legs[i];
-    const lift = ((i === 0 || i === 3) ? 1 : -1) * 0.10 * Math.sin(hop * 10);
-    const ly = Math.max(0, lift);
-    const lx = m.x + s * L[1] + c * L[0];
-    const lz = m.z + c * L[1] - s * L[0];
-    drawCube(lx, m.y + 0.18 + ly, lz, 0.11, 0.36, 0.12, yaw, legR, legG, legB, 0);
+    const front = i < 2;
+    let ly = 0, slide = 0;
+    if (running) {
+      ly = front ? frontLift : backLift;
+      slide = front ? slideF : slideB;
+    } else if (!idle) {
+      const lift = ((i === 0 || i === 3) ? 1 : -1) * 0.08 * Math.sin(hop * 7);
+      ly = Math.max(0, lift);
+    }
+    const lx = m.x + s * (L[1] + slide) + c * L[0];
+    const lz = m.z + c * (L[1] + slide) - s * L[0];
+    drawCube(lx, m.y + 0.28 + ly, lz, 0.11, 0.20, 0.12, yaw, legR, legG, legB, 0);
+    drawCube(lx, m.y + 0.12 + ly, lz, 0.10, 0.18, 0.12, yaw, legR * 0.9, legG * 0.9, legB * 0.9, 0);
     drawCube(lx, m.y + 0.05 + ly, lz, 0.12, 0.10, 0.14, yaw, 0.18, 0.12, 0.08, 0);
   }
+  const headY = (running ? 0.62 : 0.68) + (running ? bob : 0);
   const hx = m.x + s * 0.62, hz = m.z + c * 0.62;
-  drawCube(hx, m.y + 0.68, hz, 0.36, 0.32, 0.34, yaw, r * 1.08, g * 1.06, b * 1.04, glow);
-  drawCube(m.x + s * 0.92, m.y + 0.58, m.z + c * 0.92, 0.20, 0.16, 0.38, yaw, lr, lg * 0.95, lb, glow);
-  drawCube(m.x + s * 1.10, m.y + 0.58, m.z + c * 1.10, 0.10, 0.10, 0.10, yaw, 0.12, 0.10, 0.09, 0);
-  drawCube(m.x + s * 0.78 + c * 0.12, m.y + 0.72, m.z + c * 0.78 - s * 0.12, 0.07, 0.07, 0.07, yaw, 1.00, 0.62, 0.12, 0.45);
-  drawCube(m.x + s * 0.78 - c * 0.12, m.y + 0.72, m.z + c * 0.78 + s * 0.12, 0.07, 0.07, 0.07, yaw, 1.00, 0.62, 0.12, 0.45);
-  drawCube(hx - c * 0.13, m.y + 0.96, hz + s * 0.13, 0.10, 0.30, 0.10, yaw, br, bg, bb, 0);
-  drawCube(hx + c * 0.13, m.y + 0.96, hz - s * 0.13, 0.10, 0.30, 0.10, yaw, br, bg, bb, 0);
-  const wag = 0.08 * Math.sin(hop * 6);
-  drawCube(m.x - s * 0.62 + c * wag, m.y + 0.62, m.z - c * 0.62 - s * wag, 0.10, 0.12, 0.34, yaw, br, bg, bb, 0);
-  drawCube(m.x - s * 0.86 + c * wag * 1.4, m.y + 0.58, m.z - c * 0.86 - s * wag * 1.4, 0.08, 0.10, 0.22, yaw, br, bg, bb, 0);
+  drawCube(m.x + s * 0.44, m.y + headY - 0.06, m.z + c * 0.44, 0.16, 0.14, 0.16, yaw, r, g, b, glow);
+  drawCube(m.x + s * 0.40, m.y + headY + 0.04, m.z + c * 0.40, 0.12, 0.16, 0.20, yaw, br, bg, bb, 0);
+  drawCube(hx, m.y + headY, hz, 0.32, 0.22, 0.30, yaw, r * 1.08, g * 1.06, b * 1.04, glow);
+  drawCube(hx + s * 0.04, m.y + headY - 0.10, hz + c * 0.04, 0.28, 0.12, 0.28, yaw, lr, lg * 0.95, lb, glow);
+  drawCube(m.x + s * 0.92, m.y + headY - 0.10, m.z + c * 0.92, 0.20, 0.16, 0.38, yaw, lr, lg * 0.95, lb, glow);
+  drawCube(m.x + s * 1.10, m.y + headY - 0.10, m.z + c * 1.10, 0.10, 0.10, 0.10, yaw, 0.12, 0.10, 0.09, 0);
+  drawCube(m.x + s * 0.78 + c * 0.12, m.y + headY + 0.04, m.z + c * 0.78 - s * 0.12, 0.07, 0.07, 0.07, yaw, 1.00, 0.62, 0.12, 0.45);
+  drawCube(m.x + s * 0.78 - c * 0.12, m.y + headY + 0.04, m.z + c * 0.78 + s * 0.12, 0.07, 0.07, 0.07, yaw, 1.00, 0.62, 0.12, 0.45);
+  const earY = headY + 0.24;
+  drawCube(hx - c * 0.13, m.y + earY, hz + s * 0.13, 0.10, 0.30, 0.10, yaw, br, bg, bb, 0);
+  drawCube(hx + c * 0.13, m.y + earY, hz - s * 0.13, 0.10, 0.30, 0.10, yaw, br, bg, bb, 0);
+  const wag = running ? 0.03 * Math.sin(hop * 6) : 0.08 * Math.sin(hop * 6);
+  const tailY = running ? (0.48 + bob) : 0.62;
+  const tailBack = running ? 0.68 : 0.62;
+  drawCube(m.x - s * tailBack + c * wag, m.y + tailY, m.z - c * tailBack - s * wag, 0.10, 0.12, 0.34, yaw, br, bg, bb, 0);
+  drawCube(m.x - s * (tailBack + 0.24) + c * wag * 1.4, m.y + (running ? tailY : 0.58), m.z - c * (tailBack + 0.24) - s * wag * 1.4, 0.08, 0.10, 0.22, yaw, br, bg, bb, 0);
 }
 function drawDeer(m) {
   const t = mobTint(m, 0.62, 0.42, 0.22);
@@ -3466,7 +3711,8 @@ function drawDeer(m) {
   const s = Math.sin(yaw), c = Math.cos(yaw);
   const paleR = Math.min(1, r * 1.2 + 0.18), paleG = Math.min(1, g * 1.25 + 0.22), paleB = Math.min(1, b * 1.3 + 0.2);
   const antR = 0.42 + t.f * 0.4, antG = 0.3 + t.f * 0.4, antB = 0.16 + t.f * 0.4;
-  drawCube(m.x, m.y + 0.72, m.z, 0.32, 0.34, 0.78, yaw, r, g, b, glow);
+  drawCube(m.x + s * 0.16, m.y + 0.72, m.z + c * 0.16, 0.32, 0.34, 0.40, yaw, r, g, b, glow);
+  drawCube(m.x - s * 0.18, m.y + 0.72, m.z - c * 0.18, 0.30, 0.32, 0.36, yaw, r, g, b, glow);
   drawCube(m.x - s * 0.38, m.y + 0.72, m.z - c * 0.38, 0.30, 0.32, 0.22, yaw, paleR, paleG, paleB, glow);
   drawCube(m.x + c * 0.18, m.y + 0.78, m.z - s * 0.18, 0.08, 0.08, 0.08, yaw, paleR, paleG, paleB, 0);
   drawCube(m.x - c * 0.18, m.y + 0.74, m.z + s * 0.18, 0.08, 0.08, 0.08, yaw, paleR, paleG, paleB, 0);
@@ -3476,11 +3722,14 @@ function drawDeer(m) {
     const L = legs[i];
     const lx = m.x + s * L[1] + c * L[0];
     const lz = m.z + c * L[1] - s * L[0];
-    drawCube(lx, m.y + 0.32, lz, 0.08, 0.64, 0.08, yaw, legR, legG, legB, 0);
+    drawCube(lx, m.y + 0.42, lz, 0.08, 0.36, 0.08, yaw, legR, legG, legB, 0);
+    drawCube(lx, m.y + 0.22, lz, 0.08, 0.10, 0.08, yaw, legR * 0.85, legG * 0.85, legB * 0.85, 0);
+    drawCube(lx, m.y + 0.12, lz, 0.08, 0.28, 0.08, yaw, legR, legG, legB, 0);
     drawCube(lx, m.y + 0.05, lz, 0.08, 0.10, 0.08, yaw, 0.22, 0.14, 0.08, 0);
   }
   const hx = m.x + s * 0.48, hz = m.z + c * 0.48;
-  drawCube(m.x + s * 0.28, m.y + 0.88, m.z + c * 0.28, 0.12, 0.26, 0.12, yaw, r, g, b, glow);
+  drawCube(m.x + s * 0.22, m.y + 0.82, m.z + c * 0.22, 0.12, 0.14, 0.12, yaw, r, g, b, glow);
+  drawCube(m.x + s * 0.34, m.y + 0.90, m.z + c * 0.34, 0.12, 0.14, 0.12, yaw, r, g, b, glow);
   drawCube(hx, m.y + 0.92, hz, 0.18, 0.22, 0.18, yaw, r * 1.05, g * 1.02, b, glow);
   drawCube(m.x + s * 0.64, m.y + 0.88, m.z + c * 0.64, 0.14, 0.14, 0.22, yaw, r * 1.08, g * 1.04, b * 1.02, glow);
   drawCube(hx - c * 0.08, m.y + 1.08, hz + s * 0.08, 0.06, 0.12, 0.06, yaw, r, g, b, 0);
@@ -3491,7 +3740,9 @@ function drawDeer(m) {
   drawCube(hx + c * 0.08, m.y + 1.16, hz - s * 0.08, 0.06, 0.22, 0.06, yaw, antR, antG, antB, 0);
   drawCube(hx + c * 0.16, m.y + 1.30, hz - s * 0.16, 0.06, 0.14, 0.06, yaw, antR, antG, antB, 0);
   drawCube(hx + c * 0.20, m.y + 1.40, hz - s * 0.20, 0.05, 0.10, 0.05, yaw, antR, antG, antB, 0);
-  drawCube(m.x - s * 0.52, m.y + (m.grazing ? 0.82 : 1.04), m.z - c * 0.52, 0.08, 0.18, 0.08, yaw, 0.95, 0.92, 0.85, 0);
+  const ty = m.grazing ? 0.82 : 1.04;
+  drawCube(m.x - s * 0.48, m.y + ty, m.z - c * 0.48, 0.08, 0.12, 0.08, yaw, 0.95, 0.92, 0.85, 0);
+  drawCube(m.x - s * 0.56, m.y + (m.grazing ? 0.78 : 1.00), m.z - c * 0.56, 0.08, 0.10, 0.08, yaw, 0.95, 0.92, 0.85, 0);
 }
 function drawZombie(m) {
   const t = mobTint(m, 0.36, 0.46, 0.28);
@@ -3500,35 +3751,51 @@ function drawZombie(m) {
   const clothR = 0.14 + t.f, clothG = 0.16 + t.f, clothB = 0.18 + t.f;
   const pantR = 0.16 + t.f, pantG = 0.14 + t.f, pantB = 0.12 + t.f;
   const swing = Math.sin(m.hop * 2.4) * 0.05;
-  drawCube(m.x + c * 0.10, m.y + 0.30, m.z - s * 0.10, 0.12, 0.58, 0.12, yaw, pantR, pantG, pantB, 0);
-  drawCube(m.x - c * 0.10, m.y + 0.30, m.z + s * 0.10, 0.12, 0.58, 0.12, yaw, pantR, pantG, pantB, 0);
-  drawCube(m.x + s * 0.10, m.y + 0.92, m.z + c * 0.10, 0.46, 0.58, 0.32, yaw, clothR, clothG, clothB, glow);
+  drawCube(m.x + c * 0.10, m.y + 0.42, m.z - s * 0.10, 0.12, 0.30, 0.12, yaw, pantR, pantG, pantB, 0);
+  drawCube(m.x + c * 0.10, m.y + 0.18, m.z - s * 0.10, 0.11, 0.28, 0.11, yaw, pantR, pantG, pantB, 0);
+  drawCube(m.x + c * 0.10, m.y + 0.05, m.z - s * 0.10, 0.14, 0.08, 0.14, yaw, 0.12, 0.10, 0.08, 0);
+  drawCube(m.x - c * 0.10, m.y + 0.42, m.z + s * 0.10, 0.12, 0.30, 0.12, yaw, pantR, pantG, pantB, 0);
+  drawCube(m.x - c * 0.10, m.y + 0.18, m.z + s * 0.10, 0.11, 0.28, 0.11, yaw, pantR, pantG, pantB, 0);
+  drawCube(m.x - c * 0.10, m.y + 0.05, m.z + s * 0.10, 0.14, 0.08, 0.14, yaw, 0.12, 0.10, 0.08, 0);
+  drawCube(m.x + s * 0.10, m.y + 1.08, m.z + c * 0.10, 0.44, 0.28, 0.32, yaw, clothR, clothG, clothB, glow);
+  drawCube(m.x + s * 0.10, m.y + 0.80, m.z + c * 0.10, 0.40, 0.28, 0.30, yaw, clothR, clothG, clothB, glow);
+  drawCube(m.x - c * 0.22 + s * 0.04, m.y + 0.70, m.z + s * 0.22 + c * 0.04, 0.08, 0.22, 0.08, yaw, clothR, clothG, clothB, 0);
   const hx = m.x + s * 0.16, hz = m.z + c * 0.16;
-  drawCube(hx, m.y + 1.38, hz, 0.34, 0.34, 0.34, yaw, r, g, b, glow);
-  drawCube(hx + s * 0.04, m.y + 1.28, hz + c * 0.04, 0.22, 0.08, 0.16, yaw, 0.28, 0.36, 0.20, 0);
-  drawCube(hx - c * 0.10 + s * 0.14, m.y + 1.42, hz + s * 0.10 + c * 0.14, 0.08, 0.08, 0.08, yaw, 0.08, 0.10, 0.06, 0);
-  drawCube(hx + c * 0.10 + s * 0.14, m.y + 1.42, hz - s * 0.10 + c * 0.14, 0.07, 0.07, 0.07, yaw, 0.70, 0.80, 0.40, 0.15);
-  drawCube(m.x + c * 0.30 + s * 0.26, m.y + 0.88 + swing, m.z - s * 0.30 + c * 0.26, 0.14, 0.14, 0.50, yaw, r, g, b, 0);
-  drawCube(m.x - c * 0.30 + s * 0.26, m.y + 0.88 - swing, m.z + s * 0.30 + c * 0.26, 0.14, 0.14, 0.34, yaw, r, g, b, 0);
+  drawCube(hx, m.y + 1.40, hz, 0.30, 0.22, 0.30, yaw, r, g, b, glow);
+  drawCube(hx + s * 0.04, m.y + 1.28, hz + c * 0.04, 0.22, 0.10, 0.16, yaw, 0.28, 0.36, 0.20, 0);
+  drawCube(hx - c * 0.10 + s * 0.14, m.y + 1.42, hz + s * 0.10 + c * 0.14, 0.07, 0.07, 0.07, yaw, 0.08, 0.10, 0.06, 0);
+  drawCube(hx + c * 0.10 + s * 0.14, m.y + 1.42, hz - s * 0.10 + c * 0.14, 0.07, 0.07, 0.07, yaw, 0.08, 0.10, 0.06, 0);
+  drawCube(m.x + c * 0.30 + s * 0.18, m.y + 1.02 + swing, m.z - s * 0.30 + c * 0.18, 0.14, 0.14, 0.26, yaw, r, g, b, 0);
+  drawCube(m.x + c * 0.30 + s * 0.36, m.y + 0.92 + swing, m.z - s * 0.30 + c * 0.36, 0.12, 0.12, 0.28, yaw, r, g, b, 0);
+  drawCube(m.x + c * 0.30 + s * 0.50, m.y + 0.88 + swing, m.z - s * 0.30 + c * 0.50, 0.12, 0.12, 0.12, yaw, r, g, b, 0);
+  drawCube(m.x - c * 0.30 + s * 0.22, m.y + 1.00 - swing, m.z + s * 0.30 + c * 0.22, 0.14, 0.14, 0.20, yaw, r, g, b, 0);
 }
 function drawSkeleton(m) {
   const t = mobTint(m, 0.9, 0.86, 0.7);
   const r = t.r, g = t.g, b = t.b, glow = t.glow, yaw = m.yaw;
   const s = Math.sin(yaw), c = Math.cos(yaw);
   const swing = Math.sin(m.hop * 3.1) * 0.04;
-  drawCube(m.x + c * 0.1, m.y + 0.32, m.z - s * 0.1, 0.1, 0.64, 0.1, yaw, r, g, b, 0);
-  drawCube(m.x - c * 0.1, m.y + 0.32, m.z + s * 0.1, 0.1, 0.64, 0.1, yaw, r, g, b, 0);
+  drawCube(m.x + c * 0.1, m.y + 0.36, m.z - s * 0.1, 0.1, 0.48, 0.1, yaw, r, g, b, 0);
+  drawCube(m.x - c * 0.1, m.y + 0.36, m.z + s * 0.1, 0.1, 0.48, 0.1, yaw, r, g, b, 0);
+  drawCube(m.x + c * 0.1, m.y + 0.06, m.z - s * 0.1, 0.12, 0.08, 0.12, yaw, r, g, b, 0);
+  drawCube(m.x - c * 0.1, m.y + 0.06, m.z + s * 0.1, 0.12, 0.08, 0.12, yaw, r, g, b, 0);
   drawCube(m.x, m.y + 0.68, m.z, 0.28, 0.12, 0.18, yaw, r * 0.92, g * 0.92, b * 0.88, glow);
-  drawCube(m.x, m.y + 0.80, m.z, 0.34, 0.07, 0.20, yaw, r, g, b, glow);
-  drawCube(m.x, m.y + 0.92, m.z, 0.36, 0.07, 0.22, yaw, r * 0.9, g * 0.9, b * 0.86, glow);
-  drawCube(m.x, m.y + 1.04, m.z, 0.32, 0.07, 0.20, yaw, r, g, b, glow);
-  drawCube(m.x, m.y + 1.16, m.z, 0.30, 0.07, 0.18, yaw, r * 0.9, g * 0.9, b * 0.86, glow);
-  drawCube(m.x, m.y + 1.42, m.z, 0.32, 0.32, 0.32, yaw, r * 1.05, g * 1.02, b * 0.95, glow);
+  const ribs = [0.80, 0.96, 1.12];
+  for (let i = 0; i < 3; i++) {
+    drawCube(m.x + c * 0.16, m.y + ribs[i], m.z - s * 0.16, 0.22, 0.06, 0.08, yaw, r, g, b, glow);
+    drawCube(m.x - c * 0.16, m.y + ribs[i], m.z + s * 0.16, 0.22, 0.06, 0.08, yaw, r, g, b, glow);
+  }
+  drawCube(m.x, m.y + 0.88, m.z, 0.10, 0.10, 0.10, yaw, r * 0.9, g * 0.9, b * 0.86, glow);
+  drawCube(m.x, m.y + 1.04, m.z, 0.10, 0.10, 0.10, yaw, r, g, b, glow);
+  drawCube(m.x, m.y + 1.20, m.z, 0.10, 0.10, 0.10, yaw, r * 0.9, g * 0.9, b * 0.86, glow);
+  drawCube(m.x, m.y + 1.44, m.z, 0.28, 0.22, 0.28, yaw, r * 1.05, g * 1.02, b * 0.95, glow);
+  drawCube(m.x, m.y + 1.30, m.z, 0.22, 0.10, 0.22, yaw, r, g, b, glow);
   drawCube(m.x, m.y + 1.52, m.z, 0.12, 0.08, 0.08, yaw, 0.12 + t.f, 0.1, 0.1, 0);
   drawCube(m.x + c * 0.08 + s * 0.12, m.y + 1.46, m.z - s * 0.08 + c * 0.12, 0.08, 0.08, 0.08, yaw, 0.08, 0.07, 0.06, 0);
   drawCube(m.x - c * 0.08 + s * 0.12, m.y + 1.46, m.z + s * 0.08 + c * 0.12, 0.08, 0.08, 0.08, yaw, 0.08, 0.07, 0.06, 0);
   drawCube(m.x + s * 0.14, m.y + 1.40, m.z + c * 0.14, 0.05, 0.08, 0.05, yaw, 0.08, 0.07, 0.06, 0);
-  drawCube(m.x - c * 0.28, m.y + 0.95, m.z + s * 0.28, 0.08, 0.08, 0.40, yaw, r, g, b, 0);
+  drawCube(m.x - c * 0.28, m.y + 1.05, m.z + s * 0.28, 0.08, 0.08, 0.22, yaw, r, g, b, 0);
+  drawCube(m.x - c * 0.36, m.y + 0.92, m.z + s * 0.36, 0.08, 0.08, 0.22, yaw, r, g, b, 0);
   const hx = m.x + c * 0.36, hz = m.z - s * 0.36;
   drawCube(hx, m.y + 0.88 + swing, hz, 0.10, 0.10, 0.10, yaw, r, g, b, 0);
   drawCube(hx + s * 0.12, m.y + 0.90 + swing, hz + c * 0.12, 0.22, 0.06, 0.06, yaw, 0.55 + t.f * 0.3, 0.55 + t.f * 0.3, 0.58, 0.04);
@@ -3536,18 +3803,45 @@ function drawSkeleton(m) {
 }
 function drawSlime(m) {
   const f = m.flash > 0 ? 1 : 0;
-  const squash = m.grounded ? 1.12 : 0.88;
+  const hop = m.hop || 0;
+  const air = !m.grounded;
+  const land = m.grounded && hop < 0.18;
+  const sy = air ? 1.28 : land ? 0.62 : 1.18;
+  const sx = air ? 0.72 : land ? 1.32 : 1.10;
   let r = 0.25 + f, g = 0.82 + f, b = 0.28 + f, glow = 0.12 + f * 0.4;
   if (m.burn > 0) { r = 1; g = 0.4 + f * 0.25; b = 0.08; glow = 0.35 + f * 0.3; }
   else if (m.para > 0) { r = 0.75; g = 0.85; b = 0.25 + f; glow = 0.28; }
   else if (m.slow > 0) { r = 0.4; g = 0.7; b = 0.85; }
   const yaw = m.yaw, s = Math.sin(yaw), c = Math.cos(yaw);
-  drawCube(m.x, m.y + 0.18 * squash, m.z, 0.82, 0.28 * squash, 0.82, yaw, 0.18 + f * 0.3, 0.62 + f * 0.2, 0.22, glow * 0.5);
-  drawCube(m.x, m.y + 0.42 * squash, m.z, 0.70, 0.36 * squash, 0.70, yaw, r, g, b, glow);
-  drawCube(m.x, m.y + 0.68 * squash, m.z, 0.48, 0.22 * squash, 0.48, yaw, 0.32 + f * 0.3, 0.90, 0.38, 0.20 + f * 0.2);
-  drawCube(m.x + s * 0.28 + c * 0.12, m.y + 0.58 * squash, m.z + c * 0.28 - s * 0.12, 0.10, 0.10, 0.10, yaw, 0.06, 0.12, 0.06, 0);
-  drawCube(m.x + s * 0.28 - c * 0.12, m.y + 0.58 * squash, m.z + c * 0.28 + s * 0.12, 0.10, 0.10, 0.10, yaw, 0.06, 0.12, 0.06, 0);
-  drawCube(m.x, m.y + 0.72 * squash, m.z, 0.10, 0.10, 0.10, yaw, 0.55, 1.00, 0.60, 0.25);
+  const widths = [0.86, 0.74, 0.60, 0.46, 0.30];
+  const cols = [
+    [0.16 + f * 0.2, 0.55 + f * 0.15, 0.20],
+    [0.20 + f * 0.2, 0.68 + f * 0.12, 0.24],
+    [0.25 + f * 0.2, 0.82 + f * 0.1, 0.28],
+    [0.32 + f * 0.2, 0.90, 0.36],
+    [0.40 + f * 0.2, 0.95, 0.42]
+  ];
+  const layers = [];
+  for (let i = 0; i < 5; i++) {
+    const w = Math.min(0.90, widths[i] * sx);
+    const y = m.y + (0.08 + i * 0.15) * sy;
+    const x = m.x + 0.05 * Math.sin(hop * 9 + i * 1.1);
+    const z = m.z + 0.04 * Math.sin(hop * 7 + i * 0.8);
+    const col = (m.burn > 0 || m.para > 0 || m.slow > 0) && i === 2 ? [r, g, b] : cols[i];
+    drawCube(x, y, z, w, 0.15 * sy, w, yaw, col[0], col[1], col[2], i > 2 ? glow * 0.5 : glow * 0.25);
+    layers.push({ x: x, y: y, z: z, w: w });
+  }
+  const L2 = layers[2], L3 = layers[3], L4 = layers[4];
+  drawCube(L3.x + s * 0.16 * sx + c * 0.10, L3.y, L3.z + c * 0.16 * sx - s * 0.10, 0.10, 0.10, 0.10, yaw, 0.06, 0.12, 0.06, 0);
+  drawCube(L3.x + s * 0.16 * sx - c * 0.10, L3.y, L3.z + c * 0.16 * sx + s * 0.10, 0.10, 0.10, 0.10, yaw, 0.06, 0.12, 0.06, 0);
+  drawCube(L2.x + s * 0.22 * sx, L2.y, L2.z + c * 0.22 * sx, 0.18, 0.05, 0.08, yaw, 0.08, 0.16, 0.08, 0);
+  const hs = 0.10 + 0.08 * Math.sin(hop * 5);
+  drawCube(L4.x + s * hs, L4.y, L4.z + c * hs, 0.10, 0.10, 0.10, yaw, 0.70, 1.00, 0.75, 0.40);
+  for (let i = 0; i < 3; i++) {
+    const u = (hop * 0.7 + i * 0.37) % 1;
+    const side = (i % 2 ? 1 : -1);
+    drawCube(m.x + c * 0.28 * side, m.y + (0.55 - u * 0.50) * sy, m.z - s * 0.28 * side, 0.07, 0.07, 0.07, yaw, 0.22, 0.88, 0.32, 0.20);
+  }
 }
 
 function drawFireShot(s) {
@@ -3718,19 +4012,26 @@ function drawServiteur(m) {
   const s = Math.sin(yaw), c = Math.cos(yaw);
   const r = 0.62, g = 0.78, b = 0.52, glow = 0.12;
   const sk = k * sc;
-  drawCube(x + c * 0.1 * k, y + 0.32 * k, z - s * 0.1 * k, 0.1 * sk, 0.64 * sk, 0.1 * sk, yaw, r, g, b, glow);
-  drawCube(x - c * 0.1 * k, y + 0.32 * k, z + s * 0.1 * k, 0.1 * sk, 0.64 * sk, 0.1 * sk, yaw, r, g, b, glow);
+  drawCube(x + c * 0.1 * k, y + 0.36 * k, z - s * 0.1 * k, 0.1 * sk, 0.48 * sk, 0.1 * sk, yaw, r, g, b, glow);
+  drawCube(x - c * 0.1 * k, y + 0.36 * k, z + s * 0.1 * k, 0.1 * sk, 0.48 * sk, 0.1 * sk, yaw, r, g, b, glow);
+  drawCube(x + c * 0.1 * k, y + 0.06 * k, z - s * 0.1 * k, 0.12 * sk, 0.08 * sk, 0.12 * sk, yaw, r, g, b, glow);
+  drawCube(x - c * 0.1 * k, y + 0.06 * k, z + s * 0.1 * k, 0.12 * sk, 0.08 * sk, 0.12 * sk, yaw, r, g, b, glow);
   drawCube(x, y + 0.68 * k, z, 0.28 * sk, 0.12 * sk, 0.18 * sk, yaw, r, g, b, glow);
-  drawCube(x, y + 0.80 * k, z, 0.34 * sk, 0.07 * sk, 0.20 * sk, yaw, r, g, b, glow);
-  drawCube(x, y + 0.92 * k, z, 0.36 * sk, 0.07 * sk, 0.22 * sk, yaw, r, g, b, glow);
-  drawCube(x, y + 1.04 * k, z, 0.32 * sk, 0.07 * sk, 0.20 * sk, yaw, r, g, b, glow);
-  drawCube(x, y + 1.16 * k, z, 0.30 * sk, 0.07 * sk, 0.18 * sk, yaw, r, g, b, glow);
-  drawCube(x, y + 1.42 * k, z, 0.32 * sk, 0.32 * sk, 0.32 * sk, yaw, r * 1.05, g * 1.02, b * 0.95, glow);
+  const ribs = [0.80, 0.96, 1.12];
+  for (let i = 0; i < 3; i++) {
+    drawCube(x + c * 0.16 * k, y + ribs[i] * k, z - s * 0.16 * k, 0.22 * sk, 0.06 * sk, 0.08 * sk, yaw, r, g, b, glow);
+    drawCube(x - c * 0.16 * k, y + ribs[i] * k, z + s * 0.16 * k, 0.22 * sk, 0.06 * sk, 0.08 * sk, yaw, r, g, b, glow);
+  }
+  drawCube(x, y + 0.88 * k, z, 0.10 * sk, 0.10 * sk, 0.10 * sk, yaw, r, g, b, glow);
+  drawCube(x, y + 1.04 * k, z, 0.10 * sk, 0.10 * sk, 0.10 * sk, yaw, r, g, b, glow);
+  drawCube(x, y + 1.20 * k, z, 0.10 * sk, 0.10 * sk, 0.10 * sk, yaw, r, g, b, glow);
+  drawCube(x, y + 1.44 * k, z, 0.28 * sk, 0.22 * sk, 0.28 * sk, yaw, r * 1.05, g * 1.02, b * 0.95, glow);
+  drawCube(x, y + 1.30 * k, z, 0.22 * sk, 0.10 * sk, 0.22 * sk, yaw, r, g, b, glow);
   drawCube(x + c * 0.08 * k + s * 0.12 * k, y + 1.46 * k, z - s * 0.08 * k + c * 0.12 * k, 0.08 * sk, 0.08 * sk, 0.08 * sk, yaw, 0.22, 0.92, 0.42, 0.70);
   drawCube(x - c * 0.08 * k + s * 0.12 * k, y + 1.46 * k, z + s * 0.08 * k + c * 0.12 * k, 0.08 * sk, 0.08 * sk, 0.08 * sk, yaw, 0.22, 0.92, 0.42, 0.70);
   drawCube(x, y + 1.00 * k, z, 0.10 * sk, 0.10 * sk, 0.10 * sk, yaw, 0.22, 0.92, 0.42, 0.45);
-  drawCube(x - c * 0.28 * k, y + 0.95 * k, z + s * 0.28 * k, 0.08 * sk, 0.08 * sk, 0.40 * sk, yaw, r, g, b, glow);
-  drawCube(x + c * 0.28 * k, y + 0.95 * k, z - s * 0.28 * k, 0.08 * sk, 0.08 * sk, 0.40 * sk, yaw, r, g, b, glow);
+  drawCube(x - c * 0.28 * k, y + 0.95 * k, z + s * 0.28 * k, 0.08 * sk, 0.08 * sk, 0.36 * sk, yaw, r, g, b, glow);
+  drawCube(x + c * 0.28 * k, y + 0.95 * k, z - s * 0.28 * k, 0.08 * sk, 0.08 * sk, 0.36 * sk, yaw, r, g, b, glow);
 }
 
 function render() {
@@ -3952,10 +4253,18 @@ function update(dt) {
     const s = Math.sin(player.yaw), c = Math.cos(player.yaw);
     player.vx = (s * mz + c * mx) * sp;
     player.vz = (c * mz - s * mx) * sp;
-    player.face = player.yaw;
+    const lock = document.pointerLockElement === canvas;
+    if (lock) {
+      player.face = player.yaw;
+    } else {
+      const jlen = Math.hypot(joy.dx, joy.dy);
+      if (jlen > 0.15) player.face = lerpAng(player.face, Math.atan2(player.vx, player.vz), 10 * dt);
+      player.yaw = lerpAng(player.yaw, player.face, 6 * dt);
+    }
     if (ml > 0.12) {
       player.bob += dt * 10;
     }
+    runT += dt;
     physics(player, PW, PH, dt);
     if (player.y < -6) die();
     for (const pk of pickups) pk.bob += dt * 3.2;
@@ -3980,6 +4289,7 @@ function update(dt) {
     updateBurning(dt);
     updateMobs(dt);
     updateNpcMage(dt);
+    separateBodies();
     updateShots(dt);
     updateHUD();
   } else {
@@ -4088,8 +4398,6 @@ function onMove(e) {
       const p = joyPos(t.clientX, t.clientY);
       joy.dx = p.dx; joy.dy = p.dy; setKnob();
     } else if (id === lookT.id) {
-      player.yaw -= (t.clientX - lookT.lx) * 0.007;
-      player.face = player.yaw;
       player.pitch = Math.max(-0.5, Math.min(1.05, player.pitch + (t.clientY - lookT.ly) * 0.0055));
       lookT.lx = t.clientX; lookT.ly = t.clientY;
     }
@@ -4398,6 +4706,7 @@ $("btn-play").addEventListener("click", () => {
   homeEl.classList.add("hidden");
   playUI.classList.remove("hidden");
   mode = "play";
+  resetRunStats();
   if (actx && actx.state === "suspended") actx.resume();
 });
 $("btn-retry").addEventListener("click", () => {
@@ -4434,6 +4743,8 @@ try {
   buildWorldMesh();
   spawnPlayer();
   spawnWildlife();
+  bestScore = loadBest();
+  fetchWorld();
   camX = player.x + 8; camY = player.y + 5; camZ = player.z + 9;
   if (/[?&]play\b/.test(location.search)) {
     if (!player.cls) pickClass("feu", 1);
