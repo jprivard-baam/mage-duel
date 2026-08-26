@@ -1691,7 +1691,11 @@ function updateNpcMage(dt) {
   npcPickupAndEat(m, dt);
   const pdist = Math.hypot(player.x - m.x, player.z - m.z);
   if (pdist <= 5) { m.pose = "aggro"; m.leaveT = 0; }
-  else if (m.pose === "aggro" && pdist > 8) m.pose = "farm";
+  else if (m.pose === "aggro") {
+    m.leaveT = (m.leaveT || 0) + dt;
+    if (pdist > 8 || m.leaveT >= 4) { m.pose = "farm"; m.leaveT = 0; }
+  }
+  if (m.pose === "idle" || !m.pose) m.pose = pdist <= 5 ? "aggro" : "farm";
   if (m.swingHitT != null && m.swingHitT >= 0) {
     m.swingHitT -= dt;
     if (m.swingHitT <= 0) {
