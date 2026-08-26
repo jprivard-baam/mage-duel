@@ -16,23 +16,32 @@ func _init() -> void:
 		failed.append("SIZE devrait être 96")
 	if not is_equal_approx(VoxelWorld.CELL, 0.5):
 		failed.append("CELL devrait être 0.5")
-	var chopped := 0
+	var tree_cell := Vector3i(-1, -1, -1)
 	for z in range(10, VoxelWorld.SIZE - 10):
 		for x in range(10, VoxelWorld.SIZE - 10):
 			for y in range(VoxelWorld.HEIGHT - 1, 2, -1):
 				if voxel.get_block(x, y, z) == VoxelWorld.WOOD:
-					chopped = voxel.chop_tree_at(Vector3i(x, y, z))
+					tree_cell = Vector3i(x, y, z)
 					break
-			if chopped > 0:
+			if tree_cell.x >= 0:
 				break
-		if chopped > 0:
+		if tree_cell.x >= 0:
 			break
-	if chopped <= 0:
+	if tree_cell.x < 0:
 		failed.append("aucun arbre à couper")
 	else:
-		game.add_bois(chopped)
-		if int(game.bois) != chopped:
-			failed.append("inventaire Bois incorrect")
+		var center: Vector3 = voxel.cell_center(tree_cell.x, tree_cell.y, tree_cell.z)
+		var origin := center + Vector3(0.0, 0.0, 1.6)
+		var hit: Vector3i = voxel.raycast_tree(origin, Vector3(0, 0, -1), 3.6)
+		if hit.x < 0:
+			failed.append("raycast_tree rate un tronc proche")
+		var chopped := voxel.chop_tree_at(tree_cell)
+		if chopped <= 0:
+			failed.append("chop_tree_at n'a rien donné")
+		else:
+			game.add_bois(chopped)
+			if int(game.bois) != chopped:
+				failed.append("inventaire Bois incorrect")
 	game.apply_damage(250.0)
 	if not bool(game.is_dead):
 		failed.append("la mort ne se déclenche pas")

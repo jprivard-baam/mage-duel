@@ -6,7 +6,7 @@ const JUMP_VELOCITY := 6.3
 const LOOK_SENS := 0.22
 const PITCH_MIN := -1.15
 const PITCH_MAX := 0.42
-const CHOP_RANGE := 2.6
+const CHOP_RANGE := 3.6
 
 @onready var model: Node3D = $Model
 @onready var cam_pivot: Node3D = $CamPivot

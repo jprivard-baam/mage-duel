@@ -13,7 +13,7 @@ const MAX_MANA := 100.0
 const HUNGER_DRAIN := 0.85
 const MANA_REGEN := 14.0
 const STARVE_DPS := 7.0
-const DAY_LENGTH := 96.0
+const DAY_LENGTH := 150.0
 
 const SPELLS := {
 	"feu": {"cout": 22.0, "degats": 34.0, "vitesse": 14.0, "couleur": Color(1.0, 0.38, 0.12), "rayon": 0.22},
@@ -28,7 +28,7 @@ var bois: int = 0
 var is_dead: bool = false
 var is_night: bool = false
 ## 0 = aube. Commence en matinée pour laisser le temps de s'orienter.
-var world_time: float = 12.0
+var world_time: float = 4.0
 var can_chop: bool = false
 
 var move_stick: Vector2 = Vector2.ZERO
@@ -44,7 +44,7 @@ func reset() -> void:
 	bois = 0
 	is_dead = false
 	is_night = false
-	world_time = 12.0
+	world_time = 4.0
 	can_chop = false
 	move_stick = Vector2.ZERO
 	jump_queued = false

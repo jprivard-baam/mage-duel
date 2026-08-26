@@ -18,4 +18,6 @@ android/build/
 *.xcarchive
 *.pck.bak
 .import/
-__pycache__/
+docs/*.import
+docs/*.uid
+

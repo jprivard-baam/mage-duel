@@ -106,20 +106,34 @@ func raycast_tree(origin: Vector3, dir: Vector3, max_dist: float) -> Vector3i:
 	if dir.length() < 0.001:
 		return Vector3i(-1, -1, -1)
 	dir = dir.normalized()
-	var step := CELL * 0.28
-	var dist := 0.0
-	var last := Vector3i(-999, -999, -999)
-	while dist <= max_dist:
-		var cell := world_to_cell(origin + dir * dist)
-		if cell != last:
-			last = cell
-			var b := get_block(cell.x, cell.y, cell.z)
-			if b == WOOD or b == LEAF:
-				return cell
-			if b == DIRT or b == ROCK:
-				return Vector3i(-1, -1, -1)
-		dist += step
-	return Vector3i(-1, -1, -1)
+	var best := Vector3i(-1, -1, -1)
+	var best_d := max_dist + 0.05
+	var reach := max_dist + CELL * 2.0
+	var minc := world_to_cell(origin - Vector3(reach, 1.4, reach))
+	var maxc := world_to_cell(origin + Vector3(reach, 2.6, reach))
+	minc.x = clampi(minc.x, 0, SIZE - 1)
+	maxc.x = clampi(maxc.x, 0, SIZE - 1)
+	minc.y = clampi(minc.y, 0, HEIGHT - 1)
+	maxc.y = clampi(maxc.y, 0, HEIGHT - 1)
+	minc.z = clampi(minc.z, 0, SIZE - 1)
+	maxc.z = clampi(maxc.z, 0, SIZE - 1)
+	for y in range(minc.y, maxc.y + 1):
+		for z in range(minc.z, maxc.z + 1):
+			for x in range(minc.x, maxc.x + 1):
+				if not is_tree(x, y, z):
+					continue
+				var p := cell_center(x, y, z)
+				var to := p - origin
+				var dist := to.length()
+				if dist > max_dist or dist < 0.05:
+					continue
+				var align := to.normalized().dot(dir)
+				if align < 0.25:
+					continue
+				if dist < best_d:
+					best_d = dist
+					best = Vector3i(x, y, z)
+	return best
 
 
 func chop_tree_at(cell: Vector3i) -> int:
