@@ -1,10 +1,10 @@
 ; Engine configuration file.
-; Mage Duel — Survie en cubes (Godot 4)
+; Cubemancy — Survie en cubes (Godot 4)
 config_version=5
 
 [application]
 
-config/name="Mage Duel"
+config/name="Cubemancy"
 config/description="Survie en cubes — prototype iPhone / HTML5"
 config/version="0.1.0"
 run/main_scene="res://scenes/home.tscn"

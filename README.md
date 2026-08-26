@@ -1,8 +1,8 @@
-# Mage Duel — Survie en cubes
+# Cubemancy — Survie en cubes
 
 Prototype **Godot 4** de survie Cube World-like, pensé **iPhone** (joystick tactile). Pas d’app Swift, pas de Steam.
 
-Titre : **Mage Duel** · sous-titre **Survie en cubes** · bouton **Jouer**.
+Titre : **Cubemancy** · sous-titre **Survie en cubes** · bouton **Jouer**.
 
 ## Ouvrir dans Godot 4
 
