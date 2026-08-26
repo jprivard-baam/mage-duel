@@ -1,0 +1,55 @@
+; Engine configuration file.
+; Mage Duel — Survie en cubes (Godot 4)
+config_version=5
+
+[application]
+
+config/name="Mage Duel"
+config/description="Survie en cubes — prototype iPhone / HTML5"
+config/version="0.1.0"
+run/main_scene="res://scenes/home.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+config/icon="res://icon.svg"
+boot_splash/bg_color=Color(0.027451, 0.0156863, 0.054902, 1)
+boot_splash/show_image=false
+
+[autoload]
+
+Game="*res://autoload/game.gd"
+
+[display]
+
+window/size/viewport_width=844
+window/size/viewport_height=390
+window/size/extend_to_title=true
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=6
+window/vsync/vsync_mode=1
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+pointing/emulate_mouse_from_touch=true
+
+[layer_names]
+
+3d_physics/layer_1="terrain"
+3d_physics/layer_2="joueur"
+3d_physics/layer_3="ennemis"
+3d_physics/layer_4="sorts"
+
+[physics]
+
+3d/default_gravity=22.0
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+renderer/rendering_method.web="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+anti_aliasing/quality/msaa_3d=0
+environment/defaults/default_clear_color=Color(0.31, 0.52, 0.78, 1)
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/size.mobile=1024
