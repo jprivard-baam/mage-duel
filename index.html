@@ -108,6 +108,32 @@ html, body {
   0%,100%{ box-shadow: 0 0 0 1px #7a5c12, 4px 4px 0 #3a2a08, 0 0 20px rgba(212,175,55,.4), inset 0 1px 0 rgba(255,255,255,.55); }
   50%{ box-shadow: 0 0 0 1px #c9a227, 4px 4px 0 #3a2a08, 0 0 36px rgba(212,175,55,.7), inset 0 1px 0 rgba(255,255,255,.55); }
 }
+
+.tag-wrap { margin: 0 auto 18px; max-width: 260px; }
+.tag-wrap label {
+  display: block; font-size: 10px; letter-spacing: .22em;
+  text-transform: uppercase; color: #9b8bb8; margin-bottom: 6px;
+}
+#tag-in {
+  appearance: none; width: 100%; box-sizing: border-box;
+  font-family: var(--font-d); font-size: 16px; font-weight: 700;
+  letter-spacing: .14em; text-align: center; text-transform: uppercase;
+  color: var(--cream);
+  background: rgba(8,4,16,.72);
+  border: 2px solid rgba(212,175,55,.55);
+  border-radius: 10px; padding: 10px 14px;
+  box-shadow: 0 4px 0 rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+  outline: none;
+}
+#tag-in::placeholder { color: #7a6d96; letter-spacing: .16em; }
+#tag-in:focus { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 0 rgba(0,0,0,.35); }
+#tag-hud {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-d); font-size: 12px; letter-spacing: .16em;
+  text-transform: uppercase; color: #f4e4a6;
+  text-shadow: 0 1px 0 #3a2a08, 0 0 10px rgba(212,175,55,.35);
+  pointer-events: none; white-space: nowrap;
+}
 .home-hint {
   margin-top: 18px;
   font-size: 11px;
@@ -461,6 +487,10 @@ html, body {
     <h1>Cubemancy</h1>
     <div class="gold-rule"></div>
     <div class="sub">Survive. Cast. Cube.</div>
+    <div class="tag-wrap">
+      <label for="tag-in">Ton tag</label>
+      <input id="tag-in" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="TON TAG" />
+    </div>
     <div class="class-pick" id="class-pick">
       <button type="button" class="cls-btn" data-cls="feu"><span class="cls-dot"></span>Feu</button>
       <button type="button" class="cls-btn" data-cls="glace"><span class="cls-dot"></span>Glace</button>
@@ -474,6 +504,7 @@ html, body {
 </div>
 <div id="play-ui" class="ui hidden">
   <div id="hud">
+    <div id="tag-hud"></div>
     <div class="stat"><label>PV</label><div class="track"><i id="hp-i"></i></div></div>
     <div class="stat"><label>Faim</label><div class="track"><i id="hun-i"></i></div></div>
     <div class="stat"><label>Mana</label><div class="track"><i id="man-i"></i></div></div>
@@ -962,7 +993,7 @@ const player = {
   priRank: 0, secRank: 0, pvRank: 0, manaRank: 0, spdRank: 0, armRank: 0, regRank: 0, punchRank: 0, hungerRank: 0,
   priBonus: 0, secBonus: 0, spdBonus: 0, armDR: 0, regBonus: 0, punchBonus: 0, hungerMul: 1,
   qUnlockL: 0, draftQueue: [], noSecStreak: 0,
-  slow: 0
+  slow: 0, tag: ""
 };
 const PW = 0.26, PH = 1.48;
 const mobs = [];
@@ -3287,6 +3318,8 @@ function updateHUD() {
   const xpFrac = player.level >= MAX_LVL ? 1 : player.xp / Math.max(1, xpToNext(player.level));
   if (xpI) xpI.style.transform = "scaleX(" + Math.max(0, Math.min(1, xpFrac)) + ")";
   if (lvlLab) lvlLab.textContent = "N." + player.level;
+  const tagHud = $("tag-hud");
+  if (tagHud) tagHud.textContent = player.tag || "";
   clockEl.textContent = isNight() ? "☾" : "☀";
   const sortBtn = $("btn-sort");
   if (sortBtn) sortBtn.classList.toggle("off", !player.cls || player.mana < spellCost(player.cls, 1));
@@ -3722,10 +3755,35 @@ function bindPick(id, slot) {
     if (b) pickClass(b.dataset.cls, slot);
   });
 }
+
+function sanitizeTag(v) {
+  v = String(v || "").replace(/[^\w\- ]/g, "").replace(/\s+/g, " ").trim();
+  return v.slice(0, 16);
+}
+function loadTag() {
+  try { return sanitizeTag(localStorage.getItem("cubemancy_tag") || ""); } catch (e) { return ""; }
+}
+function saveTag(v) {
+  player.tag = sanitizeTag(v);
+  try { localStorage.setItem("cubemancy_tag", player.tag); } catch (e) {}
+  const inp = $("tag-in");
+  if (inp && inp.value !== player.tag) inp.value = player.tag;
+}
+const tagIn = $("tag-in");
+if (tagIn) {
+  tagIn.value = loadTag();
+  player.tag = tagIn.value;
+  tagIn.addEventListener("input", () => saveTag(tagIn.value));
+  tagIn.addEventListener("change", () => saveTag(tagIn.value));
+  tagIn.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.code === "Enter") { e.preventDefault(); tagIn.blur(); } });
+  tagIn.addEventListener("keyup", (e) => { e.stopPropagation(); });
+}
+
 bindPick("class-pick", 1);
 
 $("btn-play").addEventListener("click", () => {
   if (!player.cls) return;
+  if (tagIn) saveTag(tagIn.value);
   applyClassUI();
   beep(330, 0.08, 0.04, "triangle");
   homeEl.classList.add("hidden");
