@@ -326,6 +326,12 @@ html, body {
   color: #1a1004;
   font-size: 12px;
 }
+#btn-eat {
+  width: 62px; height: 62px;
+  background: radial-gradient(circle at 35% 30%, #fde68a, #b45309 55%, #7c2d12);
+  color: #fff8e8;
+  font-size: 10px;
+}
 #btn-frap {
   width: 72px; height: 72px;
   background: radial-gradient(circle at 35% 30%, #e8c090, #8b5a2b 55%, #4a2c12);
@@ -334,6 +340,7 @@ html, body {
   letter-spacing: .06em;
 }
 #hotbar {
+  pointer-events: none;
   position: absolute;
   left: 50%;
   bottom: calc(22px + var(--safe-b));
@@ -343,6 +350,7 @@ html, body {
   pointer-events: none;
   z-index: 2;
 }
+#slot-viande { pointer-events: auto; cursor: pointer; }
 .slot {
   width: 58px; height: 62px;
   background: rgba(8,4,16,.62);
@@ -425,7 +433,13 @@ html, body {
   #joy-wrap { width: 110px; height: 110px; bottom: calc(12px + var(--safe-b)); }
   #joy-base { width: 110px; height: 110px; }
   .abtn { width: 52px; height: 52px; font-size: 10px; }
-  #btn-saut, #btn-frap { width: 60px; height: 60px; }
+  #btn-saut, #btn-eat {
+  width: 62px; height: 62px;
+  background: radial-gradient(circle at 35% 30%, #fde68a, #b45309 55%, #7c2d12);
+  color: #fff8e8;
+  font-size: 10px;
+}
+#btn-frap { width: 60px; height: 60px; }
   #btn-sort { width: 68px; height: 68px; font-size: 11px; }
   .class-pick { margin-bottom: 6px; gap: 4px; }
   .cls-btn { width: 46px; min-height: 50px; font-size: 8px; letter-spacing: .04em; gap: 4px; padding: 4px 1px; }
@@ -490,6 +504,7 @@ html, body {
       <button class="abtn" id="btn-sort" type="button">Sort</button>
     </div>
     <div class="spells">
+      <button class="abtn" id="btn-eat" type="button">Manger</button>
       <button class="abtn" id="btn-frap" type="button">Frapper</button>
       <button class="abtn" id="btn-saut" type="button">Saut</button>
     </div>
@@ -861,6 +876,7 @@ function xpFor(kind) {
   if (kind === "slime") return 14;
   if (kind === "zombie") return 28;
   if (kind === "squelette") return 24;
+  if (kind === "chevreuil") return 8;
   return 0;
 }
 function grantXp(n) {
@@ -938,7 +954,7 @@ function spawnPlayer() {
   player.priRank = 0; player.secRank = 0; player.pvRank = 0; player.manaRank = 0;
   player.spdRank = 0; player.armRank = 0; player.regRank = 0; player.punchRank = 0; player.hungerRank = 0;
   player.priBonus = 0; player.secBonus = 0; player.spdBonus = 0; player.armDR = 0;
-  player.regBonus = 0; player.punchBonus = 0; player.hungerMul = 1;
+  player.regBonus = 0; player.punchBonus = 0; player.hungerMul = 1; player.hungerRed = 0;
   player.qUnlockL = 0; player.draftQueue = []; player.noSecStreak = 0;
   player.cls2 = null;
   runSeed = (Math.random() * 1e9) | 0;
@@ -1057,6 +1073,7 @@ function killMob(m) {
   m.dead = true;
   if (m.kind === "chevreuil") {
     spawnPickup("viande", m.x, m.y + 0.1, m.z);
+    grantXp(xpFor("chevreuil"));
     toast("Chevreuil");
     beep(520, 0.1, 0.05, "triangle");
   } else if (HOSTILE[m.kind]) {
@@ -1136,7 +1153,8 @@ function mobArm(kind) {
   if (kind === "serviteur") return SERV_ARM;
   return CERF_ARM;
 }
-function spellCost(kind) {
+function spellCost(kind, slot) {
+  if (kind === "necro" && slot === 2) return 28;
   if (kind === "feu") return 26;
   if (kind === "glace") return 22;
   if (kind === "foudre") return 32;
@@ -1144,7 +1162,8 @@ function spellCost(kind) {
   if (kind === "necro") return 24;
   return 26;
 }
-function spellCdFor(kind) {
+function spellCdFor(kind, slot) {
+  if (kind === "necro" && slot === 2) return 7.0;
   if (kind === "foudre") return 0.5;
   if (kind === "arcane") return 0.28;
   if (kind === "necro") return 0.55;
@@ -1155,8 +1174,18 @@ function spellLabel(kind) {
   if (kind === "glace") return "Glace";
   if (kind === "foudre") return "Foudre";
   if (kind === "arcane") return "Missile";
-  if (kind === "necro") return "Invocation";
+  if (kind === "necro") return "Nécro";
   return "Sort";
+}
+function servAtk() {
+  const u = player.qUnlockL || player.level || 1;
+  const lvlK = 1 + 0.035 * Math.max(0, (player.level || 1) - u);
+  return Math.round(SERV_ATK * lvlK * (1 + (player.secBonus || 0)));
+}
+function isPetPrey(o) {
+  if (!o || o.dead) return false;
+  if (o.kind === "serviteur") return false;
+  return !!(HOSTILE[o.kind] || o.kind === "chevreuil");
 }
 function shotDmg(kind) {
   let base = DMG_PUNCH;
@@ -1222,6 +1251,7 @@ function killServiteur(m) {
   burst(m.x, m.y + 0.45, m.z, 0.22, 0.92, 0.42, 3, 3.2, { style: "spark" });
 }
 function spawnServiteur(x, z) {
+  if (player.cls2 !== "necro") return;
   const allies = [];
   for (let i = 0; i < mobs.length; i++) {
     const m = mobs[i];
@@ -1302,17 +1332,20 @@ function clearHostiles() {
   }
 }
 
+function eatViande() {
+  if (mode !== "play") return;
+  if (eatCD > 0) return;
+  if ((player.viande | 0) < 1) return;
+  if (player.hunger >= 100) return;
+  player.viande--;
+  player.hunger = Math.min(100, player.hunger + CERF_FOOD);
+  eatCD = 0.6;
+  toast("Viande");
+  beep(660, 0.06, 0.04, "triangle");
+}
 function tryEat(dt) {
   eatCD -= dt;
   if (eatCD > 0 || player.hunger >= 99) return;
-  if (player.viande > 0 && player.hunger < 50) {
-    player.viande--;
-    player.hunger = Math.min(100, player.hunger + CERF_FOOD);
-    eatCD = 0.55;
-    toast("Viande");
-    beep(660, 0.06, 0.04, "triangle");
-    return;
-  }
   const x0 = Math.floor(player.x - 1.35), x1 = Math.floor(player.x + 1.35);
   const y0 = Math.floor(player.y), y1 = Math.floor(player.y + 2.1);
   const z0 = Math.floor(player.z - 1.35), z1 = Math.floor(player.z + 1.35);
@@ -1362,10 +1395,10 @@ function cast(kind, slot) {
   slot = slot === 2 ? 2 : 1;
   if (slot === 2) { if (spellCD2 > 0) return; }
   else if (spellCD > 0) return;
-  const cost = spellCost(kind);
+  const cost = spellCost(kind, slot);
   if (player.mana < cost) { beep(110, 0.08, 0.03, "sine"); return; }
   player.mana -= cost;
-  const cd = spellCdFor(kind);
+  const cd = spellCdFor(kind, slot);
   if (slot === 2) spellCD2 = cd; else spellCD = cd;
   lastSpell = kind;
   const fwd = faceFwd();
@@ -1424,12 +1457,19 @@ function cast(kind, slot) {
     });
   } else if (kind === "necro") {
     beep(180, 0.09, 0.05, "sawtooth");
-    const spd = 12;
-    shots.push({
-      kind, x: ox, y: oy, z: oz,
-      vx: fwd.x * spd, vy: 0.45, vz: fwd.z * spd,
-      life: 1.8, age: 0, trail: 0
-    });
+    if (slot === 2 && player.cls2 === "necro") {
+      const sx = player.x + fwd.x * 1.2;
+      const sz = player.z + fwd.z * 1.2;
+      impactNecro(sx, player.y, sz);
+      spawnServiteur(sx, sz);
+    } else {
+      const spd = 12;
+      shots.push({
+        kind, x: ox, y: oy, z: oz,
+        vx: fwd.x * spd, vy: 0.45, vz: fwd.z * spd,
+        life: 1.8, age: 0, trail: 0
+      });
+    }
   } else {
     const spd = kind === "feu" ? 17 : 14;
     beep(kind === "feu" ? 240 : 500, 0.07, 0.05, "square");
@@ -1585,15 +1625,36 @@ function updateMobs(dt) {
         killServiteur(m);
         continue;
       }
-      let best = null, bestD = 24;
-      for (let i = 0; i < mobs.length; i++) {
-        const o = mobs[i];
-        if (o.dead || !HOSTILE[o.kind]) continue;
-        const dd = Math.hypot(o.x - m.x, o.z - m.z);
-        if (dd < bestD) { bestD = dd; best = o; }
+      let tgt = m.target;
+      if (tgt && !isPetPrey(tgt)) tgt = null;
+      if (tgt) {
+        const td = Math.hypot(tgt.x - m.x, tgt.z - m.z);
+        if (td > 28) tgt = null;
       }
-      if (best) {
-        const bx = best.x - m.x, bz = best.z - m.z;
+      if (!tgt) {
+        let best = null, bestD = 24;
+        for (let i = 0; i < mobs.length; i++) {
+          const o = mobs[i];
+          if (o.dead) continue;
+          if (o.kind === "serviteur") continue;
+          if (!(HOSTILE[o.kind] || o.kind === "chevreuil")) continue;
+          const dd = Math.hypot(o.x - m.x, o.z - m.z);
+          if (dd < bestD) { bestD = dd; best = o; }
+        }
+        tgt = best;
+      }
+      m.target = tgt;
+      const pdx = player.x - m.x, pdz = player.z - m.z;
+      const pd = Math.hypot(pdx, pdz) || 1;
+      if (pd > 36) {
+        const ang = player.face + Math.PI;
+        m.x = player.x + Math.sin(ang) * 1.5;
+        m.z = player.z + Math.cos(ang) * 1.5;
+        m.y = highest(m.x, m.z) + 1.05;
+        m.vx = 0; m.vz = 0;
+      }
+      if (tgt) {
+        const bx = tgt.x - m.x, bz = tgt.z - m.z;
         const bd = Math.hypot(bx, bz) || 1;
         m.yaw = Math.atan2(bx, bz);
         m.vx = (bx / bd) * SERV_SPD;
@@ -1601,8 +1662,13 @@ function updateMobs(dt) {
         physics(m, 0.22, 1.15, dt);
         if (bd < 1.25 && m.atk <= 0) {
           m.atk = 0.85;
-          hurtMob(best, SERV_ATK, bx / bd, bz / bd, 4);
+          hurtMob(tgt, servAtk(), bx / bd, bz / bd, 4);
         }
+      } else if (pd > 2.5) {
+        m.yaw = Math.atan2(pdx, pdz);
+        m.vx = (pdx / pd) * SERV_SPD;
+        m.vz = (pdz / pd) * SERV_SPD;
+        physics(m, 0.22, 1.15, dt);
       } else {
         m.vx *= 0.85; m.vz *= 0.85;
         physics(m, 0.22, 1.15, dt);
@@ -1611,11 +1677,20 @@ function updateMobs(dt) {
     }
 
     if (m.kind === "chevreuil") {
-      if (dist < 10) {
-        m.yaw = Math.atan2(-dx, -dz);
+      let fx = player.x, fz = player.z, fd = dist;
+      for (let i = 0; i < mobs.length; i++) {
+        const s = mobs[i];
+        if (s.dead || s.kind !== "serviteur") continue;
+        const sd = Math.hypot(m.x - s.x, m.z - s.z);
+        if (sd < fd) { fd = sd; fx = s.x; fz = s.z; }
+      }
+      if (fd < 10) {
+        const fdx = m.x - fx, fdz = m.z - fz;
+        const fl = Math.hypot(fdx, fdz) || 1;
+        m.yaw = Math.atan2(fdx, fdz);
         const sp = CERF_FLEE * spMul;
-        m.vx = (-dx / dist) * sp;
-        m.vz = (-dz / dist) * sp;
+        m.vx = (fdx / fl) * sp;
+        m.vz = (fdz / fl) * sp;
         m.grazing = false;
       } else {
         m.wander = (m.wander || 0) + dt;
@@ -1733,7 +1808,6 @@ function impactNecro(x, y, z) {
       age: 0, life: 0.8, s: 0.20, r: 0.10, g: 0.45, b: 0.22, glow: 0.15
     });
   }
-  spawnServiteur(x, z);
 }
 function steerArcane(s, dt) {
   let tgt = s.target;
@@ -2245,6 +2319,8 @@ function updateHUD() {
   if (sort2) sort2.classList.toggle("off", !player.cls2 || player.mana < spellCost(player.cls2));
   const bn = $("bois-n"); if (bn) bn.textContent = String(player.bois | 0);
   const vn = $("viande-n"); if (vn) vn.textContent = String(player.viande | 0);
+  const eatBtn = $("btn-eat");
+  if (eatBtn) eatBtn.classList.toggle("off", (player.viande | 0) < 1 || player.hunger >= 100 || eatCD > 0);
   if (toastT > 0) {
     toastT -= 0.016;
     if (toastT <= 0) toastEl.classList.remove("show");
@@ -2346,7 +2422,7 @@ function uiEl(t) {
 window.addEventListener("keydown", (e) => {
   keys[e.code] = true;
   if (e.code === "Space") { e.preventDefault(); jump(); }
-  if (e.code === "KeyF") { e.preventDefault(); punch(); }
+  if (e.code === "KeyF") { e.preventDefault(); eatViande(); }
   if (e.code === "KeyE") { e.preventDefault(); if (player.cls) cast(player.cls, 1); }
   if (e.code === "KeyR" || e.code === "KeyQ") { e.preventDefault(); if (player.cls2) cast(player.cls2, 2); }
 }, { passive: false });
@@ -2426,9 +2502,10 @@ function paintSort(btn, cls) {
   btn.classList.remove("feu", "glace", "foudre", "arcane", "necro");
   if (cls) {
     btn.classList.add(cls);
-    btn.textContent = spellLabel(cls);
+    if (cls === "necro") btn.textContent = btn.id === "btn-sort2" ? "Mort-vivant" : "Boule verte";
+    else btn.textContent = spellLabel(cls);
   } else {
-    btn.textContent = "—";
+    btn.textContent = btn.id === "btn-sort2" ? "Q" : "—";
   }
 }
 function applyClassUI() {
@@ -2473,7 +2550,7 @@ function draftAtCap(id) {
   if (id === "ARM") return (player.armRank || 0) >= 10;
   if (id === "REG") return (player.regRank || 0) >= 8;
   if (id === "PUNCH") return (player.punchRank || 0) >= 8;
-  if (id === "FAIM") return (player.hungerRank || 0) >= 5;
+  if (id === "FAIM") return (player.hungerRank || 0) >= 4;
   return false;
 }
 function secKinds() {
@@ -2498,7 +2575,7 @@ function cardFromId(id, kind) {
   if (id === "ARM") return { id: id, title: "Armure +", body: "+" + (Math.round(3 * m * 10) / 10) + " % réduction" };
   if (id === "REG") return { id: id, title: "Régén +", body: "+" + (Math.round(0.8 * m * 10) / 10) + " mana/s" };
   if (id === "PUNCH") return { id: id, title: "Frappe +", body: "+" + rhu(8 * m) + " dégâts" };
-  if (id === "FAIM") return { id: id, title: "Survie", body: "Faim 20 % plus lente" };
+  if (id === "FAIM") { const step = boostMul() > 1 ? 30 : 20; return { id: id, title: "Faim -", body: "Drain -" + step + " % (max -80 %). +20 faim" }; }
   return { id: id, title: id, body: "" };
 }
 function weightTable(L, unlocked) {
@@ -2515,10 +2592,10 @@ function weightTable(L, unlocked) {
     add("UP_E", wE);
     const sk = secKinds();
     for (let i = 0; i < sk.length; i++) add("SEC_" + sk[i], wSec, sk[i]);
-    add("PV", wPv); add("MANA", wMa); add("SPD", wSp); add("ARM", wAr); add("REG", wRg); add("PUNCH", wPu); add("FAIM", 6);
+    add("PV", wPv); add("MANA", wMa); add("SPD", wSp); add("ARM", wAr); add("REG", wRg); add("PUNCH", wPu); add("FAIM", L <= 4 ? 12 : L <= 9 ? 10 : 8);
   } else {
     add("UP_E", 26); add("UP_Q", 22);
-    add("PV", 18); add("MANA", 16); add("SPD", 10); add("ARM", 8); add("REG", 8); add("PUNCH", 6); add("FAIM", 6);
+    add("PV", 18); add("MANA", 16); add("SPD", 10); add("ARM", 8); add("REG", 8); add("PUNCH", 6); add("FAIM", 12);
   }
   return items;
 }
@@ -2619,7 +2696,7 @@ function applyDraft(c) {
   else if (c.id === "ARM") { player.armRank++; player.armDR = (player.armDR || 0) + 0.03 * m; }
   else if (c.id === "REG") { player.regRank++; player.regBonus = (player.regBonus || 0) + 0.8 * m; }
   else if (c.id === "PUNCH") { player.punchRank++; player.punchBonus = (player.punchBonus || 0) + rhu(8 * m); }
-  else if (c.id === "FAIM") { player.hungerRank++; player.hungerMul = (player.hungerMul || 1) * 0.8; }
+  else if (c.id === "FAIM") { player.hungerRank++; const step = boostMul() > 1 ? 0.30 : 0.20; player.hungerRed = (player.hungerRed || 0) + step; player.hungerMul = Math.max(0.20, 1 - player.hungerRed); player.hunger = Math.min(100, (player.hunger || 0) + 20); }
   applyClassUI();
   if (player.draftQueue && player.draftQueue.length) player.draftQueue.shift();
   beep(520, 0.08, 0.04, "triangle");
@@ -2666,6 +2743,7 @@ $("btn-retry").addEventListener("click", () => {
   playUI.classList.remove("hidden");
 });
 $("btn-saut").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); jump(); });
+$("btn-eat").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); eatViande(); });
 $("btn-frap").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); punch(); });
 $("btn-sort").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (player.cls) cast(player.cls, 1); });
 $("btn-sort2").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (player.cls2) cast(player.cls2, 2); });
