@@ -4465,7 +4465,7 @@ function update(dt) {
     mz += -jv.dy;
     const ml = Math.hypot(mx, mz);
     if (ml > 1) { mx /= ml; mz /= ml; }
-    const sp = 4.5 * (1 + (player.spdBonus || 0)) * (player.para > 0 ? 0.25 : player.slow > 0 ? 0.45 : 1);
+    const sp = 9 * (1 + (player.spdBonus || 0)) * (player.para > 0 ? 0.25 : player.slow > 0 ? 0.45 : 1);
     const s = Math.sin(player.yaw), c = Math.cos(player.yaw);
     player.vx = (s * mz + c * mx) * sp;
     player.vz = (c * mz - s * mx) * sp;
