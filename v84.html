@@ -1349,6 +1349,15 @@ function lookDir() {
     z: Math.cos(yaw) * cp
   };
 }
+function lookAim(yawOff) {
+  const yaw = player.face + (yawOff || 0);
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  return {
+    x: Math.sin(yaw) * cp,
+    y: -sp,
+    z: Math.cos(yaw) * cp
+  };
+}
 function clampBallDir(d) {
   d.y = Math.max(-0.22, Math.min(0.08, d.y));
   const n = Math.hypot(d.x, d.y, d.z) || 1;
@@ -2817,14 +2826,14 @@ function applyGlaceQImpact(x, y, z) {
 function launchPendingShot(s) {
   const gem = staffGemPos();
   const ox = gem.x, oy = gem.y, oz = gem.z;
-  const yaw = player.face + (s.yawOff || 0);
-  const fxv = Math.sin(yaw), fzv = Math.cos(yaw);
+  const d = lookAim(s.yawOff || 0);
   s.x = ox; s.y = oy; s.z = oz;
   const spd = s.spd || 14;
-  s.vx = fxv * spd;
-  s.vy = s.kind === "arcane" ? 0 : s.vy;
-  s.vz = fzv * spd;
-  if (s.kind === "feu") { s.vy = 0; stampDir0(s); }
+  const n = Math.hypot(d.x, d.y, d.z) || 1;
+  s.vx = d.x / n * spd;
+  s.vy = d.y / n * spd;
+  s.vz = d.z / n * spd;
+  if (s.kind === "feu") stampDir0(s);
   s.pending = false;
   s.age = 0;
   if (s.q && s.kind === "arcane") {
@@ -2956,7 +2965,7 @@ function cast(kind, slot) {
     beep(640, 0.07, 0.05, "triangle");
     const q = isQCast(kind, slot);
     const spd = 14;
-    const yaw0 = Math.atan2(look.x, look.z);
+    const aim = lookDir();
     const sal = sk2Row("SK2_ARC_SALVE");
     const foc = sk2Row("SK2_ARC_FOCUS");
     const acq = foc ? foc.acquire : 5;
@@ -2967,7 +2976,7 @@ function cast(kind, slot) {
     const extraMul = (sal ? sal.dmg : 0.50) * (foc ? (1 + foc.dmg) : 1);
     shots.push({
       kind, x: ox, y: oy, z: oz,
-      vx: Math.sin(yaw0) * spd, vy: 0, vz: Math.cos(yaw0) * spd,
+      vx: aim.x * spd, vy: aim.y * spd, vz: aim.z * spd,
       life: 5.0, age: 0, trail: 0, q: q, target: lock, spd: spd
     });
     if (extras > 0) {
@@ -3004,9 +3013,10 @@ function cast(kind, slot) {
       });
     } else {
       const spd = 12;
+      const aim = lookDir();
       shots.push({
         kind, x: ox, y: oy, z: oz,
-        vx: fwd.x * spd, vy: 0.45, vz: fwd.z * spd,
+        vx: aim.x * spd, vy: aim.y * spd, vz: aim.z * spd,
         life: 1.8, age: 0, trail: 0
       });
     }
@@ -3017,29 +3027,15 @@ function cast(kind, slot) {
     const n = 1;
     const spread = q && qRank() >= 8 ? 12 : 8;
     const offs = yawSpread(n, spread);
-    if (kind === "feu") {
-      const xz = Math.hypot(look.x, look.z) || 1;
-      for (let i = 0; i < n; i++) {
-        const yaw = Math.atan2(look.x, look.z) + offs[i];
-        const shot = {
-          kind, x: ox, y: oy, z: oz,
-          vx: Math.sin(yaw) * 17, vy: 0, vz: Math.cos(yaw) * 17,
-          life: 2.4, age: 0, trail: 0, q: q
-        };
-        stampDir0(shot);
-        shots.push(shot);
-      }
-    } else {
-      const aim = clampBallDir({ x: look.x, y: look.y, z: look.z });
-      const xz = Math.hypot(aim.x, aim.z);
-      for (let i = 0; i < n; i++) {
-        const yaw = Math.atan2(aim.x, aim.z) + offs[i];
-        shots.push({
-          kind, x: ox, y: oy, z: oz,
-          vx: Math.sin(yaw) * xz * spd, vy: aim.y * spd, vz: Math.cos(yaw) * xz * spd,
-          life: 1.7, age: 0, trail: 0, q: q
-        });
-      }
+    for (let i = 0; i < n; i++) {
+      const aim = lookAim(offs[i]);
+      const shot = {
+        kind, x: ox, y: oy, z: oz,
+        vx: aim.x * spd, vy: aim.y * spd, vz: aim.z * spd,
+        life: kind === "feu" ? 2.4 : 1.7, age: 0, trail: 0, q: q
+      };
+      if (kind === "feu") stampDir0(shot);
+      shots.push(shot);
     }
   }
 }
@@ -3064,18 +3060,23 @@ function resolveStaffHit() {
   const gcol = mageGemColor(player.cls);
   fx.push({ type:"flash", x:gem.x, y:gem.y, z:gem.z, age:0, life:0.08, s:0.20, r:gcol[0], g:gcol[1], b:gcol[2], glow:0.9 });
   const ox = player.x, oy = player.y + 0.9, oz = player.z;
+  const pb = hitBox(player);
+  const py0 = player.y + pb.y0, py1 = player.y + pb.y1;
   for (let i = 0; i < mobs.length; i++) {
     const m = mobs[i];
     if (!m || m.dead || m.kind === "serviteur") continue;
     const box = bodyAABB(m);
+    if (box.y1 < py0 || box.y0 > py1) continue;
     const cx = Math.max(box.x - box.hx, Math.min(ox, box.x + box.hx));
-    const cy = Math.max(box.y0, Math.min(oy, box.y1));
     const cz = Math.max(box.z - box.hz, Math.min(oz, box.z + box.hz));
-    const dx = cx - ox, dy = cy - oy, dz = cz - oz;
-    const dist = Math.hypot(dx, dy, dz);
-    if (dist > 2.2 || dist < 0.01) continue;
-    const dot = (dx / dist) * fwd.x + (dz / dist) * fwd.z;
-    if (dot < COS) continue;
+    const dx = cx - ox, dz = cz - oz;
+    const dist = Math.hypot(dx, dz);
+    if (dist > 2.2) continue;
+    if (dist >= 0.01) {
+      const dot = (dx / dist) * fwd.x + (dz / dist) * fwd.z;
+      if (dot < COS) continue;
+    }
+    const cy = Math.max(box.y0, Math.min(oy, box.y1));
     if (!staffLosClear(ox, oy, oz, cx, cy, cz)) continue;
     if (dist < bestD) { bestD = dist; best = m; }
   }
@@ -3860,14 +3861,13 @@ function updateShots(dt) {
     const isBall = s.kind === "feu" || s.kind === "glace" || s.kind === "arcane" || s.kind === "necro";
     let ballTgt = null;
     if (isBall) ballTgt = steerBall(s);
+    const spdNow = Math.hypot(s.vx, s.vy, s.vz);
     s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
+    s.path = (s.path || 0) + spdNow * dt;
     if (!ballTgt) {
       if (s.kind === "glace") s.vy -= 2.4 * dt;
-      else if (s.kind === "feu" || s.kind === "arcane") {
-        const dist = Math.hypot(s.x - s.originX, s.z - s.originZ);
-        const flat = s.kind === "arcane" ? 60 : 20;
-        if (dist < flat) s.vy = 0;
-        else s.vy -= 5.0 * dt;
+      else if (s.kind === "feu") {
+        if (s.path >= 20) s.vy -= 5.0 * dt;
       }
     }
     s.trail = (s.trail || 0) + dt;
