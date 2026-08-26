@@ -303,7 +303,7 @@ html, body {
   <div class="home-hero">
     <h1>Cubemancy</h1>
     <div class="gold-rule"></div>
-    <div class="sub">Survie en cubes</div>
+    <div class="sub">Survive. Cast. Cube.</div>
     <button class="btn btn-play" id="btn-play" type="button">Jouer</button>
     <p class="home-hint">Joystick pour marcher · glisser pour regarder<br>Saut · Frapper · Feu · Glace · Foudre</p>
   </div>
@@ -349,6 +349,10 @@ html, body {
 const W = 96, H = 16, D = 96;
 const AIR = 0, DIRT = 1, ROCK = 2, WOOD = 3, LEAF = 4;
 const CYCLE = 120;
+const MAX_HP = 1000;
+const TREE_MAX_HP = 100;
+const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 35;
+const WOLF_HP = 220, WOLF_ATK = 55, SLIME_HP = 150, SLIME_ATK = 35;
 const canvas = document.getElementById("c");
 const $ = (id) => document.getElementById(id);
 const homeEl = $("home"), playUI = $("play-ui"), deathEl = $("death");
@@ -680,7 +684,7 @@ let lastSpell = "feu";
 const player = {
   x: 48, y: 8, z: 50, vx: 0, vy: 0, vz: 0,
   yaw: 0.35, pitch: 0.22, face: 0.35,
-  hp: 100, hunger: 100, mana: 100,
+  hp: MAX_HP, hunger: 100, mana: 100,
   grounded: false, flash: 0, inv: 0, bob: 0,
   bois: 0
 };
@@ -688,6 +692,7 @@ const PW = 0.26, PH = 1.48;
 const mobs = [];
 const shots = [];
 const bolts = [];
+const treeHp = Object.create(null);
 const parts = [];
 const keys = Object.create(null);
 const joy = { id: null, dx: 0, dy: 0 };
@@ -716,7 +721,7 @@ function spawnPlayer() {
   for (let yy = H - 1; yy >= 0; yy--) if (solidOf(getB(bx, yy, bz))) { sy = yy; break; }
   player.y = sy + 1.02;
   player.vx = player.vy = player.vz = 0;
-  player.hp = 100; player.hunger = 100; player.mana = 100;
+  player.hp = MAX_HP; player.hunger = 100; player.mana = 100;
   player.yaw = 0.2; player.pitch = 0.18; player.face = 0.2;
   player.flash = 0; player.inv = 0; player.grounded = true;
   player.bois = 0;
@@ -794,10 +799,10 @@ function beep(freq, dur, vol, type) {
   } catch (e) {}
 }
 
-function toast(msg) {
+function toast(msg, dur) {
   toastEl.textContent = msg;
   toastEl.classList.add("show");
-  toastT = 2.2;
+  toastT = dur == null ? 2.2 : dur;
 }
 
 function hurtPlayer(dmg, kx, kz) {
@@ -833,6 +838,7 @@ function resetPlay() {
   genWorld();
   buildWorldMesh();
   spawnPlayer();
+  for (const k of Object.keys(treeHp)) delete treeHp[k];
   mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0;
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
   player.bois = 0;
@@ -860,10 +866,11 @@ function spawnMobs() {
     const y = highest(x, z) + 1.05;
     if (y < 1.5 || y > 12) continue;
     const kind = Math.random() < 0.55 ? "slime" : "wolf";
+    const mhp = kind === "wolf" ? WOLF_HP : SLIME_HP;
     mobs.push({
       kind, x, y, z, vx: 0, vy: 0, vz: 0,
-      hp: kind === "wolf" ? 42 : 34,
-      yaw: ang + Math.PI, flash: 0, slow: 0, atk: 0,
+      hp: mhp, maxHp: mhp,
+      yaw: ang + Math.PI, flash: 0, slow: 0, para: 0, burn: 0, atk: 0,
       hop: Math.random() * 8, dead: false
     });
     made++;
@@ -907,9 +914,15 @@ function cast(kind) {
   if (kind === "foudre") {
     beep(880, 0.1, 0.06, "sawtooth");
     let hx = ox + d.x * 22, hy = oy + d.y * 22, hz = oz + d.z * 22, hit = null;
+    let treeHit = null;
     for (let t = 0.4; t < 22; t += 0.18) {
       const x = ox + d.x * t, y = oy + d.y * t, z = oz + d.z * t;
-      if (t > 1.2 && isSolid(x, y, z)) { hx = x; hy = y; hz = z; break; }
+      if (t > 1.2) {
+        const bx = x | 0, by = y | 0, bz = z | 0;
+        const bb = getB(bx, by, bz);
+        if (bb === WOOD || bb === LEAF) { treeHit = [bx, by, bz]; hx = x; hy = y; hz = z; break; }
+        if (isSolid(x, y, z)) { hx = x; hy = y; hz = z; break; }
+      }
       for (let i = 0; i < mobs.length; i++) {
         const m = mobs[i];
         if (m.dead) continue;
@@ -922,7 +935,8 @@ function cast(kind) {
     }
     bolts.push({ x0: ox, y0: oy, z0: oz, x1: hx, y1: hy, z1: hz, life: 0.38 });
     burst(hx, hy, hz, 0.85, 0.55, 1, 10, 6);
-    if (hit) hurtMob(hit, 20, d.x, d.z, 7);
+    if (hit) { hurtMob(hit, DMG_FOUDRE, d.x, d.z, 7); hit.para = 2; }
+    if (treeHit) damageTree(treeHit[0], treeHit[1], treeHit[2], DMG_FOUDRE);
   } else {
     const spd = kind === "feu" ? 18 : 14;
     beep(kind === "feu" ? 240 : 500, 0.07, 0.05, "square");
@@ -934,6 +948,45 @@ function cast(kind) {
   }
 }
 
+function treeKey(sx, sy, sz) {
+  const q = [[sx, sy, sz]];
+  const seen = Object.create(null);
+  let minX = Infinity, minZ = Infinity, found = false;
+  const nbr = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  while (q.length) {
+    const pt = q.pop();
+    const x = pt[0], y = pt[1], z = pt[2];
+    const k = x + y * 1024 + z * 32768;
+    if (seen[k]) continue;
+    seen[k] = 1;
+    const b = getB(x, y, z);
+    if (b !== WOOD && b !== LEAF) continue;
+    if (b === WOOD) {
+      found = true;
+      if (x < minX || (x === minX && z < minZ)) { minX = x; minZ = z; }
+    }
+    for (let i = 0; i < 6; i++) {
+      const n = nbr[i];
+      const nx = x + n[0], ny = y + n[1], nz = z + n[2];
+      if (inB(nx, ny, nz)) q.push([nx, ny, nz]);
+    }
+  }
+  return found ? (minX + "," + minZ) : null;
+}
+function damageTree(sx, sy, sz, dmg) {
+  const key = treeKey(sx, sy, sz);
+  if (!key) return;
+  if (treeHp[key] == null) treeHp[key] = TREE_MAX_HP;
+  treeHp[key] -= dmg;
+  burst(sx + 0.5, sy + 0.5, sz + 0.5, 0.45, 0.28, 0.12, 5, 2.8);
+  beep(260, 0.06, 0.035, "triangle");
+  if (treeHp[key] <= 0) {
+    delete treeHp[key];
+    harvestTree(sx, sy, sz);
+  } else {
+    toast("Arbre " + Math.max(0, treeHp[key] | 0) + " PV", 0.85);
+  }
+}
 function harvestTree(sx, sy, sz) {
   const q = [[sx, sy, sz]];
   const seen = Object.create(null);
@@ -970,12 +1023,22 @@ function punch() {
   const d = lookDir();
   const ox = player.x, oy = player.y + 1.05, oz = player.z;
   for (let t = 0.35; t < 3.4; t += 0.1) {
-    const x = Math.floor(ox + d.x * t);
-    const y = Math.floor(oy + d.y * t);
-    const z = Math.floor(oz + d.z * t);
+    const px = ox + d.x * t, py = oy + d.y * t, pz = oz + d.z * t;
+    for (let i = 0; i < mobs.length; i++) {
+      const m = mobs[i];
+      if (m.dead) continue;
+      if (Math.abs(m.x - px) < 1.2 && Math.abs(m.y + 0.45 - py) < 1.1 && Math.abs(m.z - pz) < 1.2) {
+        const len = Math.hypot(d.x, d.z) || 1;
+        hurtMob(m, DMG_PUNCH, d.x / len, d.z / len, 5);
+        return;
+      }
+    }
+    const x = Math.floor(px);
+    const y = Math.floor(py);
+    const z = Math.floor(pz);
     const b = getB(x, y, z);
     if (b === WOOD || b === LEAF) {
-      harvestTree(x, y, z);
+      damageTree(x, y, z, DMG_PUNCH);
       return;
     }
     if (solidOf(b)) {
@@ -1000,22 +1063,36 @@ function updateMobs(dt) {
     if (m.dead) continue;
     m.flash = Math.max(0, m.flash - dt);
     m.slow = Math.max(0, m.slow - dt);
-    m.atk = Math.max(0, m.atk - dt);
+    m.para = Math.max(0, m.para - dt);
+    m.burn = Math.max(0, m.burn - dt);
+    m.atk = Math.max(0, m.atk - dt * (m.para > 0 ? 0.28 : 1));
     m.hop += dt;
+    if (m.burn > 0) {
+      m.hp -= (m.maxHp || m.hp) * 0.03 * dt;
+      if (Math.random() < dt * 10) burst(m.x, m.y + 0.45, m.z, 1, 0.38, 0.06, 2, 2.2);
+      if (m.hp <= 0) {
+        burst(m.x, m.y + 0.4, m.z, 1, 0.35, 0.08, 14, 6);
+        m.dead = true;
+        continue;
+      }
+    }
     const dx = player.x - m.x, dz = player.z - m.z;
     const dist = Math.hypot(dx, dz) || 1;
     m.yaw = Math.atan2(dx, dz);
-    const sp = (m.kind === "wolf" ? 3.4 : 2.15) * (m.slow > 0 ? 0.32 : 1);
+    let spMul = 1;
+    if (m.para > 0) spMul = 0.25;
+    else if (m.slow > 0) spMul = 0.45;
+    const sp = (m.kind === "wolf" ? 3.4 : 2.15) * spMul;
     m.vx = (dx / dist) * sp;
     m.vz = (dz / dist) * sp;
     if (m.kind === "slime" && m.grounded && m.hop > 0.9) {
-      m.vy = 5.2; m.hop = 0; m.grounded = false;
+      m.vy = 5.2 * (m.para > 0 ? 0.25 : 1); m.hop = 0; m.grounded = false;
     }
     physics(m, m.kind === "wolf" ? 0.38 : 0.42, m.kind === "wolf" ? 0.85 : 0.7, dt);
     if (dist < 1.25 && m.atk <= 0 && mode === "play") {
       m.atk = 0.9;
       const k = 5.5;
-      hurtPlayer(m.kind === "wolf" ? 14 : 9, -(dx / dist) * k, -(dz / dist) * k);
+      hurtPlayer(m.kind === "wolf" ? WOLF_ATK : SLIME_ATK, -(dx / dist) * k, -(dz / dist) * k);
     }
   }
   for (let i = mobs.length - 1; i >= 0; i--) if (mobs[i].dead) mobs.splice(i, 1);
@@ -1028,15 +1105,23 @@ function updateShots(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
     if (s.kind === "glace") s.vy -= 1.6 * dt;
     let dead = s.life <= 0 || s.y < -2;
-    if (s.age > 0.14 && isSolid(s.x, s.y, s.z)) dead = true;
+    if (s.age > 0.14) {
+      const bx = s.x | 0, by = s.y | 0, bz = s.z | 0;
+      const bb = getB(bx, by, bz);
+      if (bb === WOOD || bb === LEAF) {
+        damageTree(bx, by, bz, s.kind === "feu" ? DMG_FEU : DMG_GLACE);
+        dead = true;
+      } else if (isSolid(s.x, s.y, s.z)) dead = true;
+    }
     for (let j = 0; j < mobs.length; j++) {
       const m = mobs[j];
       if (m.dead) continue;
       if (Math.abs(m.x - s.x) < 1.45 && Math.abs(m.y + 0.5 - s.y) < 1.25 && Math.abs(m.z - s.z) < 1.45) {
-        const dmg = s.kind === "feu" ? 25 : 15;
+        const dmg = s.kind === "feu" ? DMG_FEU : DMG_GLACE;
         const len = Math.hypot(s.vx, s.vz) || 1;
         hurtMob(m, dmg, s.vx / len, s.vz / len, 8);
         if (s.kind === "glace") m.slow = 3;
+        if (s.kind === "feu") m.burn = 4;
         dead = true;
         break;
       }
@@ -1098,8 +1183,10 @@ function drawMage(x, y, z, face, bob, flash) {
 
 function drawWolf(m) {
   const f = m.flash > 0 ? 1 : 0;
-  const sl = m.slow > 0;
-  const r = sl ? 0.35 : 0.28 + f, g = sl ? 0.45 : 0.22 + f, b = sl ? 0.7 : 0.2 + f;
+  let r = 0.28 + f, g = 0.22 + f, b = 0.2 + f;
+  if (m.burn > 0) { r = 1; g = 0.38 + f * 0.3; b = 0.06; }
+  else if (m.para > 0) { r = 0.85 + f * 0.1; g = 0.75; b = 0.2 + f; }
+  else if (m.slow > 0) { r = 0.35; g = 0.45; b = 0.7; }
   drawCube(m.x, m.y + 0.38, m.z, 1.05, 0.52, 0.48, m.yaw, r, g, b, f * 0.5);
   const hx = m.x + Math.sin(m.yaw) * 0.48, hz = m.z + Math.cos(m.yaw) * 0.48;
   drawCube(hx, m.y + 0.55, hz, 0.4, 0.36, 0.36, m.yaw, r * 1.1, g * 1.1, b * 1.1, f * 0.5);
@@ -1109,9 +1196,12 @@ function drawWolf(m) {
 function drawSlime(m) {
   const f = m.flash > 0 ? 1 : 0;
   const squash = m.grounded ? 1.12 : 0.88;
-  const sl = m.slow > 0;
+  let r = 0.25 + f, g = 0.82 + f, b = 0.28 + f, glow = 0.12 + f * 0.4;
+  if (m.burn > 0) { r = 1; g = 0.4 + f * 0.25; b = 0.08; glow = 0.35 + f * 0.3; }
+  else if (m.para > 0) { r = 0.75; g = 0.85; b = 0.25 + f; glow = 0.28; }
+  else if (m.slow > 0) { r = 0.4; g = 0.7; b = 0.85; }
   drawCube(m.x, m.y + 0.38 * squash, m.z, 0.78, 0.72 * squash, 0.78, m.yaw,
-    sl ? 0.4 : 0.25 + f, sl ? 0.7 : 0.82 + f, sl ? 0.85 : 0.28 + f, 0.12 + f * 0.4);
+    r, g, b, glow);
 }
 
 function render() {
@@ -1200,7 +1290,7 @@ function updateCamera(dt) {
 }
 
 function updateHUD() {
-  hpI.style.transform = "scaleX(" + Math.max(0, player.hp / 100) + ")";
+  hpI.style.transform = "scaleX(" + Math.max(0, player.hp / MAX_HP) + ")";
   hunI.style.transform = "scaleX(" + Math.max(0, player.hunger / 100) + ")";
   manI.style.transform = "scaleX(" + Math.max(0, player.mana / 100) + ")";
   clockEl.textContent = isNight() ? "☾" : "☀";
