@@ -17,6 +17,7 @@ var _blocks: PackedByteArray = PackedByteArray()
 var _mesh_instance: MeshInstance3D
 var _body: StaticBody3D
 var _collision: CollisionShape3D
+var _tree_spawns: Array[Vector3] = []
 
 
 func _ready() -> void:
@@ -75,18 +76,20 @@ func world_to_cell(p: Vector3) -> Vector3i:
 
 
 func spawn_position() -> Vector3:
+	if not _tree_spawns.is_empty():
+		return _tree_spawns[0]
 	var cx := SIZE / 2
 	var cz := SIZE / 2
 	var best := Vector3((cx + 0.5) * CELL, 4.0, (cz + 0.5) * CELL)
 	var best_score := -999.0
-	for z in range(cz - 8, cz + 9):
-		for x in range(cx - 8, cx + 9):
+	for z in range(cz - 10, cz + 11):
+		for x in range(cx - 10, cx + 11):
 			var y := surface_y(x, z)
-			if y < 2:
+			if y < 2 or get_block(x, y, z) != DIRT:
 				continue
 			if get_block(x, y + 1, z) == WOOD or get_block(x, y + 1, z) == LEAF:
 				continue
-			var score := float(y) - Vector2(x - cx, z - cz).length() * 0.12
+			var score := -Vector2(x - cx, z - cz).length()
 			if score > best_score:
 				best_score = score
 				best = Vector3((x + 0.5) * CELL, (y + 1) * CELL + 0.02, (z + 0.5) * CELL)
@@ -104,35 +107,33 @@ func count_solids() -> int:
 
 func raycast_tree(origin: Vector3, dir: Vector3, max_dist: float) -> Vector3i:
 	if dir.length() < 0.001:
-		return Vector3i(-1, -1, -1)
+		dir = Vector3(0, 0, -1)
 	dir = dir.normalized()
+	var flat := Vector3(dir.x, 0.0, dir.z)
+	if flat.length() < 0.001:
+		flat = Vector3(0, 0, -1)
+	else:
+		flat = flat.normalized()
+	var oc := world_to_cell(origin)
+	var rad := int(ceilf(max_dist / CELL)) + 2
 	var best := Vector3i(-1, -1, -1)
-	var best_d := max_dist + 0.05
-	var reach := max_dist + CELL * 2.0
-	var minc := world_to_cell(origin - Vector3(reach, 1.4, reach))
-	var maxc := world_to_cell(origin + Vector3(reach, 2.6, reach))
-	minc.x = clampi(minc.x, 0, SIZE - 1)
-	maxc.x = clampi(maxc.x, 0, SIZE - 1)
-	minc.y = clampi(minc.y, 0, HEIGHT - 1)
-	maxc.y = clampi(maxc.y, 0, HEIGHT - 1)
-	minc.z = clampi(minc.z, 0, SIZE - 1)
-	maxc.z = clampi(maxc.z, 0, SIZE - 1)
-	for y in range(minc.y, maxc.y + 1):
-		for z in range(minc.z, maxc.z + 1):
-			for x in range(minc.x, maxc.x + 1):
+	var best_d := max_dist + 0.5
+	for y in range(maxi(0, oc.y - 10), mini(HEIGHT, oc.y + 12)):
+		for z in range(maxi(0, oc.z - rad), mini(SIZE, oc.z + rad + 1)):
+			for x in range(maxi(0, oc.x - rad), mini(SIZE, oc.x + rad + 1)):
 				if not is_tree(x, y, z):
 					continue
 				var p := cell_center(x, y, z)
 				var to := p - origin
-				var dist := to.length()
-				if dist > max_dist or dist < 0.05:
+				var horiz := Vector2(to.x, to.z).length()
+				if horiz > max_dist or absf(to.y) > 3.8:
 					continue
-				var align := to.normalized().dot(dir)
-				var close := dist <= 1.85
-				if not close and align < 0.12:
-					continue
-				if dist < best_d:
-					best_d = dist
+				var align := 1.0
+				if horiz > 0.04:
+					align = Vector3(to.x, 0.0, to.z).normalized().dot(flat)
+				var ok := horiz <= 2.6 or align >= 0.05
+				if ok and horiz < best_d:
+					best_d = horiz
 					best = Vector3i(x, y, z)
 	return best
 
@@ -201,6 +202,7 @@ func _fbm(x: float, z: float) -> float:
 func _generate() -> void:
 	_blocks.resize(SIZE * HEIGHT * SIZE)
 	_blocks.fill(AIR)
+	_tree_spawns.clear()
 	var cx := 47.5
 	var cz := 47.5
 	for z in SIZE:
@@ -266,6 +268,14 @@ func _plant_trees() -> void:
 		_set_block(x, ly + 1, z, LEAF)
 		_set_block(x, ly + 2, z, LEAF)
 		trees.append(Vector2i(x, z))
+		var sides: Array[Vector2i] = [Vector2i(2, 0), Vector2i(-2, 0), Vector2i(0, 2), Vector2i(0, -2)]
+		for side in sides:
+			var sx: int = x + side.x
+			var sz: int = z + side.y
+			var sy := surface_y(sx, sz)
+			if sy >= 2 and get_block(sx, sy, sz) == DIRT and not is_tree(sx, sy + 1, sz):
+				_tree_spawns.append(Vector3((sx + 0.5) * CELL, (sy + 1) * CELL + 0.02, (sz + 0.5) * CELL))
+				break
 
 
 func _face_color(t: int, ny: float, x: int, y: int, z: int) -> Color:
