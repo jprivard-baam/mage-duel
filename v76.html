@@ -627,7 +627,7 @@ const GAME_VER = 76; // bump GAME_VER and the visible vN on EVERY deploy
 const DEBUG = true; // playtest: dmg/regen joueur ×5. Virer cette ligne + les if (DEBUG).
 
 const VX = 2; // voxels per old world-unit
-const W = 192 * VX, H = 16 * VX, D = 192 * VX;
+const W = 192 * VX, H = 20 * VX, D = 192 * VX;
 const WW = 192, DW = 192;
 const INV_VX = 1 / VX;
 const STEP_UP = INV_VX + 0.02;
@@ -729,38 +729,33 @@ function genWorld() {
     if (getB(px, py, pz) !== WOOD) setB(px, py, pz, LEAF);
   }
   const DIR4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  while (trees.length < 40 && tries < 1600) {
+  while (trees.length < 32 && tries < 2400) {
     tries++;
     const x = 12 * VX + (hash(tries, 9) * (W - 24 * VX)) | 0;
     const z = 12 * VX + (hash(tries, 21) * (D - 24 * VX)) | 0;
-    if (x < 3 || z < 3 || x + 1 >= W - 3 || z + 1 >= D - 3) continue;
+    if (x < 8 || z < 8 || x + 8 >= W || z + 8 >= D) continue;
     let top = -1;
     for (let y = H - 1; y >= 0; y--) if (getB(x, y, z) === DIRT) { top = y; break; }
-    if (top < 4 || top > 14) continue;
+    if (top < 4) continue;
     let ok = true;
-    for (const t of trees) if (Math.hypot(t[0] - x, t[1] - z) < 16) ok = false;
+    for (const t of trees) if (Math.hypot(t[0] - x, t[1] - z) < 20) ok = false;
     if (!ok) continue;
     const oak = hash(x, z) < 0.55;
-    const th = oak ? 10 + (hash(x + 3, z) * 5) | 0 : 13 + (hash(x + 5, z) * 5) | 0;
+    const th = oak ? 14 + (hash(x + 3, z) * 7) | 0 : 18 + (hash(x + 5, z) * 7) | 0;
     if (top + th + 7 >= H) continue;
+    const cheb = (ox, oz) => Math.max(Math.abs(ox - 0.5), Math.abs(oz - 0.5));
+    const corner = (ox, oz, r) => Math.abs(ox - 0.5) >= r - 0.5 && Math.abs(oz - 0.5) >= r - 0.5;
     for (let i = 1; i <= th; i++) {
       setB(x, top + i, z, WOOD);
       setB(x + 1, top + i, z, WOOD);
       setB(x, top + i, z + 1, WOOD);
       setB(x + 1, top + i, z + 1, WOOD);
-      if (oak && (i === 1 || i === 2)) {
-        setB(x - 1, top + i, z, WOOD);
-        setB(x - 1, top + i, z + 1, WOOD);
-        setB(x + 2, top + i, z, WOOD);
-        setB(x + 2, top + i, z + 1, WOOD);
-        setB(x, top + i, z - 1, WOOD);
-        setB(x + 1, top + i, z - 1, WOOD);
-        setB(x, top + i, z + 2, WOOD);
-        setB(x + 1, top + i, z + 2, WOOD);
+      if (oak && i >= 1 && i <= 3) {
+        for (let ox = -2; ox <= 3; ox++) for (let oz = -2; oz <= 3; oz++) {
+          if (cheb(ox, oz) >= 1.4 && cheb(ox, oz) <= 2.6) setB(x + ox, top + i, z + oz, WOOD);
+        }
       }
     }
-    const cheb = (ox, oz) => Math.max(Math.abs(ox - 0.5), Math.abs(oz - 0.5));
-    const corner = (ox, oz, r) => Math.abs(ox - 0.5) >= r - 0.5 && Math.abs(oz - 0.5) >= r - 0.5;
     if (oak) {
       const dir0 = (hash(x + 11, z) * 4) | 0;
       const fracs = [0.40, 0.55, 0.70, 0.82];
@@ -771,11 +766,11 @@ function genWorld() {
         const bx = x + (d[0] === 1 ? 2 : d[0] === -1 ? -1 : 0);
         const bz = z + (d[1] === 1 ? 2 : d[1] === -1 ? -1 : 0);
         let tipx = bx, tipz = bz;
-        for (let step = 0; step < 4; step++) {
+        for (let step = 0; step < 5; step++) {
           const px = bx + d[0] * step, pz = bz + d[1] * step;
           if (inB(px, top + i, pz)) setB(px, top + i, pz, WOOD);
           tipx = px; tipz = pz;
-          if (step === 3) {
+          if (step === 4) {
             const p = hash(x + i + b, z + 17) < 0.5 ? [d[1], -d[0]] : [-d[1], d[0]];
             for (let ts = 1; ts <= 2; ts++) {
               const tx = px + p[0] * ts, tz = pz + p[1] * ts;
@@ -791,14 +786,15 @@ function genWorld() {
         plantLeaf(tipx, ty + 1, tipz);
       }
       const ly = top + th;
-      for (let ox = -5; ox <= 6; ox++) for (let oz = -5; oz <= 6; oz++) {
+      for (let ox = -7; ox <= 8; ox++) for (let oz = -7; oz <= 8; oz++) {
         const trunk = ox >= 0 && ox <= 1 && oz >= 0 && oz <= 1;
-        if (cheb(ox, oz) <= 3 && !trunk) plantLeaf(x + ox, ly - 1, z + oz);
-        if (cheb(ox, oz) <= 4 && !corner(ox, oz, 4)) plantLeaf(x + ox, ly, z + oz);
-        if (cheb(ox, oz) <= 3) plantLeaf(x + ox, ly + 1, z + oz);
-        if (cheb(ox, oz) <= 3 && !corner(ox, oz, 3)) plantLeaf(x + ox, ly + 2, z + oz);
-        if (cheb(ox, oz) <= 2) plantLeaf(x + ox, ly + 3, z + oz);
-        if (cheb(ox, oz) <= 1) plantLeaf(x + ox, ly + 4, z + oz);
+        if (cheb(ox, oz) <= 5 && !trunk) plantLeaf(x + ox, ly - 1, z + oz);
+        if (cheb(ox, oz) <= 6 && !corner(ox, oz, 6)) plantLeaf(x + ox, ly, z + oz);
+        if (cheb(ox, oz) <= 5) plantLeaf(x + ox, ly + 1, z + oz);
+        if (cheb(ox, oz) <= 4 && !corner(ox, oz, 4)) plantLeaf(x + ox, ly + 2, z + oz);
+        if (cheb(ox, oz) <= 3) plantLeaf(x + ox, ly + 3, z + oz);
+        if (cheb(ox, oz) <= 2) plantLeaf(x + ox, ly + 4, z + oz);
+        if (cheb(ox, oz) <= 1) plantLeaf(x + ox, ly + 5, z + oz);
       }
     } else {
       const ly = top + th;
@@ -813,26 +809,24 @@ function genWorld() {
           if (inB(px, top + i, pz)) setB(px, top + i, pz, WOOD);
         }
       }
-      for (let ox = -5; ox <= 6; ox++) for (let oz = -5; oz <= 6; oz++) {
-        if (cheb(ox, oz) <= 4 && !corner(ox, oz, 4)) plantLeaf(x + ox, ly - 6, z + oz);
-        if (cheb(ox, oz) <= 4) plantLeaf(x + ox, ly - 5, z + oz);
-        if (cheb(ox, oz) <= 3 && !corner(ox, oz, 3)) plantLeaf(x + ox, ly - 4, z + oz);
-        if (cheb(ox, oz) <= 3) plantLeaf(x + ox, ly - 3, z + oz);
-        if (cheb(ox, oz) <= 2 && !corner(ox, oz, 2)) plantLeaf(x + ox, ly - 2, z + oz);
-        if (cheb(ox, oz) <= 2) plantLeaf(x + ox, ly - 1, z + oz);
-        if (cheb(ox, oz) <= 1) plantLeaf(x + ox, ly, z + oz);
+      for (let ox = -7; ox <= 8; ox++) for (let oz = -7; oz <= 8; oz++) {
+        if (cheb(ox, oz) <= 6) plantLeaf(x + ox, ly - 8, z + oz);
+        if (cheb(ox, oz) <= 6 && !corner(ox, oz, 6)) plantLeaf(x + ox, ly - 7, z + oz);
+        if (cheb(ox, oz) <= 5) plantLeaf(x + ox, ly - 6, z + oz);
+        if (cheb(ox, oz) <= 5 && !corner(ox, oz, 5)) plantLeaf(x + ox, ly - 5, z + oz);
+        if (cheb(ox, oz) <= 4) plantLeaf(x + ox, ly - 4, z + oz);
+        if (cheb(ox, oz) <= 4 && !corner(ox, oz, 4)) plantLeaf(x + ox, ly - 3, z + oz);
+        if (cheb(ox, oz) <= 3) plantLeaf(x + ox, ly - 2, z + oz);
+        if (cheb(ox, oz) <= 3 && !corner(ox, oz, 3)) plantLeaf(x + ox, ly - 1, z + oz);
+        if (cheb(ox, oz) <= 2) plantLeaf(x + ox, ly, z + oz);
+        if (cheb(ox, oz) <= 2 && !corner(ox, oz, 2)) plantLeaf(x + ox, ly + 1, z + oz);
+        if (cheb(ox, oz) <= 1) plantLeaf(x + ox, ly + 2, z + oz);
+        if (cheb(ox, oz) <= 1) plantLeaf(x + ox, ly + 3, z + oz);
       }
-      plantLeaf(x, ly + 1, z);
-      plantLeaf(x + 1, ly + 1, z);
-      plantLeaf(x, ly + 1, z + 1);
-      plantLeaf(x + 1, ly + 1, z + 1);
-      plantLeaf(x, ly + 2, z);
-      plantLeaf(x + 1, ly + 2, z);
-      plantLeaf(x, ly + 2, z + 1);
-      plantLeaf(x + 1, ly + 2, z + 1);
-      const tip = (hash(x, z + 1) * 4) | 0;
-      const tdx = tip & 1, tdz = (tip >> 1) & 1;
-      plantLeaf(x + tdx, ly + 3, z + tdz);
+      plantLeaf(x, ly + 4, z);
+      plantLeaf(x + 1, ly + 4, z);
+      plantLeaf(x, ly + 4, z + 1);
+      plantLeaf(x + 1, ly + 4, z + 1);
     }
     trees.push([x, z]);
   }
@@ -1660,12 +1654,12 @@ function mageStaffTip(e, pose) {
   let srx = rx, srz = rz, sfx = fx, sfz = fz;
   const swingT = e.staffSwing || 0;
   if (swingT > 0) {
-    const progress = 1 - Math.min(1, swingT / 0.22);
-    const arc = Math.sin(Math.PI * progress);
-    tipFwd += 0.35 * arc;
-    handY -= 0.16 * arc;
-    tipY -= 0.08 * arc;
-    swingAng = (50 * Math.PI / 180) * arc;
+    const u = 1 - Math.min(1, swingT / 0.35);
+    const arc = Math.sin(Math.PI * u);
+    tipFwd += 0.50 * arc;
+    handY -= 0.22 * arc;
+    tipY -= 0.14 * arc;
+    swingAng = (50 * Math.PI / 180) * (2 * u - 1);
     const sf = face + swingAng;
     srx = Math.cos(sf); srz = -Math.sin(sf);
     sfx = Math.sin(sf); sfz = Math.cos(sf);
@@ -2141,7 +2135,7 @@ function tickNpcMage(m, dt) {
       m.atk = 0.80;
       m.swingHitT = 0.15;
       m.swingAnim = 0.35;
-      m.staffSwing = 0.22;
+      m.staffSwing = 0.35;
       m.swingTgt = "player";
     }
     return;
@@ -2188,7 +2182,7 @@ function tickNpcMage(m, dt) {
       m.atk = 0.80;
       m.swingHitT = 0.15;
       m.swingAnim = 0.35;
-      m.staffSwing = 0.22;
+      m.staffSwing = 0.35;
       m.swingTgt = deer;
     }
     if (m.spellCD <= 0 && m.mana >= 20 && deerD < 10) {
@@ -2813,7 +2807,7 @@ function staffStrike() {
   player.castAnim = 0.22;
   staffCD = 0.80;
   staffSwing = 0.35;
-  player.staffSwing = 0.22;
+  player.staffSwing = 0.35;
   staffHitT = 0.15;
   staffHitDone = false;
   emitStaffSwing();
@@ -2927,7 +2921,7 @@ function harvestTree(sx, sy, sz) {
 }
 
 const BURN_NBR = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
-const BURN_CAP = 10;
+const BURN_CAP = 32;
 const FIRE_HOT = [1.00, 0.82, 0.18];
 const FIRE_FLAME = [1.00, 0.35, 0.12];
 const FIRE_EMBER = [0.85, 0.22, 0.04];
@@ -4405,45 +4399,36 @@ function updateCamera(dt) {
     ty = player.y + 4.2;
     tz = player.z + Math.cos(ang) * 12;
   }
-  const hx = player.x, hy = player.y + 1.2, hz = player.z;
-  const camBlocked = (wx, wy, wz) => {
+  const hx = player.x, hy = player.y + 1.25, hz = player.z;
+  const camSolid = (wx, wy, wz) => {
     const b = getB(vox(wx), vox(wy), vox(wz));
-    return isSolid(vox(wx), vox(wy), vox(wz)) || b === LEAF;
+    return b === DIRT || b === ROCK || b === WOOD || b === LEAF;
   };
-  if (camBlocked(tx, ty, tz)) {
+  {
+    let lastX = hx, lastY = hy, lastZ = hz;
+    for (let i = 1; i <= 16; i++) {
+      const t = i / 16;
+      const px = hx + (tx - hx) * t;
+      const py = hy + (ty - hy) * t;
+      const pz = hz + (tz - hz) * t;
+      if (camSolid(px, py, pz)) {
+        const pdx = hx - lastX, pdy = hy - lastY, pdz = hz - lastZ;
+        const plen = Math.hypot(pdx, pdy, pdz) || 1;
+        tx = lastX + pdx / plen * 0.4;
+        ty = lastY + pdy / plen * 0.4;
+        tz = lastZ + pdz / plen * 0.4;
+        break;
+      }
+      lastX = px; lastY = py; lastZ = pz;
+    }
+  }
+  if (camSolid(tx, ty, tz)) {
     const pdx = hx - tx, pdy = hy - ty, pdz = hz - tz;
     const plen = Math.hypot(pdx, pdy, pdz) || 1;
-    const steps = Math.max(12, Math.ceil(plen / 0.12));
-    let freed = false;
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      const nx = tx + pdx * t, ny = ty + pdy * t, nz = tz + pdz * t;
-      if (!camBlocked(nx, ny, nz)) { tx = nx; ty = ny; tz = nz; freed = true; break; }
-    }
-    if (!freed) { tx = hx; ty = hy; tz = hz; }
-  }
-  {
-    const rdx = tx - hx, rdy = ty - hy, rdz = tz - hz;
-    const rlen = Math.hypot(rdx, rdy, rdz);
-    if (rlen > 1e-4) {
-      const inv = 1 / rlen;
-      const sx = rdx * inv, sy = rdy * inv, sz = rdz * inv;
-      const step = 0.12;
-      let lastX = hx, lastY = hy, lastZ = hz;
-      for (let t = step; t <= rlen + 1e-6; t += step) {
-        const px = hx + sx * Math.min(t, rlen);
-        const py = hy + sy * Math.min(t, rlen);
-        const pz = hz + sz * Math.min(t, rlen);
-        if (camBlocked(px, py, pz) || isSolid(vox(px), vox(py), vox(pz))) {
-          const pull = Math.max(0, t - 0.35);
-          tx = hx + sx * pull;
-          ty = hy + sy * pull;
-          tz = hz + sz * pull;
-          if (camBlocked(tx, ty, tz)) { tx = lastX; ty = lastY; tz = lastZ; }
-          break;
-        }
-        lastX = px; lastY = py; lastZ = pz;
-      }
+    const sx = pdx / plen, sy = pdy / plen, sz = pdz / plen;
+    for (let i = 0; i < 24; i++) {
+      tx += sx * 0.12; ty += sy * 0.12; tz += sz * 0.12;
+      if (!camSolid(tx, ty, tz)) break;
     }
   }
   const k = mode === "home" ? 3 * dt : 1;
