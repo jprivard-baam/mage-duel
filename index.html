@@ -531,7 +531,7 @@ html, body {
     </div>
     <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
     <p class="home-hint">Choisis une classe · E pour le sort<br>Force secondaire au level up</p>
-    <p class="home-hint" id="build-id">b.camfix</p>
+    <p class="home-hint" id="build-id">b.land</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -678,7 +678,7 @@ function noise(x, z) {
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
 function fbm(x, z) {
-  return noise(x, z) * 0.52 + noise(x * 2.03, z * 2.03) * 0.31 + noise(x * 4.1, z * 4.1) * 0.17;
+  return noise(x, z) * 0.52 + noise(x * 2.03, z * 2.03) * 0.31;
 }
 
 function genWorld() {
@@ -695,7 +695,8 @@ function genWorld() {
       const hill = Math.exp(-((x - 116 * VX) * (x - 116 * VX) + (z - 68 * VX) * (z - 68 * VX)) / (608 * vx2));
       const knoll = Math.exp(-((x - 56 * VX) * (x - 56 * VX) + (z - 124 * VX) * (z - 124 * VX)) / (352 * vx2));
       let h = (2 + fall * (3.2 + n * 4.2 + hill * 6.5 + knoll * 3.2)) * VX;
-      h = Math.max(1, Math.min(H - 2, Math.floor(h)));
+      h = Math.floor(h / 2) * 2;
+      h = Math.max(1, Math.min(H - 2, h));
       const rocky = hill > 0.45 || (n > 0.62 && h >= 7 * VX);
       for (let y = 0; y < h; y++) {
         let t = DIRT;
@@ -775,12 +776,12 @@ function genWorld() {
 }
 
 const COL = {
-  herbeA: [0.28, 0.84, 0.22], herbeB: [0.20, 0.74, 0.16], herbeC: [0.40, 0.92, 0.28],
-  terreA: [0.78, 0.44, 0.14], terreB: [0.66, 0.34, 0.10],
-  terreBot: [0.50, 0.26, 0.08],
-  rocheA: [0.62, 0.66, 0.78], rocheB: [0.50, 0.54, 0.64], rocheC: [0.76, 0.80, 0.88],
+  herbeA: [0.22, 0.86, 0.18], herbeC: [0.42, 0.96, 0.28],
+  terreA: [0.92, 0.52, 0.16], terreB: [0.62, 0.30, 0.08],
+  terreBot: [0.48, 0.22, 0.06],
+  rocheA: [0.70, 0.74, 0.88], rocheC: [0.88, 0.90, 0.98],
   boisA: [0.56, 0.28, 0.08], boisB: [0.40, 0.18, 0.05], boisC: [0.68, 0.38, 0.12],
-  feuilleA: [0.16, 0.82, 0.26], feuilleB: [0.08, 0.56, 0.16], feuilleC: [0.34, 0.92, 0.20]
+  feuilleA: [0.12, 0.88, 0.22], feuilleB: [0.06, 0.42, 0.12], feuilleC: [0.42, 0.98, 0.18]
 };
 const FACES = [
   [0, 1, 0, [[0,1,0],[1,1,0],[1,1,1],[0,1,1]]],
@@ -792,26 +793,24 @@ const FACES = [
 ];
 
 function faceColor(t, ny, x, y, z, nx, nz) {
-  const hv = hash(x * 1.3 + y * 17.1, z * 2.9);
-  const pick = (n) => (hv * n) | 0;
   if (t === DIRT) {
     if (ny > 0.5) {
-      const i = pick(3);
-      return i === 0 ? COL.herbeA : i === 1 ? COL.herbeB : COL.herbeC;
+      const chk = ((x + z) & 1);
+      return chk ? COL.herbeA : COL.herbeC;
     }
     if (ny < -0.5) return COL.terreBot;
-    return pick(2) ? COL.terreB : COL.terreA;
+    return ((nx + nz) & 1) ? COL.terreB : COL.terreA;
   }
   if (t === ROCK) {
-    const i = pick(3);
-    return i === 0 ? COL.rocheA : i === 1 ? COL.rocheB : COL.rocheC;
+    const p = hash((x >> 2), (z >> 2)) < 0.5;
+    return p ? COL.rocheA : COL.rocheC;
   }
   if (t === WOOD) {
     if (nz === -1 || nx === 1) return COL.boisB;
     return COL.boisA;
   }
   if (getB(x + 1, y, z) === LEAF && getB(x - 1, y, z) === LEAF && getB(x, y, z + 1) === LEAF && getB(x, y, z - 1) === LEAF) return COL.feuilleB;
-  return pick(2) ? COL.feuilleC : COL.feuilleA;
+  return hash(x >> 3, z >> 3) < 0.5 ? COL.feuilleA : COL.feuilleC;
 }
 
 function buildWorldMesh() {
@@ -3544,18 +3543,15 @@ function skyColors() {
   const sunY = Math.sin(phase * Math.PI * 2);
   const dusk = Math.max(0, 1 - Math.abs(sunY) * 3);
   let r, g, b;
-  if (sunY > 0) {
-    r = 0.38 + sunY * 0.12 + dusk * 0.55;
-    g = 0.72 + sunY * 0.10 + dusk * 0.04;
-    b = 1.00 - dusk * 0.28;
+  if (sunY <= 0) {
+    r = 0.14; g = 0.08; b = 0.38;
+  } else if (dusk > 0.35) {
+    r = 1.00; g = 0.48; b = 0.72;
   } else {
-    const n = -sunY;
-    r = 0.28 + (1 - n) * 0.16;
-    g = 0.08 + (1 - n) * 0.06;
-    b = 0.48 + (1 - n) * 0.10;
+    r = 0.42; g = 0.80; b = 1.00;
   }
-  const amb = sunY > 0 ? 0.38 + sunY * 0.22 : 0.16;
-  const sunDx = Math.cos(phase * Math.PI * 2), sunDy = Math.max(0.15, sunY * 0.7 + 0.35), sunDz = 0.35;
+  const amb = sunY > 0 ? 0.48 + sunY * 0.22 : 0.16;
+  const sunDx = Math.cos(phase * Math.PI * 2), sunDy = Math.max(0.22, sunY * 0.7 + 0.35), sunDz = 0.35;
   const sl = Math.hypot(sunDx, sunDy, sunDz);
   return {
     fog: [r, g, b], amb: [amb * 0.9, amb, amb * 1.15],
@@ -4049,8 +4045,8 @@ function render() {
   gl.uniform3f(uAmb, sky.amb[0] + flashK * 0.85, sky.amb[1] + flashK * 0.85, sky.amb[2] + flashK * 0.95);
   gl.uniform3f(uFog, sky.fog[0] * (1 - flashK) + flashK, sky.fog[1] * (1 - flashK) + flashK, sky.fog[2] * (1 - flashK) + flashK);
   gl.uniform3f(uCam, camX, camY, camZ);
-  gl.uniform1f(uFogN, 52);
-  gl.uniform1f(uFogF, 236);
+  gl.uniform1f(uFogN, 38);
+  gl.uniform1f(uFogF, 140);
 
   bindInterleaved(worldBuf);
   gl.uniformMatrix4fv(uModel, false, ident);
