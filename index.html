@@ -537,6 +537,14 @@ const ZOMBIE_HP = 280, ZOMBIE_ATK = 48, ZOMBIE_SPD = 1.35, ZOMBIE_ARM = 0.45;
 const SKEL_HP = 160, SKEL_ATK = 50, SKEL_SPD = 2.75, SKEL_ARM = 0.04;
 const CERF_HP = 80, CERF_ATK = 0, CERF_FLEE = 4.2, CERF_ARM = 0, CERF_FOOD = 55;
 const HOSTILE = { wolf: 1, slime: 1, zombie: 1, squelette: 1 };
+const ROBE = {
+  feu:    { terre: [0.72, 0.28, 0.12], terre2: [0.52, 0.16, 0.08], cuir: [0.28, 0.10, 0.06] },
+  glace:  { terre: [0.42, 0.55, 0.62], terre2: [0.28, 0.38, 0.48], cuir: [0.18, 0.24, 0.32] },
+  foudre: { terre: [0.22, 0.34, 0.62], terre2: [0.14, 0.22, 0.48], cuir: [0.10, 0.14, 0.28] },
+  arcane: { terre: [0.58, 0.22, 0.55], terre2: [0.42, 0.12, 0.40], cuir: [0.22, 0.08, 0.22] },
+  necro:  { terre: [0.28, 0.48, 0.22], terre2: [0.18, 0.32, 0.14], cuir: [0.12, 0.18, 0.10] }
+};
+const ROBE_FALLBACK = { terre: [0.62, 0.36, 0.18], terre2: [0.52, 0.28, 0.14], cuir: [0.32, 0.16, 0.08] };
 const canvas = document.getElementById("c");
 const $ = (id) => document.getElementById(id);
 const homeEl = $("home"), playUI = $("play-ui"), deathEl = $("death");
@@ -1977,11 +1985,15 @@ function skyColors() {
   };
 }
 
+function robeTint() {
+  return ROBE[player.cls] || ROBE_FALLBACK;
+}
 function drawMage(x, y, z, face, bob, flash) {
   const f = flash > 0 ? 1 : 0;
-  const terreR = 0.62 + f, terreG = 0.36 + f, terreB = 0.18 + f;
-  const t2R = 0.52 + f, t2G = 0.28 + f, t2B = 0.14 + f;
-  const cuirR = 0.32, cuirG = 0.16, cuirB = 0.08;
+  const rb = robeTint();
+  const terreR = rb.terre[0] + f, terreG = rb.terre[1] + f, terreB = rb.terre[2] + f;
+  const t2R = rb.terre2[0] + f, t2G = rb.terre2[1] + f, t2B = rb.terre2[2] + f;
+  const cuirR = rb.cuir[0], cuirG = rb.cuir[1], cuirB = rb.cuir[2];
   const peauR = 0.92 + f, peauG = 0.72, peauB = 0.52;
   const gemKind = player.cls;
   const gem = gemKind === "feu" ? [1, 0.35, 0.1]
@@ -2004,9 +2016,9 @@ function drawMage(x, y, z, face, bob, flash) {
   drawCube(x + fx * 0.02, yy + 1.30, z + fz * 0.02, 0.60, 0.14, 0.52, face, cuirR, cuirG, cuirB, 0);
   drawCube(x, yy + 1.42, z, 0.24, 0.14, 0.24, face, cuirR, cuirG, cuirB, 0);
   drawCube(x + fx * 0.30, yy + 1.30, z + fz * 0.30, 0.10, 0.10, 0.10, face, gem[0], gem[1], gem[2], 0.45);
-  drawCube(x - rx * 0.42, yy + 0.80 + swing, z - rz * 0.42, 0.18, 0.30, 0.18, face, 0.52, 0.28, 0.14, 0);
+  drawCube(x - rx * 0.42, yy + 0.80 + swing, z - rz * 0.42, 0.18, 0.30, 0.18, face, t2R, t2G, t2B, f * 0.25);
   drawCube(x - rx * 0.44, yy + 0.48 + swing, z - rz * 0.44, 0.16, 0.28, 0.16, face, peauR, peauG, peauB, 0);
-  drawCube(x + rx * 0.38 + fx * 0.12, yy + 0.82 - swing * 0.3, z + rz * 0.38 + fz * 0.12, 0.18, 0.28, 0.18, face, 0.52, 0.28, 0.14, 0);
+  drawCube(x + rx * 0.38 + fx * 0.12, yy + 0.82 - swing * 0.3, z + rz * 0.38 + fz * 0.12, 0.18, 0.28, 0.18, face, t2R, t2G, t2B, f * 0.25);
   drawCube(x + rx * 0.42 + fx * 0.22, yy + 0.56 - swing * 0.3, z + rz * 0.42 + fz * 0.22, 0.16, 0.16, 0.16, face, peauR, peauG, peauB, 0);
   const sx = x + rx * 0.44 + fx * 0.24;
   const sz = z + rz * 0.44 + fz * 0.24;
