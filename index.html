@@ -205,9 +205,35 @@ html, body {
   display: flex; align-items: center; justify-content: center;
   font-size: 22px;
 }
+#xp-row {
+  position: absolute;
+  top: calc(54px + var(--safe-t));
+  left: calc(10px + var(--safe-l));
+  right: calc(64px + var(--safe-r));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  background: rgba(8,4,16,.45);
+  border: 1px solid rgba(212,175,55,.28);
+  border-radius: 8px;
+  padding: 4px 8px 5px;
+  backdrop-filter: blur(6px);
+}
+#xp-row .track { flex: 1; height: 7px; background: rgba(255,255,255,.12); border-radius: 4px; overflow: hidden; }
+#xp-row .track > i { display: block; height: 100%; width: 100%; transform-origin: left center; border-radius: 4px; }
+#xp-i { background: linear-gradient(90deg, #6d28d9, #d4af37); }
+#lvl-lab {
+  font-family: var(--font-d);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--gold-l);
+  min-width: 2.6em;
+}
 #toast {
   position: absolute;
-  top: calc(62px + var(--safe-t));
+  top: calc(82px + var(--safe-t));
   left: 0; right: 0;
   text-align: center;
   pointer-events: none;
@@ -382,6 +408,10 @@ html, body {
     <div class="stat"><label>Mana</label><div class="track"><i id="man-i"></i></div></div>
     <div id="clock">☀</div>
   </div>
+  <div id="xp-row">
+    <span id="lvl-lab">N.1</span>
+    <div class="track"><i id="xp-i"></i></div>
+  </div>
   <div id="toast"></div>
   <div id="hotbar">
     <div class="slot" id="slot-bois">
@@ -420,15 +450,17 @@ const CYCLE = 120;
 const MAX_HP = 1000;
 const TREE_MAX_HP = 100;
 const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 35;
-const WOLF_HP = 220, WOLF_ATK = 55, SLIME_HP = 150, SLIME_ATK = 35;
-const CERF_HP = 80, CERF_FLEE = 4.2, CERF_FOOD = 55;
-const ZOMBIE_HP = 280, ZOMBIE_ATK = 48, ZOMBIE_SPD = 1.7;
-const SKEL_HP = 160, SKEL_ATK = 50, SKEL_SPD = 2.6;
+const SLIME_HP = 150, SLIME_ATK = 35, SLIME_SPD = 1.9, SLIME_ARM = 0.05;
+const WOLF_HP = 220, WOLF_ATK = 55, WOLF_SPD = 3.6, WOLF_ARM = 0.20;
+const ZOMBIE_HP = 280, ZOMBIE_ATK = 48, ZOMBIE_SPD = 1.35, ZOMBIE_ARM = 0.45;
+const SKEL_HP = 160, SKEL_ATK = 50, SKEL_SPD = 2.75, SKEL_ARM = 0.04;
+const CERF_HP = 80, CERF_ATK = 0, CERF_FLEE = 4.2, CERF_ARM = 0, CERF_FOOD = 55;
 const HOSTILE = { wolf: 1, slime: 1, zombie: 1, squelette: 1 };
 const canvas = document.getElementById("c");
 const $ = (id) => document.getElementById(id);
 const homeEl = $("home"), playUI = $("play-ui"), deathEl = $("death");
 const hpI = $("hp-i"), hunI = $("hun-i"), manI = $("man-i"), clockEl = $("clock"), toastEl = $("toast");
+const xpI = $("xp-i"), lvlLab = $("lvl-lab");
 const knob = $("joy-knob"), joyBase = $("joy-base");
 
 let gl, prog, worldBuf, worldN = 0, cubeBuf;
@@ -754,18 +786,46 @@ let boltFlash = 0;
 let meshDirty = false;
 let eatCD = 0, spellCD = 0, punchCD = 0;
 let lastSpell = null;
+const MAX_LVL = 100;
+function xpToNext(level) {
+  return 50 + 18 * level + ((level * level * 0.8) | 0);
+}
+function xpFor(kind) {
+  if (kind === "wolf") return 22;
+  if (kind === "slime") return 14;
+  if (kind === "zombie") return 28;
+  if (kind === "squelette") return 24;
+  return 0;
+}
+function grantXp(n) {
+  if (!n || player.level >= MAX_LVL) return;
+  player.xp += n;
+  while (player.level < MAX_LVL) {
+    const need = xpToNext(player.level);
+    if (player.xp < need) break;
+    player.xp -= need;
+    player.level++;
+    toast("Niveau " + player.level);
+    beep(720, 0.12, 0.05, "triangle");
+  }
+  if (player.level >= MAX_LVL) {
+    player.level = MAX_LVL;
+    player.xp = xpToNext(MAX_LVL - 1);
+  }
+}
 const player = {
   x: 48, y: 8, z: 50, vx: 0, vy: 0, vz: 0,
   yaw: 0.35, pitch: 0.22, face: 0.35,
   hp: MAX_HP, hunger: 100, mana: 100,
   grounded: false, flash: 0, inv: 0, bob: 0,
-  bois: 0, viande: 0, cls: null
+  bois: 0, viande: 0, cls: null, level: 1, xp: 0
 };
 const PW = 0.26, PH = 1.48;
 const mobs = [];
 const shots = [];
 const bolts = [];
 const stains = [];
+const pickups = [];
 const treeHp = Object.create(null);
 const parts = [];
 const keys = Object.create(null);
@@ -799,6 +859,7 @@ function spawnPlayer() {
   player.yaw = 0.2; player.pitch = 0.18; player.face = 0.2;
   player.flash = 0; player.inv = 0; player.grounded = true;
   player.bois = 0; player.viande = 0;
+  player.level = 1; player.xp = 0;
 }
 function collides(x, y, z, w, h) {
   const x0 = Math.floor(x - w), x1 = Math.floor(x + w);
@@ -905,18 +966,23 @@ function hurtPlayer(dmg, kx, kz) {
   beep(140, 0.12, 0.07, "sawtooth");
   if (player.hp <= 0) die();
 }
+function spawnPickup(kind, x, y, z) {
+  pickups.push({ kind, x, y, z, bob: Math.random() * 6.28 });
+}
 function killMob(m) {
   if (m.dead) return;
   m.dead = true;
   if (m.kind === "chevreuil") {
-    player.hunger = Math.min(100, player.hunger + CERF_FOOD);
-    player.viande = (player.viande || 0) + 1;
+    spawnPickup("viande", m.x, m.y + 0.1, m.z);
     toast("Chevreuil");
     beep(520, 0.1, 0.05, "triangle");
+  } else if (HOSTILE[m.kind]) {
+    grantXp(xpFor(m.kind));
   }
 }
 function hurtMob(m, dmg, kx, kz, kb) {
-  m.hp -= dmg;
+  const taken = Math.max(1, (dmg * (1 - mobArm(m.kind)) + 0.5) | 0);
+  m.hp -= taken;
   m.flash = 0.16;
   m.vx += kx * kb; m.vz += kz * kb; m.vy = Math.max(m.vy, 2.5);
   burst(m.x, m.y + 0.5, m.z, 1, 0.9, 0.7, 8, 5);
@@ -939,7 +1005,7 @@ function resetPlay() {
   buildWorldMesh();
   spawnPlayer();
   for (const k of Object.keys(treeHp)) delete treeHp[k];
-  mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0; stains.length = 0;
+  mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0; stains.length = 0; pickups.length = 0;
   boltFlash = 0;
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
   player.bois = 0; player.viande = 0;
@@ -961,6 +1027,27 @@ function mobHp(kind) {
   if (kind === "zombie") return ZOMBIE_HP;
   if (kind === "squelette") return SKEL_HP;
   return CERF_HP;
+}
+function mobSpd(kind) {
+  if (kind === "wolf") return WOLF_SPD;
+  if (kind === "slime") return SLIME_SPD;
+  if (kind === "zombie") return ZOMBIE_SPD;
+  if (kind === "squelette") return SKEL_SPD;
+  return CERF_FLEE;
+}
+function mobAtk(kind) {
+  if (kind === "wolf") return WOLF_ATK;
+  if (kind === "slime") return SLIME_ATK;
+  if (kind === "zombie") return ZOMBIE_ATK;
+  if (kind === "squelette") return SKEL_ATK;
+  return CERF_ATK;
+}
+function mobArm(kind) {
+  if (kind === "wolf") return WOLF_ARM;
+  if (kind === "slime") return SLIME_ARM;
+  if (kind === "zombie") return ZOMBIE_ARM;
+  if (kind === "squelette") return SKEL_ARM;
+  return CERF_ARM;
 }
 function pushMob(kind, minR, maxR, minDist) {
   let tries = 0;
@@ -1019,6 +1106,14 @@ function clearHostiles() {
 function tryEat(dt) {
   eatCD -= dt;
   if (eatCD > 0 || player.hunger >= 99) return;
+  if (player.viande > 0 && player.hunger < 50) {
+    player.viande--;
+    player.hunger = Math.min(100, player.hunger + CERF_FOOD);
+    eatCD = 0.55;
+    toast("Viande");
+    beep(660, 0.06, 0.04, "triangle");
+    return;
+  }
   const x0 = Math.floor(player.x - 1.35), x1 = Math.floor(player.x + 1.35);
   const y0 = Math.floor(player.y), y1 = Math.floor(player.y + 2.1);
   const z0 = Math.floor(player.z - 1.35), z1 = Math.floor(player.z + 1.35);
@@ -1165,10 +1260,13 @@ function harvestTree(sx, sy, sz) {
     }
   }
   if (!woods && !leaves) return;
-  const gain = Math.min(8, Math.max(3, woods || 3));
-  player.bois += gain;
   meshDirty = true;
-  toast("+" + gain + " bois");
+  const gy = highest(sx, sz) + 1.05;
+  const nDrop = 1 + ((Math.random() * 2) | 0);
+  for (let i = 0; i < nDrop; i++) {
+    spawnPickup("bois", sx + 0.5 + (i ? 0.35 : -0.15), gy, sz + 0.5 + (i ? -0.2 : 0.12));
+  }
+  toast("Bois");
   beep(320, 0.09, 0.05, "triangle");
 }
 
@@ -1266,7 +1364,7 @@ function updateMobs(dt) {
     }
 
     m.yaw = Math.atan2(dx, dz);
-    const sp = (m.kind === "wolf" ? 3.4 : m.kind === "zombie" ? ZOMBIE_SPD : m.kind === "squelette" ? SKEL_SPD : 2.15) * spMul;
+    const sp = mobSpd(m.kind) * spMul;
     m.vx = (dx / dist) * sp;
     m.vz = (dz / dist) * sp;
     if (m.kind === "slime" && m.grounded && m.hop > 0.9) {
@@ -1279,8 +1377,8 @@ function updateMobs(dt) {
     if (dist < reach && m.atk <= 0 && mode === "play") {
       m.atk = 0.9;
       const k = 5.5;
-      const dmg = m.kind === "wolf" ? WOLF_ATK : m.kind === "zombie" ? ZOMBIE_ATK : m.kind === "squelette" ? SKEL_ATK : SLIME_ATK;
-      hurtPlayer(dmg, -(dx / dist) * k, -(dz / dist) * k);
+      const dmg = mobAtk(m.kind);
+      if (dmg > 0) hurtPlayer(dmg, -(dx / dist) * k, -(dz / dist) * k);
     }
   }
   for (let i = mobs.length - 1; i >= 0; i--) if (mobs[i].dead) mobs.splice(i, 1);
@@ -1412,13 +1510,29 @@ function skyColors() {
 function drawMage(x, y, z, face, bob, flash) {
   const f = flash > 0 ? 1 : 0;
   const robeR = 0.42 + f, robeG = 0.18 + f, robeB = 0.62 + f;
-  drawCube(x, y + 0.46 + bob, z, 0.62, 0.78, 0.42, face, robeR, robeG, robeB, f * 0.4);
-  drawCube(x, y + 1.08 + bob, z, 0.42, 0.42, 0.42, face, 0.95 + f, 0.78, 0.62, f * 0.3);
-  drawCube(x, y + 1.38 + bob, z, 0.5, 0.22, 0.5, face, 0.22, 0.1, 0.4, 0);
-  drawCube(x, y + 1.58 + bob, z, 0.22, 0.28, 0.22, face, 0.22, 0.1, 0.4, 0);
+  const skinR = 0.95 + f, skinG = 0.78, skinB = 0.62;
+  const hatR = 0.22, hatG = 0.1, hatB = 0.4;
+  const rx = Math.cos(face), rz = -Math.sin(face);
+  const fx = Math.sin(face), fz = Math.cos(face);
+  const swing = Math.sin(player.bob) * 0.07;
+  drawCube(x + rx * 0.13, y + 0.09 + bob, z + rz * 0.13, 0.16, 0.14, 0.2, face, 0.2, 0.1, 0.07, 0);
+  drawCube(x - rx * 0.13, y + 0.09 + bob, z - rz * 0.13, 0.16, 0.14, 0.2, face, 0.2, 0.1, 0.07, 0);
+  drawCube(x, y + 0.34 + bob, z, 0.58, 0.4, 0.4, face, robeR, robeG, robeB, f * 0.4);
+  drawCube(x, y + 0.74 + bob, z, 0.5, 0.42, 0.36, face, robeR, robeG, robeB, f * 0.4);
+  drawCube(x, y + 1.1 + bob, z, 0.4, 0.4, 0.4, face, skinR, skinG, skinB, f * 0.3);
+  drawCube(x, y + 1.36 + bob, z, 0.52, 0.16, 0.52, face, hatR, hatG, hatB, 0);
+  drawCube(x, y + 1.52 + bob, z, 0.28, 0.22, 0.28, face, hatR, hatG, hatB, 0);
+  drawCube(x, y + 1.72 + bob, z, 0.16, 0.22, 0.16, face, 0.18, 0.08, 0.34, 0);
+  const lx = x - rx * 0.4, lz = z - rz * 0.4;
+  drawCube(lx, y + 0.78 + bob + swing, lz, 0.16, 0.28, 0.16, face, robeR, robeG, robeB, f * 0.2);
+  drawCube(lx, y + 0.48 + bob + swing, lz, 0.14, 0.28, 0.14, face, skinR, skinG, skinB, f * 0.2);
+  const rax = x + rx * 0.36 + fx * 0.1, raz = z + rz * 0.36 + fz * 0.1;
+  drawCube(rax, y + 0.78 + bob - swing * 0.45, raz, 0.16, 0.26, 0.16, face, robeR, robeG, robeB, f * 0.2);
+  const rhx = x + rx * 0.42 + fx * 0.16, rhz = z + rz * 0.42 + fz * 0.16;
+  drawCube(rhx, y + 0.54 + bob - swing * 0.45, rhz, 0.14, 0.16, 0.14, face, skinR, skinG, skinB, f * 0.2);
   const gemKind = player.cls || lastSpell;
   const gem = gemKind === "feu" ? [1, 0.35, 0.1] : gemKind === "glace" ? [0.4, 0.9, 1] : gemKind === "foudre" ? [0.8, 0.5, 1] : [0.85, 0.72, 0.28];
-  const sx = x + Math.cos(face) * 0.42, sz = z - Math.sin(face) * 0.42;
+  const sx = x + rx * 0.42, sz = z + rz * 0.42;
   drawCube(sx, y + 0.7 + bob, sz, 0.1, 1.05, 0.1, face, 0.35, 0.2, 0.1, 0);
   drawCube(sx, y + 1.28 + bob, sz, 0.2, 0.2, 0.2, face, gem[0], gem[1], gem[2], 0.35);
 }
@@ -1597,6 +1711,14 @@ function render() {
   bindInterleaved(cubeBuf);
   const bob = Math.sin(player.bob) * 0.05;
   drawMage(player.x, player.y, player.z, player.face, bob, player.flash);
+  for (const pk of pickups) {
+    const by = pk.y + 0.16 + Math.sin(pk.bob) * 0.09;
+    if (pk.kind === "bois") {
+      drawCube(pk.x, by, pk.z, 0.3, 0.22, 0.3, pk.bob * 0.25, 0.5, 0.3, 0.12, 0.04);
+    } else {
+      drawCube(pk.x, by, pk.z, 0.26, 0.2, 0.26, pk.bob * 0.35, 0.86, 0.34, 0.2, 0.08);
+    }
+  }
   for (const m of mobs) {
     if (m.dead) continue;
     if (m.kind === "wolf") drawWolf(m);
@@ -1670,6 +1792,9 @@ function updateHUD() {
   hpI.style.transform = "scaleX(" + Math.max(0, player.hp / MAX_HP) + ")";
   hunI.style.transform = "scaleX(" + Math.max(0, player.hunger / 100) + ")";
   manI.style.transform = "scaleX(" + Math.max(0, player.mana / 100) + ")";
+  const xpFrac = player.level >= MAX_LVL ? 1 : player.xp / Math.max(1, xpToNext(player.level));
+  if (xpI) xpI.style.transform = "scaleX(" + Math.max(0, Math.min(1, xpFrac)) + ")";
+  if (lvlLab) lvlLab.textContent = "N." + player.level;
   clockEl.textContent = isNight() ? "☾" : "☀";
   const kind = player.cls;
   const cost = kind === "feu" ? 26 : kind === "glace" ? 22 : kind === "foudre" ? 32 : 26;
@@ -1725,6 +1850,17 @@ function update(dt) {
     }
     physics(player, PW, PH, dt);
     if (player.y < -6) die();
+    for (const pk of pickups) pk.bob += dt * 3.2;
+    for (let i = pickups.length - 1; i >= 0; i--) {
+      const pk = pickups[i];
+      const dx = player.x - pk.x, dz = player.z - pk.z;
+      if (dx * dx + dz * dz > 1.21) continue;
+      if (Math.abs(player.y - pk.y) > 1.5) continue;
+      if (pk.kind === "bois") { player.bois++; toast("+1 bois"); }
+      else { player.viande++; toast("+1 viande"); }
+      beep(540, 0.07, 0.04, "triangle");
+      pickups.splice(i, 1);
+    }
     updateMobs(dt);
     updateShots(dt);
     updateHUD();
