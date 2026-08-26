@@ -3092,14 +3092,20 @@ function updateShots(dt) {
     }
     s.life -= dt; s.age = (s.age || 0) + dt;
     if (s.kind === "arcane") steerArcane(s, dt);
+    if (s.originX == null) { s.originX = s.x; s.originY = s.y; s.originZ = s.z; }
     s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
     if (s.kind === "glace") s.vy -= 2.4 * dt;
+    else if (s.kind === "feu") {
+      const dist = Math.hypot(s.x - s.originX, s.y - s.originY, s.z - s.originZ);
+      if (dist >= 10 || s.age >= 0.60) s.vy -= 6.0 * dt;
+    }
     s.trail = (s.trail || 0) + dt;
     const tint = s.kind === "feu" ? 0.010 : s.kind === "glace" ? 0.022 : s.kind === "arcane" ? 0.020 : s.kind === "necro" ? 0.030 : 0.05;
     if (s.kind === "feu" || s.kind === "glace" || s.kind === "arcane" || s.kind === "necro") {
       if (s.trail > tint) { s.trail = 0; emitShotTrail(s); }
     }
     let dead = s.life <= 0 || s.y < -2;
+    if (s.kind === "feu" && s.y < highest(s.x, s.z) + 0.35) dead = true;
     let hitMob = null;
     const hb = s.kind === "arcane" ? 0.72 : s.kind === "necro" ? 1.05 : 1.45;
     const hbY = s.kind === "arcane" ? 0.8 : (s.kind === "feu" || s.kind === "glace") ? 1.35 : 1.25;
