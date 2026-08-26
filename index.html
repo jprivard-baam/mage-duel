@@ -1057,7 +1057,8 @@ const parts = [];
 const puddles = [];
 const iceZones = [];
 const burning = Object.create(null);
-let npcMage = null, npcMageRespawn = 0;
+const NPC_CAP = 4;
+let npcRespawns = [];
 const keys = Object.create(null);
 const joy = { id: null, dx: 0, dy: 0 };
 const lookT = { id: null, lx: 0, ly: 0 };
@@ -1222,8 +1223,7 @@ function killMob(m) {
     grantXp(36);
     toast("Mage " + spellLabel(m.cls));
     beep(480, 0.12, 0.05, "triangle");
-    npcMageRespawn = 90;
-    npcMage = null;
+    npcRespawns.push(90);
   } else if (HOSTILE[m.kind]) {
     grantXp(xpFor(m.kind));
   }
@@ -1256,7 +1256,7 @@ function resetPlay() {
   spawnPlayer();
   for (const k of Object.keys(treeHp)) delete treeHp[k];
   for (const k of Object.keys(burning)) delete burning[k];
-  npcMage = null; npcMageRespawn = 0;
+  npcRespawns = [];
   mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0; stains.length = 0; fx.length = 0; pickups.length = 0; puddles.length = 0; iceZones.length = 0;
   boltFlash = 0;
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
@@ -1531,7 +1531,8 @@ function pushMob(kind, minR, maxR, minDist) {
 function spawnWildlife() {
   for (let i = 0; i < 4; i++) pushMob("chevreuil", 12, 30, 10);
   pushMob("wolf", 22, 34, 20);
-  spawnNpcMage();
+  for (let i = 0; i < 3; i++) spawnNpcMage();
+  npcRespawns = [90];
 }
 function findWoodNear(wx, wz, maxD) {
   const mx = vox(wx), mz = vox(wz);
@@ -1551,22 +1552,37 @@ function findWoodNear(wx, wz, maxD) {
   return best;
 }
 const NPC_SCHOOLS = ["feu","glace","foudre","arcane","necro"];
+function mageCount() {
+  let n = 0;
+  for (let i = 0; i < mobs.length; i++) if (mobs[i].kind === "mage" && !mobs[i].dead) n++;
+  return n;
+}
+function tooCloseMage(wx, wz, minD) {
+  for (let i = 0; i < mobs.length; i++) {
+    const o = mobs[i];
+    if (o.kind !== "mage" || o.dead) continue;
+    if (Math.hypot(o.x - wx, o.z - wz) < minD) return true;
+  }
+  return false;
+}
 function spawnNpcMage() {
-  for (let i = mobs.length - 1; i >= 0; i--) if (mobs[i].kind === "mage") mobs.splice(i, 1);
-  let tree = null;
-  for (let z = 4; z < D - 4 && !tree; z += 3) {
-    for (let x = 4; x < W - 4; x += 3) {
+  if (mageCount() >= NPC_CAP) return;
+  let tree = null, best = -1;
+  for (let z = 4; z < D - 4; z += 4) {
+    for (let x = 4; x < W - 4; x += 4) {
       let yWood = -1;
       for (let y = H - 1; y >= 1; y--) if (getB(x, y, z) === WOOD) { yWood = y; break; }
       if (yWood < 0) continue;
       const wx = wCenter(x), wz = wCenter(z);
       const d = Math.hypot(wx - player.x, wz - player.z);
-      if (d < 12 || d > 34) continue;
-      tree = { x: x, y: yWood, z: z, wx: wx, wy: wCenter(yWood), wz: wz };
-      break;
+      if (d < 10 || d > 50) continue;
+      if (tooCloseMage(wx, wz, 16)) continue;
+      const score = Math.min(d, 36) + hash(x, z) * 10;
+      if (score > best) { best = score; tree = { x: x, y: yWood, z: z, wx: wx, wy: wCenter(yWood), wz: wz }; }
     }
   }
-  if (!tree) tree = findWoodNear(player.x + 16, player.z + 10, 40);
+  if (!tree) tree = findWoodNear(player.x + 18, player.z + 14, 48);
+  if (tree && tooCloseMage(tree.wx, tree.wz, 12)) tree = null;
   let x, z, y;
   if (tree) {
     const ang = Math.atan2(player.x - tree.wx, player.z - tree.wz) + Math.PI;
@@ -1589,8 +1605,6 @@ function spawnNpcMage() {
     swingHitT: -1, swingAnim: 0, swingTgt: null,
     wander: 0, wAng: 0, grounded: true, dead: false
   };
-  npcMage = npc;
-  npcMageRespawn = 0;
   mobs.push(npc);
 }
 function npcCastE(m, tx, ty, tz, tgt) {
@@ -1676,12 +1690,17 @@ function npcResolveStaff(m, tgt) {
   hurtMob(tgt, 64, dx / d, dz / d, 4);
 }
 function updateNpcMage(dt) {
-  if (npcMageRespawn > 0 && (!npcMage || npcMage.dead)) {
-    npcMageRespawn -= dt;
-    if (npcMageRespawn <= 0) spawnNpcMage();
-    return;
+  for (let i = 0; i < npcRespawns.length; i++) npcRespawns[i] -= dt;
+  while (npcRespawns.length && npcRespawns[0] <= 0) {
+    npcRespawns.shift();
+    if (mageCount() < NPC_CAP) spawnNpcMage();
   }
-  const m = npcMage;
+  for (let i = 0; i < mobs.length; i++) {
+    const m = mobs[i];
+    if (m && m.kind === "mage" && !m.dead) tickNpcMage(m, dt);
+  }
+}
+function tickNpcMage(m, dt) {
   if (!m || m.dead) return;
   m.mana = Math.min(80, m.mana + 3.5 * dt);
   m.atk = Math.max(0, m.atk - dt);
@@ -3151,7 +3170,7 @@ function npcStaffGemPos(npc) {
   const staff = mageStaffTip(npc, npc.pose==="aggro"||npc.pose==="cast"?npc.pose:"idle");
   return { x: staff.tipx, y: staff.tipy, z: staff.tipz };
 }
-function drawMage(x, y, z, face, bob, flash, cls, pose, rawBob) {
+function drawMage(x, y, z, face, bob, flash, cls, pose, rawBob, chopAnim) {
   if (rawBob === undefined) rawBob = player.bob;
   const f = flash > 0 ? 1 : 0;
   const rb = robeTint(cls);
@@ -3163,7 +3182,7 @@ function drawMage(x, y, z, face, bob, flash, cls, pose, rawBob) {
   const rx = Math.cos(face), rz = -Math.sin(face);
   const fx = Math.sin(face), fz = Math.cos(face);
   let bobK = 1, gemGlow = 0.55, leftK = 1, gemY = 1.34;
-  const chopping = pose === "farm" && npcMage && npcMage.chopAnim > 0;
+  const chopping = pose === "farm" && (chopAnim || 0) > 0;
   if (pose === "farm") {
     bobK = 0.55;
     gemGlow = chopping ? 0.55 : 0.40;
@@ -3509,7 +3528,7 @@ function render() {
     else if (m.kind === "squelette") drawSkeleton(m);
     else if (m.kind === "mage") {
       const nBob = Math.sin(m.bob)*0.05;
-      drawMage(m.x, m.y, m.z, m.face, nBob, m.flash, m.cls, m.pose||"idle", m.bob);
+      drawMage(m.x, m.y, m.z, m.face, nBob, m.flash, m.cls, m.pose||"idle", m.bob, m.chopAnim);
     }
     else drawSlime(m);
   }
