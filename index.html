@@ -1461,7 +1461,7 @@ function hurtMob(m, dmg, kx, kz, kb, opt) {
   }
   if (m.hp <= 0) {
     burst(m.x, m.y + 0.4, m.z, 0.3, 0.8, 0.2, 14, 6);
-    if (opt.necroKill) onNecroKill(m);
+    if (opt.necroKill) onNecroKill(m, opt.spirit);
     killMob(m);
   }
   return taken;
@@ -1483,6 +1483,7 @@ function resetPlay() {
   for (const k of Object.keys(burning)) delete burning[k];
   npcRespawns = [];
   mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0; stains.length = 0; fx.length = 0; pickups.length = 0; puddles.length = 0; iceZones.length = 0; storms.length = 0;
+  player.sk2 = {};
   boltFlash = 0;
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
   player.bois = 0; player.viande = 0; player.potVie = 0; player.potMana = 0;
@@ -1708,6 +1709,7 @@ function sk2Row(id) {
   return t[Math.min(5, r) - 1];
 }
 function isSk2Id(id) { return !!(id && id.indexOf("SK2_") === 0); }
+function isSecId(id) { return !!(id && id.indexOf("SEC_") === 0); }
 function sk2OfCls(cls) { return SK2_BY_CLS[cls] || []; }
 function cls1Open() {
   const out = [];
@@ -1764,13 +1766,13 @@ function applyPeste(m, seen) {
     break;
   }
 }
-function onNecroKill(m) {
+function onNecroKill(m, spiritOk) {
   const frac = sk2Row("SK2_NEC_FRAC");
   if (frac) {
     hurtFoesAround(m.x, m.z, frac.r, Math.round(shotDmg("necro") * frac.dmg), 2);
     fx.push({ type: "flash", x: m.x, y: m.y + 0.4, z: m.z, age: 0, life: 0.10, s: 0.28, r: 0.18, g: 0.72, b: 0.32, glow: 0.22 });
   }
-  if (player.cls === "necro" && sk2Rank("SK2_NEC_HORDE") >= 1) spawnSpirit(m.x, m.z);
+  if (spiritOk && player.cls === "necro" && sk2Rank("SK2_NEC_HORDE") >= 1) spawnSpirit(m.x, m.z);
 }
 function spiritCap() {
   const h = sk2Row("SK2_NEC_HORDE");
@@ -1789,10 +1791,13 @@ function spawnSpirit(x, z) {
   const gy = highest(x, z) + INV_VX + 0.05;
   mobs.push({
     kind: "serviteur", spirit: true, x: x, y: gy, z: z, vx: 0, vy: 0, vz: 0,
-    hp: 55, maxHp: 55,
+    hp: 55 + (sk2Row("SK2_NEC_HORDE") ? sk2Row("SK2_NEC_HORDE").pv : 0),
+    maxHp: 55 + (sk2Row("SK2_NEC_HORDE") ? sk2Row("SK2_NEC_HORDE").pv : 0),
     yaw: player.face, flash: 0, slow: 0, para: 0, burn: 0, atk: 0,
     hop: Math.random() * 6.28, wander: 0, wAng: player.face,
-    grazing: false, dead: false, ally: true, ttl: 25, rise: 0.35, atkVal: 14
+    grazing: false, dead: false, ally: true,
+    ttl: 25 + (sk2Row("SK2_NEC_HORDE") ? sk2Row("SK2_NEC_HORDE").ttl : 0), rise: 0.35,
+    atkVal: Math.round(14 * (1 + ((sk2Row("SK2_NEC_HORDE") && sk2Row("SK2_NEC_HORDE").atk) || 0)))
   });
   toast("Esprit");
 }
@@ -3718,7 +3723,7 @@ function ballAimTgt(s) {
     if (m !== player && m.dead) return;
     const dx = m.x - s.x, dz = m.z - s.z;
     const d = Math.hypot(dx, dz);
-    if (d >= 5 || d < 0.01) return;
+    if (d >= bestD || d < 0.01) return;
     const dot = (dx / d) * vx + (dz / d) * vz;
     if (dot <= 0.25) return;
     if (d < bestD) { best = m; bestD = d; }
@@ -3817,6 +3822,8 @@ function applyBallHurt(s, m) {
     }
   }
   if (s.kind === "arcane") {
+    const foc = sk2Row("SK2_ARC_FOCUS");
+    if (foc && !s.extra) dmg = Math.round(dmg * (1 + foc.dmg));
     const eth = sk2Row("SK2_ARC_ETHER");
     if (eth) {
       dmg = Math.round(dmg + shotDmg("arcane") * eth.dmg);
@@ -3828,6 +3835,7 @@ function applyBallHurt(s, m) {
     if (dr) dmg = Math.round(dmg + shotDmg("necro") * dr.dmg);
     if (dr) opt.lifesteal = dr.ls;
     opt.necroKill = true;
+    opt.spirit = player.cls === "necro";
   }
   hurtMob(m, dmg, s.vx / len, s.vz / len, 8, opt);
   if (s.kind === "glace") m.slow = 3;
@@ -5130,7 +5138,37 @@ function cardFromId(id, kind) {
   }
   if (isSk2Id(id)) {
     const r = sk2Rank(id);
-    return { id: id, title: SK2_TITLE[id] || id, body: (SK2_BODY[id] || "") + " · rang " + r + "→" + Math.min(5, r + 1) };
+    const next = Math.min(5, r + 1);
+    const row = (SK2_TAB[id] || [])[next - 1];
+    let body = SK2_BODY[id] || "";
+    if (row) {
+      const bits = [];
+      if (row.r != null) bits.push("r " + row.r);
+      if (row.n != null) bits.push("n " + row.n);
+      if (row.dmg != null) bits.push(row.dmg + "×");
+      if (row.dur != null) bits.push(row.dur + "s");
+      if (row.hops != null) bits.push(row.hops + " hops");
+      if (row.pct != null) bits.push((row.pct * 100) + "%/s");
+      if (row.freeze != null) bits.push("freeze " + row.freeze + "s");
+      if (row.slow != null) bits.push("slow " + row.slow + "s");
+      if (row.para != null) bits.push("para " + row.para + "s");
+      if (row.first != null) bits.push(row.first + "× 1er");
+      if (row.hop != null) bits.push("hop " + row.hop + "×");
+      if (row.fan != null) bits.push("fan " + row.fan + "°");
+      if (row.acquire != null) bits.push("acq " + row.acquire);
+      if (row.steer != null) bits.push("steer " + row.steer);
+      if (row.cut != null) bits.push("−" + (row.cut * 100) + "% maxPV");
+      if (row.ls != null) bits.push((row.ls * 100) + "% vol");
+      if (row.cap != null) bits.push("cap +" + row.cap);
+      if (row.w != null) bits.push("larg. " + row.w);
+      if (row.range != null) bits.push(row.range + "c");
+      if (row.arm != null) bits.push("ign. " + (row.arm * 100) + "%");
+      if (row.exec != null) bits.push("exec " + row.exec + "×");
+      if (row.red != null) bits.push("−" + (row.red * 100) + "% mana");
+      if (row.dash != null) bits.push("dash " + row.dash);
+      if (bits.length) body = bits.join(" · ");
+    }
+    return { id: id, title: SK2_TITLE[id] || id, body: body };
   }
   if (id === "PV") return { id: id, title: "+ PV", body: "+" + rhu(50 * m) + " PV max" };
   if (id === "MANA") return { id: id, title: "+ Mana", body: "+" + rhu(12 * m) + " mana max" };
