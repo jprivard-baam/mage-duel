@@ -1255,7 +1255,7 @@ function resetPlay() {
   mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0; stains.length = 0; fx.length = 0; pickups.length = 0; puddles.length = 0; iceZones.length = 0;
   boltFlash = 0;
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
-  player.bois = 0; player.viande = 0;
+  player.bois = 0; player.viande = 0; player.potVie = 0; player.potMana = 0;
   deathEl.classList.add("hidden");
   const bn = $("bois-n"); if (bn) bn.textContent = "0";
   const vn = $("viande-n"); if (vn) vn.textContent = "0";
