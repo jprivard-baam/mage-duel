@@ -23,7 +23,6 @@
   --bolt: #4ea3ff;
   --arcane: #e056fd;
   --necro: #38eb6b;
-  --war: #c9a227;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
@@ -211,7 +210,6 @@ html, body {
 .cls-btn[data-cls="foudre"] .cls-dot { background: var(--bolt); box-shadow: 0 0 12px var(--bolt); }
 .cls-btn[data-cls="arcane"] .cls-dot { background: var(--arcane); box-shadow: 0 0 12px var(--arcane); }
 .cls-btn[data-cls="necro"] .cls-dot { background: var(--necro); box-shadow: 0 0 12px var(--necro); }
-.cls-btn[data-cls="war"] .cls-dot { background: var(--war); box-shadow: 0 0 12px var(--war); }
 .cls-btn.on {
   border-color: var(--gold);
   color: #fff6d4;
@@ -223,7 +221,6 @@ html, body {
 .cls-btn[data-cls="foudre"].on { background: radial-gradient(circle at 35% 25%, rgba(78,163,255,.42), rgba(8,4,16,.75)); }
 .cls-btn[data-cls="arcane"].on { background: radial-gradient(circle at 35% 25%, rgba(224,86,253,.48), rgba(8,4,16,.75)); }
 .cls-btn[data-cls="necro"].on { background: radial-gradient(circle at 35% 25%, rgba(56,235,107,.42), rgba(8,4,16,.75)); }
-.cls-btn[data-cls="war"].on { background: radial-gradient(circle at 35% 25%, rgba(201,162,39,.48), rgba(8,4,16,.75)); }
 .cls-btn:active { transform: scale(.96); }
 
 .pick-lab {
@@ -368,7 +365,6 @@ html, body {
 #btn-sort.foudre, #btn-sort3.foudre { background: radial-gradient(circle at 35% 30%, #dbeafe, #4ea3ff 55%, #1e40af); }
 #btn-sort.arcane, #btn-sort3.arcane { background: radial-gradient(circle at 35% 30%, #f5d0fe, #e056fd 55%, #86198f); }
 #btn-sort.necro, #btn-sort3.necro { background: radial-gradient(circle at 35% 30%, #bbf7d0, #38eb6b 55%, #166534); }
-#btn-sort.war, #btn-sort3.war { background: radial-gradient(circle at 35% 30%, #f5e6b0, #c9a227 55%, #5a4310); }
 #btn-sort2 { width: 62px; height: 62px; font-size: 9px; letter-spacing: .06em; background: radial-gradient(circle at 35% 30%, #d4a574, #8b5a2b 55%, #4a2c12); }
 #btn-sort3 { width: 62px; height: 62px; font-size: 9px; letter-spacing: .06em; }
 #btn-saut {
@@ -551,7 +547,6 @@ html, body {
       <button type="button" class="cls-btn" data-cls="foudre"><span class="cls-dot"></span>Foudre</button>
       <button type="button" class="cls-btn" data-cls="arcane"><span class="cls-dot"></span>Arcane</button>
       <button type="button" class="cls-btn" data-cls="necro"><span class="cls-dot"></span>Nécro</button>
-      <button type="button" class="cls-btn" data-cls="war"><span class="cls-dot"></span>War Wizard</button>
     </div>
     <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
     <p class="home-hint">Choisis une classe · E pour le sort<br>Force secondaire au level up</p>
@@ -642,7 +637,7 @@ const AIR = 0, DIRT = 1, ROCK = 2, WOOD = 3, LEAF = 4;
 const CYCLE = 120;
 const MAX_HP = 1000;
 const TREE_MAX_HP = 100;
-const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 52, DMG_ARCANE = 30, DMG_NECRO = 22, DMG_WAR = 36;
+const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 52, DMG_ARCANE = 30, DMG_NECRO = 22;
 const FOUDRE_RANGE = 26;
 const SERV_HP = 90, SERV_ATK = 22, SERV_SPD = 2.0, SERV_ARM = 0.10, SERV_LIFE = 40;
 const SLIME_HP = 150, SLIME_ATK = 35, SLIME_SPD = 1.9, SLIME_ARM = 0.05;
@@ -656,8 +651,7 @@ const ROBE = {
   glace:  { terre: [0.28, 0.78, 0.98], terre2: [0.12, 0.48, 0.78], cuir: [0.08, 0.22, 0.40] },
   foudre: { terre: [0.18, 0.38, 0.98], terre2: [0.08, 0.20, 0.72], cuir: [0.06, 0.10, 0.32] },
   arcane: { terre: [0.82, 0.18, 0.95], terre2: [0.56, 0.08, 0.68], cuir: [0.28, 0.06, 0.32] },
-  necro:  { terre: [0.22, 0.72, 0.18], terre2: [0.10, 0.42, 0.10], cuir: [0.08, 0.18, 0.08] },
-  war:    { terre: [0.42, 0.34, 0.22], terre2: [0.30, 0.22, 0.12], cuir: [0.18, 0.12, 0.08] }
+  necro:  { terre: [0.22, 0.72, 0.18], terre2: [0.10, 0.42, 0.10], cuir: [0.08, 0.18, 0.08] }
 };
 const ROBE_FALLBACK = { terre: [0.62, 0.36, 0.18], terre2: [0.52, 0.28, 0.14], cuir: [0.32, 0.16, 0.08] };
 const canvas = document.getElementById("c");
@@ -1245,7 +1239,7 @@ const player = {
   maxHp: MAX_HP, maxMana: 100,
   priRank: 0, secRank: 0, pvRank: 0, manaRank: 0, spdRank: 0, armRank: 0, regRank: 0, punchRank: 0, hungerRank: 0,
   priBonus: 0, secBonus: 0, spdBonus: 0, armDR: 0, regBonus: 0, punchBonus: 0, hungerMul: 1,
-  qUnlockL: 0, draftQueue: [], noSecStreak: 0, sk2: {},
+  qUnlockL: 0, draftQueue: [], noSecStreak: 0, sk2: {}, warRank: 0,
   slow: 0, tag: "", staffSwing: 0, spawnProt: 0
 };
 const PW = 0.26, PH = 1.48;
@@ -1311,7 +1305,7 @@ function spawnPlayer() {
   player.priBonus = 0; player.secBonus = 0; player.spdBonus = 0; player.armDR = 0;
   player.regBonus = 0; player.punchBonus = 0; player.hungerMul = 1; player.hungerRed = 0;
   player.qUnlockL = 0; player.draftQueue = []; player.noSecStreak = 0;
-  player.sk2 = {};
+  player.sk2 = {}; player.warRank = 0;
   player.cls2 = null; player.slow = 0; player.para = 0; player.burn = 0;
   runSeed = (Math.random() * 1e9) | 0;
 }
@@ -1500,6 +1494,7 @@ function resetPlay() {
   spawnIndex = 0;
   mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0; stains.length = 0; fx.length = 0; pickups.length = 0; puddles.length = 0; iceZones.length = 0; storms.length = 0;
   player.sk2 = {};
+  player.warRank = 0;
   boltFlash = 0;
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
   player.bois = 0; player.viande = 0; player.potVie = 0; player.potMana = 0;
@@ -1567,6 +1562,11 @@ function isFoe(m) {
   if (m.kind === "mage") return m.pose === "aggro";
   return !!(HOSTILE[m.kind] || m.kind === "chevreuil");
 }
+const WAR_RED = [0, 0.25, 0.32, 0.40, 0.48, 0.55, 0.65, 0.72, 0.80, 0.85, 0.90];
+function warRed() {
+  const r = Math.max(0, Math.min(10, player.warRank || 0));
+  return WAR_RED[r] || 0;
+}
 function spellCost(kind, slot) {
   let cost = 26;
   if (kind === "necro" && slot === 3) cost = 28;
@@ -1575,9 +1575,8 @@ function spellCost(kind, slot) {
   else if (kind === "foudre") cost = 55;
   else if (kind === "arcane") cost = 20;
   else if (kind === "necro") cost = 24;
-  else if (kind === "war") cost = 24;
-  const bat = sk2Row("SK2_WAR_BATTLE");
-  if (bat) cost = Math.max(1, Math.floor(cost * (1 - bat.red)));
+  const red = warRed();
+  cost = Math.max(1, Math.floor(cost * (1 - red)));
   return cost;
 }
 function spellCdFor(kind, slot) {
@@ -1585,7 +1584,6 @@ function spellCdFor(kind, slot) {
   if (kind === "foudre") return 0.65;
   if (kind === "arcane") return 0.28;
   if (kind === "necro") return 0.55;
-  if (kind === "war") return 0.38;
   return 0.32;
 }
 function spellLabel(kind) {
@@ -1594,7 +1592,6 @@ function spellLabel(kind) {
   if (kind === "foudre") return "Foudre";
   if (kind === "arcane") return "Missile";
   if (kind === "necro") return "Nécro";
-  if (kind === "war") return "Lame";
   return "Sort";
 }
 function servAtk() {
@@ -1617,7 +1614,6 @@ function shotDmg(kind) {
   else if (kind === "foudre") base = DMG_FOUDRE;
   else if (kind === "arcane") base = DMG_ARCANE;
   else if (kind === "necro") base = DMG_NECRO;
-  else if (kind === "war") base = DMG_WAR;
   let lvlK = 1 + 0.035 * Math.max(0, (player.level || 1) - 1);
   let bonus = 0;
   if (kind === player.cls) bonus = player.priBonus || 0;
@@ -1653,22 +1649,20 @@ function boostMul() {
   const L = player.draftL || player.level;
   return (L === 10 || L === 20 || L === 35 || L === 50 || L === 70) ? 1.5 : 1;
 }
-const ALL_SCHOOLS = ["feu","glace","foudre","arcane","necro","war"];
+const ALL_SCHOOLS = ["feu","glace","foudre","arcane","necro"];
 const SK2_BY_CLS = {
   feu: ["SK2_FEU_EXPL","SK2_FEU_EMBER","SK2_FEU_BURN"],
   glace: ["SK2_ICE_NOVA","SK2_ICE_GEL","SK2_ICE_BANQ"],
   foudre: ["SK2_FOU_CHAIN","SK2_FOU_PARA","SK2_FOU_STORM"],
   arcane: ["SK2_ARC_SALVE","SK2_ARC_FOCUS","SK2_ARC_ETHER"],
-  necro: ["SK2_NEC_PESTE","SK2_NEC_DRAIN","SK2_NEC_FRAC","SK2_NEC_HORDE"],
-  war: ["SK2_WAR_WIDE","SK2_WAR_CUT","SK2_WAR_BATTLE","SK2_WAR_CHARGE"]
+  necro: ["SK2_NEC_PESTE","SK2_NEC_DRAIN","SK2_NEC_FRAC","SK2_NEC_HORDE"]
 };
 const SK2_TITLE = {
   SK2_FEU_EXPL: "Explosion", SK2_FEU_EMBER: "Ember", SK2_FEU_BURN: "Enflammer",
   SK2_ICE_NOVA: "Nova", SK2_ICE_GEL: "Gel", SK2_ICE_BANQ: "Banquise",
   SK2_FOU_CHAIN: "Chaîne", SK2_FOU_PARA: "Paralysie", SK2_FOU_STORM: "Orage",
   SK2_ARC_SALVE: "Salve", SK2_ARC_FOCUS: "Focalisation", SK2_ARC_ETHER: "Éther",
-  SK2_NEC_PESTE: "Peste", SK2_NEC_DRAIN: "Drain", SK2_NEC_FRAC: "Fracture", SK2_NEC_HORDE: "Horde",
-  SK2_WAR_WIDE: "Frappe large", SK2_WAR_CUT: "Entaille", SK2_WAR_BATTLE: "Battle Mage", SK2_WAR_CHARGE: "Charge"
+  SK2_NEC_PESTE: "Peste", SK2_NEC_DRAIN: "Drain", SK2_NEC_FRAC: "Fracture", SK2_NEC_HORDE: "Horde"
 };
 const SK2_BODY = {
   SK2_FEU_EXPL: "Impact AoE, allume le bois",
@@ -1686,11 +1680,7 @@ const SK2_BODY = {
   SK2_NEC_PESTE: "DoT vert + spread",
   SK2_NEC_DRAIN: "Vol de vie",
   SK2_NEC_FRAC: "Explosion à la mort",
-  SK2_NEC_HORDE: "Plus de serviteurs",
-  SK2_WAR_WIDE: "Vague plus large",
-  SK2_WAR_CUT: "Ignore ARM + execute",
-  SK2_WAR_BATTLE: "Moins de mana E/R",
-  SK2_WAR_CHARGE: "Dash + hit à chaque cast"
+  SK2_NEC_HORDE: "Plus de serviteurs"
 };
 const SK2_TAB = {
   SK2_FEU_EXPL: [{r:2.2,dmg:0.55},{r:2.5,dmg:0.65},{r:2.8,dmg:0.78},{r:3.2,dmg:0.92},{r:3.6,dmg:1.10}],
@@ -1708,11 +1698,7 @@ const SK2_TAB = {
   SK2_NEC_PESTE: [{pct:0.03,dur:3.0,hops:1,r:1.6},{pct:0.04,dur:3.5,hops:1,r:1.8},{pct:0.05,dur:4.0,hops:2,r:2.0},{pct:0.06,dur:4.5,hops:2,r:2.2},{pct:0.08,dur:5.0,hops:3,r:2.6}],
   SK2_NEC_DRAIN: [{ls:0.12,dmg:0.08},{ls:0.16,dmg:0.12},{ls:0.22,dmg:0.18},{ls:0.28,dmg:0.26},{ls:0.36,dmg:0.36}],
   SK2_NEC_FRAC: [{r:2.0,dmg:0.45},{r:2.3,dmg:0.55},{r:2.6,dmg:0.68},{r:3.0,dmg:0.84},{r:3.4,dmg:1.05}],
-  SK2_NEC_HORDE: [{cap:1,pv:15,atk:0.10,ttl:4},{cap:1,pv:30,atk:0.18,ttl:8},{cap:2,pv:50,atk:0.28,ttl:12},{cap:2,pv:75,atk:0.40,ttl:18},{cap:3,pv:110,atk:0.55,ttl:25}],
-  SK2_WAR_WIDE: [{w:2.1,range:13,dmg:1.10},{w:2.5,range:14,dmg:1.22},{w:2.9,range:15,dmg:1.36},{w:3.4,range:16,dmg:1.52},{w:4.0,range:18,dmg:1.72}],
-  SK2_WAR_CUT: [{arm:0.28,dmg:1.08,exec:1.20},{arm:0.34,dmg:1.16,exec:1.30},{arm:0.40,dmg:1.26,exec:1.42},{arm:0.48,dmg:1.38,exec:1.56},{arm:0.55,dmg:1.52,exec:1.75}],
-  SK2_WAR_BATTLE: [{red:0.15},{red:0.25},{red:0.35},{red:0.50},{red:0.65}],
-  SK2_WAR_CHARGE: [{dash:4.0,dmg:0.60},{dash:4.8,dmg:0.72},{dash:5.6,dmg:0.86},{dash:6.5,dmg:1.02},{dash:7.5,dmg:1.20}]
+  SK2_NEC_HORDE: [{cap:1,pv:15,atk:0.10,ttl:4},{cap:1,pv:30,atk:0.18,ttl:8},{cap:2,pv:50,atk:0.28,ttl:12},{cap:2,pv:75,atk:0.40,ttl:18},{cap:3,pv:110,atk:0.55,ttl:25}]
 };
 function sk2Rank(id) { return (player.sk2 && player.sk2[id]) | 0; }
 function sk2Row(id) {
@@ -1814,100 +1800,6 @@ function spawnSpirit(x, z) {
     atkVal: Math.round(14 * (1 + ((sk2Row("SK2_NEC_HORDE") && sk2Row("SK2_NEC_HORDE").atk) || 0)))
   });
   toast("Esprit");
-}
-function warWaveSpec() {
-  const wide = sk2Row("SK2_WAR_WIDE");
-  const cut = sk2Row("SK2_WAR_CUT");
-  return {
-    w: wide ? wide.w : 1.7,
-    range: wide ? wide.range : 12,
-    dmgMul: (wide ? wide.dmg : 1) * (cut ? cut.dmg : 1),
-    arm: cut ? cut.arm : 0.20,
-    exec: cut ? cut.exec : 0
-  };
-}
-function warHurt(m, dmgMul, kx, kz) {
-  const spec = warWaveSpec();
-  let dmg = Math.round(shotDmg("war") * dmgMul * spec.dmgMul);
-  if (spec.exec && m.maxHp && m.hp / m.maxHp < 0.30) dmg = Math.round(dmg * spec.exec);
-  hurtMob(m, dmg, kx, kz, 6, { armIgnore: spec.arm });
-}
-function doWarCharge() {
-  const row = sk2Row("SK2_WAR_CHARGE");
-  if (!row) return;
-  player.inv = Math.max(player.inv || 0, 0.12);
-  const fwd = faceFwd();
-  const steps = 10;
-  const x0 = player.x, z0 = player.z;
-  for (let i = 0; i < steps; i++) {
-    const nx = player.x + fwd.x * row.dash / steps;
-    const nz = player.z + fwd.z * row.dash / steps;
-    if (collides(nx, player.y, nz, PW, PH)) break;
-    player.x = nx; player.z = nz;
-  }
-  const x1 = player.x, z1 = player.z;
-  const dx = x1 - x0, dz = z1 - z0;
-  const len = Math.hypot(dx, dz) || 0.001;
-  const ux = dx / len, uz = dz / len;
-  for (let i = 0; i < mobs.length; i++) {
-    const m = mobs[i];
-    if (!isFoe(m)) continue;
-    const tx = m.x - x0, tz = m.z - z0;
-    const t = Math.max(0, Math.min(len, tx * ux + tz * uz));
-    const px = x0 + ux * t, pz = z0 + uz * t;
-    if (Math.hypot(m.x - px, m.z - pz) > 1.1) continue;
-    warHurt(m, row.dmg, ux, uz);
-  }
-}
-function warSweep(s, x0, z0, x1, z1) {
-  const half = (s.width || 1.7) * 0.5;
-  const dx = x1 - x0, dz = z1 - z0;
-  const len = Math.hypot(dx, dz) || 0.001;
-  const ux = dx / len, uz = dz / len;
-  const hit = s.hitSet || (s.hitSet = []);
-  const cands = [];
-  function consider(m) {
-    if (!m || (m !== player && m.dead)) return;
-    let skip = false;
-    for (let k = 0; k < hit.length; k++) if (hit[k] === m) skip = true;
-    if (skip) return;
-    const tx = m.x - x0, tz = m.z - z0;
-    const t = Math.max(0, Math.min(len, tx * ux + tz * uz));
-    const px = x0 + ux * t, pz = z0 + uz * t;
-    const d = Math.hypot(m.x - px, m.z - pz);
-    if (d <= half) cands.push({ m: m, d: d });
-  }
-  if (s.npc) {
-    if (s.tgt === "player") consider(player);
-    else if (s.tgt) consider(s.tgt);
-    for (let i = 0; i < mobs.length; i++) {
-      const m = mobs[i];
-      if (m && !m.dead && (HOSTILE[m.kind] || m.kind === "chevreuil" || m === s.tgt)) consider(m);
-    }
-  } else {
-    for (let i = 0; i < mobs.length; i++) if (isFoe(mobs[i])) consider(mobs[i]);
-  }
-  cands.sort(function (a, b) { return a.d - b.d; });
-  const room = 2 - hit.length;
-  for (let i = 0; i < cands.length && i < room; i++) {
-    const m = cands[i].m;
-    hit.push(m);
-    if (s.npc) {
-      const dmg = s.dmg || 32;
-      if (m === player) hurtPlayer(dmg, ux * 3.2, uz * 3.2, 3.2, { armIgnore: 0.20 });
-      else hurtMob(m, dmg, ux, uz, 6, { armIgnore: 0.20 });
-    } else {
-      warHurt(m, 1, ux, uz);
-    }
-  }
-}
-function impactWar(x, y, z) {
-  const gy = highest(x, z) + STEP_UP;
-  fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.10, s: 0.26, r: 0.78, g: 0.62, b: 0.22, glow: 0.28 });
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    pushPart({ x: x + Math.cos(a) * 0.2, y: gy + 0.08, z: z + Math.sin(a) * 0.2, vx: Math.cos(a) * 1.6, vy: 1.1, vz: Math.sin(a) * 1.6, r: 0.78, g: 0.62, b: 0.22, life: 0.22, age: 0, s: 0.08, style: "spark" });
-  }
 }
 function applyFeuSk2(x, y, z) {
   const ex = sk2Row("SK2_FEU_EXPL");
@@ -2150,7 +2042,7 @@ function findWoodNear(wx, wz, maxD) {
     }
   return best;
 }
-const NPC_SCHOOLS = ["feu","glace","foudre","arcane","necro","war"];
+const NPC_SCHOOLS = ["feu","glace","foudre","arcane","necro"];
 function bumpNpcSeed(t) {
   const rnd = mulberry32((runSeed + spawnIndex + (t | 0)) | 0);
   spawnIndex++;
@@ -2268,20 +2160,6 @@ function npcCastE(m, tx, ty, tz, tgt) {
       }
     }
     beep(880, 0.07, 0.045, "sawtooth");
-    return;
-  }
-  if (cls === "war") {
-    const xz = Math.hypot(dx, dz) || 1;
-    const ux = dx / xz, uz = dz / xz;
-    const spd = 18;
-    shots.push({
-      kind: "war", npc: true, tgt: tgt, q: false,
-      x: gem.x, y: gem.y, z: gem.z,
-      vx: ux * spd, vy: 0, vz: uz * spd,
-      life: 12 / spd, age: 0, trail: 0, dmg: shotD,
-      width: 1.7, range: 12, hitSet: [], originX: gem.x, originZ: gem.z
-    });
-    beep(260, 0.08, 0.05, "sawtooth");
     return;
   }
   const spd = cls === "feu" ? 17 : cls === "necro" ? 12 : 14;
@@ -3070,17 +2948,6 @@ function cast(kind, slot) {
         });
       }
     }
-  } else if (kind === "war") {
-    beep(260, 0.08, 0.05, "sawtooth");
-    const spec = warWaveSpec();
-    const spd = 18;
-    shots.push({
-      kind, x: ox, y: oy, z: oz,
-      vx: fwd.x * spd, vy: 0, vz: fwd.z * spd,
-      life: spec.range / spd, age: 0, trail: 0,
-      width: spec.w, range: spec.range, hitSet: [], originX: ox, originZ: oz
-    });
-    doWarCharge();
   } else if (kind === "necro") {
     beep(180, 0.09, 0.05, "sawtooth");
     if (slot === 3 && player.cls2 === "necro") {
@@ -3785,7 +3652,7 @@ function impactNecro(x, y, z) {
   }
 }
 function ballSpd(s) {
-  return s.kind === "feu" ? 17 : s.kind === "necro" ? 12 : s.kind === "war" ? 18 : 14;
+  return s.kind === "feu" ? 17 : s.kind === "necro" ? 12 : 14;
 }
 function ballAimTgt(s) {
   const vxz = Math.hypot(s.vx, s.vz) || 1;
@@ -3952,17 +3819,6 @@ function updateShots(dt) {
     }
     s.life -= dt; s.age = (s.age || 0) + dt;
     if (s.originX == null) { s.originX = s.x; s.originY = s.y; s.originZ = s.z; }
-    if (s.kind === "war") {
-      const x0 = s.x, z0 = s.z;
-      s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
-      warSweep(s, x0, z0, s.x, s.z);
-      const traveled = Math.hypot(s.x - (s.originX || x0), s.z - (s.originZ || z0));
-      if (s.life <= 0 || traveled >= (s.range || 12)) {
-        impactWar(s.x, s.y, s.z);
-        shots.splice(i, 1);
-      }
-      continue;
-    }
     const isBall = s.kind === "feu" || s.kind === "glace" || s.kind === "arcane" || s.kind === "necro";
     let ballTgt = null;
     if (isBall) ballTgt = steerBall(s);
@@ -4136,7 +3992,6 @@ function mageGemColor(cls) {
     : gemKind === "foudre" ? [0.40, 0.65, 1.00]
     : gemKind === "arcane" ? [0.88, 0.34, 0.99]
     : gemKind === "necro" ? [0.22, 0.92, 0.42]
-    : gemKind === "war" ? [0.78, 0.62, 0.22]
     : [0.85, 0.72, 0.28];
 }
 function npcStaffGemPos(npc) {
@@ -4556,21 +4411,6 @@ function drawNpcLevel(m) {
     }
   }
 }
-function drawWarShot(s) {
-  const yaw = Math.atan2(s.vx || 0, s.vz || 0);
-  const hl = Math.hypot(s.vx || 0, s.vz || 0) || 1;
-  const fx = (s.vx || 0) / hl, fz = (s.vz || 0) / hl;
-  const sx = -fz, sz = fx;
-  const w = s.width || 1.7;
-  for (let i = -4; i <= 4; i++) {
-    const t = i / 4;
-    const back = t * t * 0.28;
-    const ox = sx * t * w * 0.48 - fx * back;
-    const oz = sz * t * w * 0.48 - fz * back;
-    drawCube(s.x + ox, s.y, s.z + oz, 0.12, 0.10, 0.22, yaw, 0.42, 0.34, 0.22, 0.16);
-    drawCube(s.x + ox - fx * 0.06, s.y + 0.02, s.z + oz - fz * 0.06, 0.08, 0.07, 0.14, yaw, 0.85, 0.68, 0.22, 0.28);
-  }
-}
 function drawBoltSegs(b, after) {
   const dx = b.x1 - b.x0, dy = b.y1 - b.y0, dz = b.z1 - b.z0;
   const len = Math.hypot(dx, dy, dz) || 1;
@@ -4769,7 +4609,6 @@ function render() {
     else if (s.kind === "glace") drawIceShot(s);
     else if (s.kind === "arcane") drawArcaneShot(s);
     else if (s.kind === "necro") drawNecroShot(s);
-    else if (s.kind === "war") drawWarShot(s);
   }
   for (const b of bolts) drawLightning(b);
   for (const f of fx) drawFx(f);
@@ -5169,7 +5008,7 @@ window.addEventListener("mouseup", onUp);
 
 function paintSort(btn, cls) {
   if (!btn) return;
-  btn.classList.remove("feu", "glace", "foudre", "arcane", "necro", "war");
+  btn.classList.remove("feu", "glace", "foudre", "arcane", "necro");
   if (btn.id === "btn-sort2") {
     btn.textContent = "Bâton";
     return;
@@ -5177,7 +5016,6 @@ function paintSort(btn, cls) {
   if (cls) {
     btn.classList.add(cls);
     if (cls === "necro") btn.textContent = btn.id === "btn-sort3" ? "Mort-vivant" : "Boule verte";
-    else if (cls === "war") btn.textContent = "Lame";
     else btn.textContent = spellLabel(cls);
   } else {
     btn.textContent = btn.id === "btn-sort3" ? "R" : "—";
@@ -5206,11 +5044,11 @@ function applyClassUI() {
 }
 
 function pickClass(cls, slot) {
-  if (cls !== "feu" && cls !== "glace" && cls !== "foudre" && cls !== "arcane" && cls !== "necro" && cls !== "war") return;
+  if (cls !== "feu" && cls !== "glace" && cls !== "foudre" && cls !== "arcane" && cls !== "necro") return;
   player.cls = cls;
   lastSpell = cls;
   applyClassUI();
-  const f = cls === "feu" ? 240 : cls === "glace" ? 500 : cls === "foudre" ? 880 : cls === "arcane" ? 640 : cls === "war" ? 300 : 180;
+  const f = cls === "feu" ? 240 : cls === "glace" ? 500 : cls === "foudre" ? 880 : cls === "arcane" ? 640 : 180;
   beep(f, 0.07, 0.04, "triangle");
 }
 
@@ -5232,6 +5070,7 @@ function draftAtCap(id) {
   if (id === "REG") return (player.regRank || 0) >= 8;
   if (id === "PUNCH") return (player.punchRank || 0) >= 8;
   if (id === "FAIM") return (player.hungerRank || 0) >= 4;
+  if (id === "WAR") return (player.warRank || 0) >= 10;
   if (isSk2Id(id)) return sk2Rank(id) >= 5;
   return false;
 }
@@ -5290,6 +5129,11 @@ function cardFromId(id, kind) {
   if (id === "REG") return { id: id, title: "Régén +", body: "+" + (Math.round(0.8 * m * 10) / 10) + " mana/s" };
   if (id === "PUNCH") return { id: id, title: "Frappe +", body: "+" + rhu(8 * m) + " dégâts" };
   if (id === "FAIM") { const step = boostMul() > 1 ? 30 : 20; return { id: id, title: "Faim -", body: "Drain -" + step + " % (max -80 %). +20 faim" }; }
+  if (id === "WAR") {
+    const next = Math.min(10, (player.warRank || 0) + 1);
+    const pct = Math.round((WAR_RED[next] || 0) * 100);
+    return { id: id, title: "War Wizard", body: "Mana E/R −" + pct + " %" };
+  }
   return { id: id, title: id, body: "" };
 }
 function weightTable(L, unlocked) {
@@ -5302,6 +5146,7 @@ function weightTable(L, unlocked) {
   const sk1 = sk2OfCls(player.cls);
   for (let i = 0; i < sk1.length; i++) add(sk1[i], 10);
   add("PV", 18); add("MANA", 16); add("SPD", 10); add("ARM", 8); add("REG", 8); add("PUNCH", 6); add("FAIM", 12);
+  if (L >= 2) add("WAR", 12);
   if (unlocked) {
     add("UP_Q", 22);
     const sk2s = sk2OfCls(player.cls2);
@@ -5442,6 +5287,7 @@ function applyDraft(c) {
   else if (c.id === "REG") { player.regRank++; player.regBonus = (player.regBonus || 0) + 0.8 * m; }
   else if (c.id === "PUNCH") { player.punchRank++; player.punchBonus = (player.punchBonus || 0) + rhu(8 * m); }
   else if (c.id === "FAIM") { player.hungerRank++; const step = boostMul() > 1 ? 0.30 : 0.20; player.hungerRed = (player.hungerRed || 0) + step; player.hungerMul = Math.max(0.20, 1 - player.hungerRed); player.hunger = Math.min(100, (player.hunger || 0) + 20); }
+  else if (c.id === "WAR") { player.warRank = Math.min(10, (player.warRank || 0) + 1); }
   applyClassUI();
   if (player.draftQueue && player.draftQueue.length) player.draftQueue.shift();
   beep(520, 0.08, 0.04, "triangle");
