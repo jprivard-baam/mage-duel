@@ -435,14 +435,8 @@ function buildWorldMesh() {
           const F = FACES[f];
           const nx = F[0], ny = F[1], nz = F[2];
           const nb = getB(x + nx, y + ny, z + nz);
-          if (nb === AIR || (t !== LEAF && nb === LEAF) || (t === LEAF && nb === AIR)) {
-            if (nb !== AIR && !(t !== LEAF && nb === LEAF) && t === LEAF && nb !== AIR) {
-              /* skip internal leaf-leaf */
-            }
-            if (nb !== AIR && t === LEAF && nb === LEAF) continue;
-            if (nb !== AIR && t !== LEAF && nb !== LEAF && nb) continue;
-            addFace(x, y, z, nx, ny, nz, F[3], t);
-          }
+          const see = (t === LEAF) ? (nb === AIR) : (nb === AIR || nb === LEAF);
+            if (see) addFace(x, y, z, nx, ny, nz, F[3], t);
         }
       }
     }
@@ -574,8 +568,7 @@ function initGL() {
   worldBuf = gl.createBuffer();
   buildUnitCube();
   gl.enable(gl.DEPTH_TEST);
-  gl.enable(gl.CULL_FACE);
-  gl.cullFace(gl.BACK);
+  gl.disable(gl.CULL_FACE);
 }
 
 function bindInterleaved(buf) {
@@ -617,3 +610,687 @@ function resize() {
   gl.viewport(0, 0, canvas.width, canvas.height);
   perspective(proj, 1.05, canvas.width / canvas.height, 0.12, 90);
 }
+
+let mode = "home";
+let gameTime = 18;
+let lastNight = false;
+let spawnedNight = false;
+let shake = 0;
+let meshDirty = false;
+let eatCD = 0, spellCD = 0;
+let lastSpell = "feu";
+const player = {
+  x: 24, y: 8, z: 26, vx: 0, vy: 0, vz: 0,
+  yaw: 0.35, pitch: 0.22, face: 0.35,
+  hp: 100, hunger: 100, mana: 100,
+  grounded: false, flash: 0, inv: 0, bob: 0
+};
+const PW = 0.34, PH = 1.58;
+const mobs = [];
+const shots = [];
+const bolts = [];
+const parts = [];
+const keys = Object.create(null);
+const joy = { id: null, dx: 0, dy: 0 };
+const lookT = { id: null, lx: 0, ly: 0 };
+let camX = 24, camY = 12, camZ = 36;
+let wasNight = false;
+let toastT = 0;
+
+function highest(x, z) {
+  x = Math.max(0, Math.min(W - 1, x | 0));
+  z = Math.max(0, Math.min(D - 1, z | 0));
+  for (let y = H - 1; y >= 0; y--) if (getB(x, y, z)) return y;
+  return 0;
+}
+function spawnPlayer() {
+  let bx = 24, bz = 28;
+  for (let t = 0; t < 60; t++) {
+    const x = 16 + (t % 12);
+    const z = 22 + ((t / 12) | 0);
+    let y = -1;
+    for (let yy = H - 1; yy >= 0; yy--) if (solidOf(getB(x, yy, z))) { y = yy; break; }
+    if (y >= 2 && getB(x, y, z) === DIRT && getB(x, y + 1, z) === AIR) { bx = x; bz = z; break; }
+  }
+  player.x = bx + 0.5; player.z = bz + 0.5;
+  let sy = 0;
+  for (let yy = H - 1; yy >= 0; yy--) if (solidOf(getB(bx, yy, bz))) { sy = yy; break; }
+  player.y = sy + 1.02;
+  player.vx = player.vy = player.vz = 0;
+  player.hp = 100; player.hunger = 100; player.mana = 100;
+  player.yaw = 0.2; player.pitch = 0.18; player.face = 0.2;
+  player.flash = 0; player.inv = 0; player.grounded = true;
+}
+function collides(x, y, z, w, h) {
+  const x0 = Math.floor(x - w), x1 = Math.floor(x + w);
+  const y0 = Math.floor(y + 0.001), y1 = Math.floor(y + h - 0.02);
+  const z0 = Math.floor(z - w), z1 = Math.floor(z + w);
+  for (let yi = y0; yi <= y1; yi++)
+    for (let zi = z0; zi <= z1; zi++)
+      for (let xi = x0; xi <= x1; xi++)
+        if (isSolid(xi, yi, zi)) return true;
+  return false;
+}
+function physics(p, w, h, dt) {
+  p.vy -= 24 * dt;
+  if (p.vy < -18) p.vy = -18;
+  p.y += p.vy * dt;
+  if (collides(p.x, p.y, p.z, w, h)) {
+    p.y -= p.vy * dt;
+    if (p.vy < 0) p.grounded = true;
+    p.vy = 0;
+  } else p.grounded = false;
+  p.x += p.vx * dt;
+  if (collides(p.x, p.y, p.z, w, h)) {
+    if (p.grounded && !collides(p.x, p.y + 1.02, p.z, w, h)) p.y += 1.02;
+    else { p.x -= p.vx * dt; p.vx = 0; }
+  }
+  p.z += p.vz * dt;
+  if (collides(p.x, p.y, p.z, w, h)) {
+    if (p.grounded && !collides(p.x, p.y + 1.02, p.z, w, h)) p.y += 1.02;
+    else { p.z -= p.vz * dt; p.vz = 0; }
+  }
+}
+
+function lookDir() {
+  const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  return {
+    x: Math.sin(player.yaw) * cp,
+    y: -sp,
+    z: Math.cos(player.yaw) * cp
+  };
+}
+
+function burst(x, y, z, r, g, b, n, spd) {
+  for (let i = 0; i < n; i++) {
+    parts.push({
+      x, y, z,
+      vx: (Math.random() - 0.5) * spd,
+      vy: Math.random() * spd * 0.7,
+      vz: (Math.random() - 0.5) * spd,
+      r, g, b, life: 0.35 + Math.random() * 0.35, age: 0,
+      s: 0.08 + Math.random() * 0.1
+    });
+  }
+}
+
+let actx = null;
+function beep(freq, dur, vol, type) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type || "square";
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.05, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) {}
+}
+
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  toastT = 2.2;
+}
+
+function hurtPlayer(dmg, kx, kz) {
+  if (player.inv > 0 || mode !== "play") return;
+  player.hp -= dmg;
+  player.inv = 0.7;
+  player.flash = 0.22;
+  player.vx += kx; player.vz += kz; player.vy = Math.max(player.vy, 3.2);
+  shake = 0.45;
+  beep(140, 0.12, 0.07, "sawtooth");
+  if (player.hp <= 0) die();
+}
+function hurtMob(m, dmg, kx, kz, kb) {
+  m.hp -= dmg;
+  m.flash = 0.16;
+  m.vx += kx * kb; m.vz += kz * kb; m.vy = Math.max(m.vy, 2.5);
+  burst(m.x, m.y + 0.5, m.z, 1, 0.9, 0.7, 8, 5);
+  beep(420, 0.08, 0.05, "square");
+  if (m.hp <= 0) {
+    burst(m.x, m.y + 0.4, m.z, 0.3, 0.8, 0.2, 14, 6);
+    m.dead = true;
+  }
+}
+
+function die() {
+  mode = "death";
+  player.hp = 0;
+  deathEl.classList.remove("hidden");
+  beep(90, 0.5, 0.08, "sawtooth");
+}
+
+function resetPlay() {
+  genWorld();
+  buildWorldMesh();
+  spawnPlayer();
+  mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0;
+  gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
+  deathEl.classList.add("hidden");
+}
+
+function isNight() {
+  const phase = (gameTime / CYCLE) % 1;
+  const sunY = Math.sin(phase * Math.PI * 2);
+  return sunY < 0.08;
+}
+
+function spawnMobs() {
+  const n = 4 + (Math.random() * 5) | 0;
+  let made = 0, tries = 0;
+  while (made < n && tries < 80) {
+    tries++;
+    const ang = Math.random() * Math.PI * 2;
+    const rad = 12 + Math.random() * 8;
+    const x = 24 + Math.cos(ang) * rad;
+    const z = 24 + Math.sin(ang) * rad;
+    if (x < 2 || z < 2 || x > W - 3 || z > D - 3) continue;
+    if (Math.hypot(x - player.x, z - player.z) < 9) continue;
+    const y = highest(x, z) + 1.05;
+    if (y < 1.5 || y > 12) continue;
+    const kind = Math.random() < 0.55 ? "slime" : "wolf";
+    mobs.push({
+      kind, x, y, z, vx: 0, vy: 0, vz: 0,
+      hp: kind === "wolf" ? 42 : 34,
+      yaw: ang + Math.PI, flash: 0, slow: 0, atk: 0,
+      hop: Math.random() * 8, dead: false
+    });
+    made++;
+  }
+}
+
+function tryEat(dt) {
+  eatCD -= dt;
+  if (eatCD > 0 || player.hunger >= 99) return;
+  const x0 = Math.floor(player.x - 1.35), x1 = Math.floor(player.x + 1.35);
+  const y0 = Math.floor(player.y), y1 = Math.floor(player.y + 2.1);
+  const z0 = Math.floor(player.z - 1.35), z1 = Math.floor(player.z + 1.35);
+  for (let y = y0; y <= y1; y++)
+    for (let z = z0; z <= z1; z++)
+      for (let x = x0; x <= x1; x++) {
+        if (getB(x, y, z) === LEAF) {
+          setB(x, y, z, AIR);
+          player.hunger = Math.min(100, player.hunger + 24);
+          eatCD = 0.45;
+          meshDirty = true;
+          burst(x + 0.5, y + 0.5, z + 0.5, 0.2, 0.9, 0.3, 7, 3);
+          beep(660, 0.06, 0.04, "triangle");
+          if (player.hunger < 40) toast("Faim restaurée");
+          return;
+        }
+      }
+}
+
+function cast(kind) {
+  if (mode !== "play" || spellCD > 0) return;
+  const cost = kind === "feu" ? 26 : kind === "glace" ? 22 : 32;
+  if (player.mana < cost) { beep(110, 0.08, 0.03, "sine"); return; }
+  player.mana -= cost;
+  spellCD = kind === "foudre" ? 0.5 : 0.32;
+  lastSpell = kind;
+  const d = lookDir();
+  const ox = player.x + d.x * 0.55;
+  const oy = player.y + 1.12;
+  const oz = player.z + d.z * 0.55;
+  if (kind === "foudre") {
+    beep(880, 0.1, 0.06, "sawtooth");
+    let hx = ox + d.x * 16, hy = oy + d.y * 16, hz = oz + d.z * 16, hit = null;
+    for (let t = 0.5; t < 16; t += 0.22) {
+      const x = ox + d.x * t, y = oy + d.y * t, z = oz + d.z * t;
+      if (isSolid(x, y, z)) { hx = x; hy = y; hz = z; break; }
+      for (let i = 0; i < mobs.length; i++) {
+        const m = mobs[i];
+        if (m.dead) continue;
+        if (Math.abs(m.x - x) < 0.75 && Math.abs(m.y + 0.45 - y) < 0.9 && Math.abs(m.z - z) < 0.75) {
+          hit = m; hx = m.x; hy = m.y + 0.5; hz = m.z; break;
+        }
+      }
+      if (hit) break;
+      hx = x; hy = y; hz = z;
+    }
+    bolts.push({ x0: ox, y0: oy, z0: oz, x1: hx, y1: hy, z1: hz, life: 0.2 });
+    burst(hx, hy, hz, 0.85, 0.55, 1, 10, 6);
+    if (hit) hurtMob(hit, 20, d.x, d.z, 7);
+  } else {
+    const spd = kind === "feu" ? 16 : 11.5;
+    beep(kind === "feu" ? 240 : 500, 0.07, 0.05, "square");
+    shots.push({
+      kind, x: ox, y: oy, z: oz,
+      vx: d.x * spd, vy: d.y * spd, vz: d.z * spd,
+      life: 1.6
+    });
+  }
+}
+
+function jump() {
+  if (mode !== "play") return;
+  if (player.grounded) {
+    player.vy = 8.4;
+    player.grounded = false;
+    beep(180, 0.05, 0.03, "triangle");
+  }
+}
+
+function updateMobs(dt) {
+  for (const m of mobs) {
+    if (m.dead) continue;
+    m.flash = Math.max(0, m.flash - dt);
+    m.slow = Math.max(0, m.slow - dt);
+    m.atk = Math.max(0, m.atk - dt);
+    m.hop += dt;
+    const dx = player.x - m.x, dz = player.z - m.z;
+    const dist = Math.hypot(dx, dz) || 1;
+    m.yaw = Math.atan2(dx, dz);
+    const sp = (m.kind === "wolf" ? 3.4 : 2.15) * (m.slow > 0 ? 0.32 : 1);
+    m.vx = (dx / dist) * sp;
+    m.vz = (dz / dist) * sp;
+    if (m.kind === "slime" && m.grounded && m.hop > 0.9) {
+      m.vy = 5.2; m.hop = 0; m.grounded = false;
+    }
+    physics(m, m.kind === "wolf" ? 0.38 : 0.42, m.kind === "wolf" ? 0.85 : 0.7, dt);
+    if (dist < 1.25 && m.atk <= 0 && mode === "play") {
+      m.atk = 0.9;
+      const k = 5.5;
+      hurtPlayer(m.kind === "wolf" ? 14 : 9, -(dx / dist) * k, -(dz / dist) * k);
+    }
+  }
+  for (let i = mobs.length - 1; i >= 0; i--) if (mobs[i].dead) mobs.splice(i, 1);
+}
+
+function updateShots(dt) {
+  for (let i = shots.length - 1; i >= 0; i--) {
+    const s = shots[i];
+    s.life -= dt;
+    s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
+    if (s.kind === "glace") s.vy -= 4 * dt;
+    let dead = s.life <= 0 || s.y < -2 || isSolid(s.x, s.y, s.z);
+    for (let j = 0; j < mobs.length; j++) {
+      const m = mobs[j];
+      if (m.dead) continue;
+      if (Math.abs(m.x - s.x) < 0.7 && Math.abs(m.y + 0.4 - s.y) < 0.85 && Math.abs(m.z - s.z) < 0.7) {
+        const dmg = s.kind === "feu" ? 25 : 15;
+        const len = Math.hypot(s.vx, s.vz) || 1;
+        hurtMob(m, dmg, s.vx / len, s.vz / len, 8);
+        if (s.kind === "glace") m.slow = 3;
+        dead = true;
+        break;
+      }
+    }
+    if (dead) {
+      if (s.kind === "feu") burst(s.x, s.y, s.z, 1, 0.35, 0.08, 12, 5);
+      else burst(s.x, s.y, s.z, 0.45, 0.85, 1, 10, 4);
+      shots.splice(i, 1);
+    }
+  }
+  for (let i = bolts.length - 1; i >= 0; i--) {
+    bolts[i].life -= dt;
+    if (bolts[i].life <= 0) bolts.splice(i, 1);
+  }
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.age += dt; p.vy -= 10 * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    if (p.age > p.life) parts.splice(i, 1);
+  }
+}
+
+function skyColors() {
+  const phase = (gameTime / CYCLE) % 1;
+  const sunY = Math.sin(phase * Math.PI * 2);
+  const dusk = Math.max(0, 1 - Math.abs(sunY) * 3);
+  let r, g, b;
+  if (sunY > 0) {
+    r = 0.45 + sunY * 0.2 + dusk * 0.4;
+    g = 0.62 + sunY * 0.18 + dusk * 0.1;
+    b = 0.92 - dusk * 0.45;
+  } else {
+    const n = -sunY;
+    r = 0.07 + (1 - n) * 0.2;
+    g = 0.05 + (1 - n) * 0.12;
+    b = 0.14 + (1 - n) * 0.2;
+  }
+  const amb = sunY > 0 ? 0.38 + sunY * 0.22 : 0.16;
+  const sunDx = Math.cos(phase * Math.PI * 2), sunDy = Math.max(0.15, sunY * 0.7 + 0.35), sunDz = 0.35;
+  const sl = Math.hypot(sunDx, sunDy, sunDz);
+  return {
+    fog: [r, g, b], amb: [amb * 0.9, amb, amb * 1.15],
+    sun: [sunDx / sl, sunDy / sl, sunDz / sl], night: sunY < 0.08
+  };
+}
+
+function drawMage(x, y, z, face, bob, flash) {
+  const f = flash > 0 ? 1 : 0;
+  const robeR = 0.42 + f, robeG = 0.18 + f, robeB = 0.62 + f;
+  drawCube(x, y + 0.46 + bob, z, 0.62, 0.78, 0.42, face, robeR, robeG, robeB, f * 0.4);
+  drawCube(x, y + 1.08 + bob, z, 0.42, 0.42, 0.42, face, 0.95 + f, 0.78, 0.62, f * 0.3);
+  drawCube(x, y + 1.38 + bob, z, 0.5, 0.22, 0.5, face, 0.22, 0.1, 0.4, 0);
+  drawCube(x, y + 1.58 + bob, z, 0.22, 0.28, 0.22, face, 0.22, 0.1, 0.4, 0);
+  const gem = lastSpell === "feu" ? [1, 0.35, 0.1] : lastSpell === "glace" ? [0.4, 0.9, 1] : [0.8, 0.5, 1];
+  const sx = x + Math.cos(face) * 0.42, sz = z - Math.sin(face) * 0.42;
+  drawCube(sx, y + 0.7 + bob, sz, 0.1, 1.05, 0.1, face, 0.35, 0.2, 0.1, 0);
+  drawCube(sx, y + 1.28 + bob, sz, 0.2, 0.2, 0.2, face, gem[0], gem[1], gem[2], 0.35);
+}
+
+function drawWolf(m) {
+  const f = m.flash > 0 ? 1 : 0;
+  const sl = m.slow > 0;
+  const r = sl ? 0.35 : 0.28 + f, g = sl ? 0.45 : 0.22 + f, b = sl ? 0.7 : 0.2 + f;
+  drawCube(m.x, m.y + 0.38, m.z, 1.05, 0.52, 0.48, m.yaw, r, g, b, f * 0.5);
+  const hx = m.x + Math.sin(m.yaw) * 0.48, hz = m.z + Math.cos(m.yaw) * 0.48;
+  drawCube(hx, m.y + 0.55, hz, 0.4, 0.36, 0.36, m.yaw, r * 1.1, g * 1.1, b * 1.1, f * 0.5);
+  drawCube(hx - Math.cos(m.yaw) * 0.12, m.y + 0.82, hz + Math.sin(m.yaw) * 0.12, 0.12, 0.2, 0.1, m.yaw, r, g, b, 0);
+  drawCube(hx + Math.cos(m.yaw) * 0.12, m.y + 0.82, hz - Math.sin(m.yaw) * 0.12, 0.12, 0.2, 0.1, m.yaw, r, g, b, 0);
+}
+function drawSlime(m) {
+  const f = m.flash > 0 ? 1 : 0;
+  const squash = m.grounded ? 1.12 : 0.88;
+  const sl = m.slow > 0;
+  drawCube(m.x, m.y + 0.38 * squash, m.z, 0.78, 0.72 * squash, 0.78, m.yaw,
+    sl ? 0.4 : 0.25 + f, sl ? 0.7 : 0.82 + f, sl ? 0.85 : 0.28 + f, 0.12 + f * 0.4);
+}
+
+function render() {
+  const sky = skyColors();
+  gl.clearColor(sky.fog[0], sky.fog[1], sky.fog[2], 1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(prog);
+  gl.uniform3fv(uSun, sky.sun);
+  gl.uniform3fv(uAmb, sky.amb);
+  gl.uniform3fv(uFog, sky.fog);
+  gl.uniform3f(uCam, camX, camY, camZ);
+  gl.uniform1f(uFogN, 18);
+  gl.uniform1f(uFogF, 52);
+
+  bindInterleaved(worldBuf);
+  gl.uniformMatrix4fv(uModel, false, ident);
+  mul(tmp16, view, ident);
+  mul(mvp, proj, tmp16);
+  gl.uniformMatrix4fv(uMVP, false, mvp);
+  gl.uniform3f(uTint, 1, 1, 1);
+  gl.uniform1f(uGlow, 0);
+  if (worldN) gl.drawArrays(gl.TRIANGLES, 0, worldN);
+
+  bindInterleaved(cubeBuf);
+  const bob = Math.sin(player.bob) * 0.05;
+  drawMage(player.x, player.y, player.z, player.face, bob, player.flash);
+  for (const m of mobs) {
+    if (m.dead) continue;
+    if (m.kind === "wolf") drawWolf(m); else drawSlime(m);
+  }
+  for (const s of shots) {
+    if (s.kind === "feu") drawCube(s.x, s.y, s.z, 0.32, 0.32, 0.32, 0, 1, 0.4, 0.08, 0.45);
+    else drawCube(s.x, s.y, s.z, 0.3, 0.3, 0.3, 0, 0.5, 0.9, 1, 0.4);
+  }
+  for (const b of bolts) {
+    const dx = b.x1 - b.x0, dy = b.y1 - b.y0, dz = b.z1 - b.z0;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const steps = Math.max(4, (len / 0.45) | 0);
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const jx = (hash(i, 3) - 0.5) * 0.35, jz = (hash(i, 8) - 0.5) * 0.35;
+      drawCube(b.x0 + dx * t + jx, b.y0 + dy * t, b.z0 + dz * t + jz, 0.12, 0.12, 0.12, 0, 0.85, 0.55, 1, 0.7);
+    }
+  }
+  for (const p of parts) {
+    const k = 1 - p.age / p.life;
+    drawCube(p.x, p.y, p.z, p.s * k, p.s * k, p.s * k, 0, p.r, p.g, p.b, 0.2);
+  }
+}
+
+function updateCamera(dt) {
+  let dist = 5.6;
+  const d = lookDir();
+  let tx = player.x - d.x * dist;
+  let ty = player.y + 1.55 - d.y * dist;
+  let tz = player.z - d.z * dist;
+  if (mode === "home") {
+    const t = performance.now() / 1000;
+    const ang = t * 0.42;
+    tx = player.x + Math.sin(ang) * 8.2;
+    ty = player.y + 3.4;
+    tz = player.z + Math.cos(ang) * 8.2;
+  }
+  for (let i = 0; i < 6; i++) {
+    if (!isSolid(tx, ty, tz)) break;
+    dist *= 0.75;
+    tx = player.x - d.x * dist;
+    ty = player.y + 1.4;
+    tz = player.z - d.z * dist;
+  }
+  const k = mode === "home" ? 3 * dt : 10 * dt;
+  camX += (tx - camX) * Math.min(1, k);
+  camY += (ty - camY) * Math.min(1, k);
+  camZ += (tz - camZ) * Math.min(1, k);
+  if (shake > 0) {
+    camX += (Math.random() - 0.5) * shake;
+    camY += (Math.random() - 0.5) * shake * 0.5;
+    camZ += (Math.random() - 0.5) * shake;
+    shake = Math.max(0, shake - dt * 2.2);
+  }
+  const lx = player.x;
+  const ly = player.y + 1.05;
+  const lz = player.z;
+  lookAt(view, camX, camY, camZ, lx, ly, lz);
+}
+
+function updateHUD() {
+  hpI.style.transform = "scaleX(" + Math.max(0, player.hp / 100) + ")";
+  hunI.style.transform = "scaleX(" + Math.max(0, player.hunger / 100) + ")";
+  manI.style.transform = "scaleX(" + Math.max(0, player.mana / 100) + ")";
+  clockEl.textContent = isNight() ? "☾" : "☀";
+  const canF = player.mana >= 26, canG = player.mana >= 22, canL = player.mana >= 32;
+  $("btn-feu").classList.toggle("off", !canF);
+  $("btn-glace").classList.toggle("off", !canG);
+  $("btn-foudre").classList.toggle("off", !canL);
+  if (toastT > 0) {
+    toastT -= 0.016;
+    if (toastT <= 0) toastEl.classList.remove("show");
+  }
+}
+
+function update(dt) {
+  if (dt > 0.05) dt = 0.05;
+  const night = isNight();
+  if (mode === "play") {
+    gameTime += dt;
+    player.mana = Math.min(100, player.mana + 13 * dt);
+    player.hunger = Math.max(0, player.hunger - 0.48 * dt);
+    if (player.hunger <= 0) player.hp -= 7 * dt;
+    if (player.hp <= 0) die();
+    player.flash = Math.max(0, player.flash - dt);
+    player.inv = Math.max(0, player.inv - dt);
+    spellCD = Math.max(0, spellCD - dt);
+    tryEat(dt);
+    if (meshDirty) { buildWorldMesh(); meshDirty = false; }
+
+    if (night && !spawnedNight) { spawnMobs(); spawnedNight = true; toast("La nuit tombe"); beep(80, 0.3, 0.06, "sine"); }
+    if (!night && spawnedNight) { spawnedNight = false; toast("Le jour se lève"); }
+    if (!night && mobs.length && (gameTime / CYCLE) % 1 < 0.1) {
+      for (const m of mobs) burst(m.x, m.y + 0.4, m.z, 1, 0.9, 0.5, 6, 3);
+      mobs.length = 0;
+    }
+
+    let mx = 0, mz = 0;
+    if (keys.KeyW || keys.KeyZ || keys.ArrowUp) mz += 1;
+    if (keys.KeyS || keys.ArrowDown) mz -= 1;
+    if (keys.KeyA || keys.KeyQ || keys.ArrowLeft) mx -= 1;
+    if (keys.KeyD || keys.ArrowRight) mx += 1;
+    mx += joy.dx;
+    mz += -joy.dy;
+    const ml = Math.hypot(mx, mz);
+    if (ml > 1) { mx /= ml; mz /= ml; }
+    const sp = 4.5;
+    const s = Math.sin(player.yaw), c = Math.cos(player.yaw);
+    player.vx = (s * mz + c * mx) * sp;
+    player.vz = (c * mz - s * mx) * sp;
+    if (ml > 0.12) {
+      player.face += Math.atan2(player.vx, player.vz) ? 0 : 0;
+      const want = Math.atan2(player.vx, player.vz);
+      let df = want - player.face;
+      while (df > Math.PI) df -= Math.PI * 2;
+      while (df < -Math.PI) df += Math.PI * 2;
+      player.face += df * Math.min(1, 10 * dt);
+      player.bob += dt * 10;
+    }
+    physics(player, PW, PH, dt);
+    if (player.y < -6) die();
+    updateMobs(dt);
+    updateShots(dt);
+    updateHUD();
+  } else {
+    player.bob += dt * 2;
+    player.face += dt * 0.35;
+    updateShots(dt);
+  }
+  updateCamera(dt);
+  render();
+}
+
+let lastT = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  update(dt);
+  requestAnimationFrame(loop);
+}
+
+function joyPos(cx, cy) {
+  const r = joyBase.getBoundingClientRect();
+  const mx = r.left + r.width / 2, my = r.top + r.height / 2;
+  let dx = (cx - mx) / (r.width * 0.42);
+  let dy = (cy - my) / (r.height * 0.42);
+  const l = Math.hypot(dx, dy);
+  if (l > 1) { dx /= l; dy /= l; }
+  return { dx, dy };
+}
+function setKnob() {
+  knob.style.transform = "translate(" + (joy.dx * 34) + "px," + (joy.dy * 34) + "px)";
+}
+function uiEl(t) {
+  let el = t;
+  if (t && t.target) el = t.target;
+  return el && el.closest && (el.closest("#actions") || el.closest("#home") || el.closest("#death") || el.closest("button"));
+}
+
+window.addEventListener("keydown", (e) => {
+  keys[e.code] = true;
+  if (e.code === "Space") { e.preventDefault(); jump(); }
+  if (e.code === "Digit1") cast("feu");
+  if (e.code === "Digit2") cast("glace");
+  if (e.code === "Digit3") cast("foudre");
+}, { passive: false });
+window.addEventListener("keyup", (e) => { keys[e.code] = false; });
+
+canvas.addEventListener("click", () => {
+  if (mode === "play" && canvas.requestPointerLock) canvas.requestPointerLock();
+});
+document.addEventListener("mousemove", (e) => {
+  if (mode !== "play") return;
+  if (document.pointerLockElement === canvas) {
+    player.yaw += e.movementX * 0.0024;
+    player.pitch = Math.max(-0.5, Math.min(1.05, player.pitch + e.movementY * 0.002));
+  }
+});
+
+function onDown(e) {
+  const t = e.changedTouches ? e.changedTouches[0] : e;
+  const id = t.identifier != null ? t.identifier : "m";
+  const x = t.clientX, y = t.clientY;
+  if (uiEl(e.target)) return;
+  if (mode !== "play") return;
+  const left = x < innerWidth * 0.46;
+  if (left && joy.id == null) {
+    joy.id = id;
+    const p = joyPos(x, y);
+    joy.dx = p.dx; joy.dy = p.dy; setKnob();
+  } else if (lookT.id == null) {
+    lookT.id = id; lookT.lx = x; lookT.ly = y;
+  }
+}
+function onMove(e) {
+  if (mode !== "play") return;
+  const list = e.changedTouches ? e.changedTouches : [e];
+  for (let i = 0; i < list.length; i++) {
+    const t = list[i];
+    const id = t.identifier != null ? t.identifier : "m";
+    if (id === joy.id) {
+      const p = joyPos(t.clientX, t.clientY);
+      joy.dx = p.dx; joy.dy = p.dy; setKnob();
+    } else if (id === lookT.id) {
+      player.yaw += (t.clientX - lookT.lx) * 0.007;
+      player.pitch = Math.max(-0.5, Math.min(1.05, player.pitch + (t.clientY - lookT.ly) * 0.0055));
+      lookT.lx = t.clientX; lookT.ly = t.clientY;
+    }
+  }
+  if (e.cancelable) e.preventDefault();
+}
+function onUp(e) {
+  const list = e.changedTouches ? e.changedTouches : [e];
+  for (let i = 0; i < list.length; i++) {
+    const t = list[i];
+    const id = t.identifier != null ? t.identifier : "m";
+    if (id === joy.id) { joy.id = null; joy.dx = 0; joy.dy = 0; setKnob(); }
+    if (id === lookT.id) lookT.id = null;
+  }
+}
+
+window.addEventListener("touchstart", onDown, { passive: true });
+window.addEventListener("touchmove", onMove, { passive: false });
+window.addEventListener("touchend", onUp, { passive: true });
+window.addEventListener("touchcancel", onUp, { passive: true });
+window.addEventListener("mousedown", (e) => {
+  if (e.button === 0 && mode === "play" && !uiEl(e.target) && document.pointerLockElement !== canvas) onDown(e);
+});
+window.addEventListener("mousemove", (e) => {
+  if (lookT.id === "m" || joy.id === "m") onMove(e);
+});
+window.addEventListener("mouseup", onUp);
+
+$("btn-play").addEventListener("click", () => {
+  beep(330, 0.08, 0.04, "triangle");
+  homeEl.classList.add("hidden");
+  playUI.classList.remove("hidden");
+  mode = "play";
+  if (actx && actx.state === "suspended") actx.resume();
+});
+$("btn-retry").addEventListener("click", () => {
+  resetPlay();
+  mode = "play";
+  homeEl.classList.add("hidden");
+  playUI.classList.remove("hidden");
+});
+$("btn-saut").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); jump(); });
+$("btn-feu").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); cast("feu"); });
+$("btn-glace").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); cast("glace"); });
+$("btn-foudre").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); cast("foudre"); });
+
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", () => setTimeout(resize, 80));
+document.addEventListener("visibilitychange", () => { lastT = performance.now(); });
+
+try {
+  initGL();
+  resize();
+  genWorld();
+  buildWorldMesh();
+  spawnPlayer();
+  camX = player.x + 6; camY = player.y + 4; camZ = player.z + 7;
+  if (/[?&]play\b/.test(location.search)) {
+    homeEl.classList.add("hidden");
+    playUI.classList.remove("hidden");
+    mode = "play";
+  }
+  if (/[?&]night\b/.test(location.search)) gameTime = 62;
+  requestAnimationFrame(loop);
+} catch (err) {
+  homeEl.innerHTML = "<p style='padding:24px;text-align:center'>WebGL indisponible.</p>";
+}
+})();
+</script>
+</body>
+</html>
