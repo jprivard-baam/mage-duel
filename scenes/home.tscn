@@ -102,9 +102,40 @@ color = Color(0.831373, 0.686275, 0.215686, 1)
 [node name="Subtitle" type="Label" parent="Center/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.768627, 0.709804, 0.992157, 1)
-theme_override_font_sizes/font_size = 16
-text = "SURVIE EN CUBES"
+theme_override_font_sizes/font_size = 15
+text = "Survive. Cast. Cube."
 horizontal_alignment = 1
+
+[node name="ClassHint" type="Label" parent="Center/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.768627, 0.709804, 0.992157, 1)
+theme_override_font_sizes/font_size = 12
+text = "Choisis ta classe"
+horizontal_alignment = 1
+
+[node name="ClassRow" type="HBoxContainer" parent="Center/VBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="Feu" type="Button" parent="Center/VBox/ClassRow"]
+custom_minimum_size = Vector2(96, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "FEU"
+
+[node name="Glace" type="Button" parent="Center/VBox/ClassRow"]
+custom_minimum_size = Vector2(96, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "GLACE"
+
+[node name="Foudre" type="Button" parent="Center/VBox/ClassRow"]
+custom_minimum_size = Vector2(96, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "FOUDRE"
 
 [node name="Spacer" type="Control" parent="Center/VBox"]
 custom_minimum_size = Vector2(0, 12)
@@ -125,6 +156,6 @@ text = "JOUER"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.607843, 0.545098, 0.721569, 1)
 theme_override_font_sizes/font_size = 12
-text = "Joystick pour marcher · glisser pour regarder
-Saut · Couper · Feu · Glace · Foudre"
+text = "Choisis une classe, puis Jouer
+Sort · Frapper · Saut"
 horizontal_alignment = 1

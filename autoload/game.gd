@@ -1,6 +1,6 @@
 extends Node
 
-## État global du proto survie (PV, faim, mana, bois, cycle jour/nuit).
+## État global : classe, survie, bois, cycle jour/nuit.
 
 signal stats_changed
 signal died
@@ -15,29 +15,65 @@ const MANA_REGEN := 14.0
 const STARVE_DPS := 7.0
 const DAY_LENGTH := 150.0
 
+const CLASSES := {
+	"feu": {"nom": "Feu", "couleur": Color(0.95, 0.32, 0.08), "robe": Color(0.72, 0.16, 0.08)},
+	"glace": {"nom": "Glace", "couleur": Color(0.28, 0.78, 0.95), "robe": Color(0.18, 0.42, 0.72)},
+	"foudre": {"nom": "Foudre", "couleur": Color(0.72, 0.38, 0.95), "robe": Color(0.42, 0.16, 0.68)},
+}
+
 const SPELLS := {
 	"feu": {"cout": 22.0, "degats": 34.0, "vitesse": 14.0, "couleur": Color(1.0, 0.38, 0.12), "rayon": 0.22},
 	"glace": {"cout": 18.0, "degats": 24.0, "vitesse": 11.0, "couleur": Color(0.42, 0.85, 1.0), "rayon": 0.24},
 	"foudre": {"cout": 20.0, "degats": 40.0, "vitesse": 22.0, "couleur": Color(0.78, 0.52, 1.0), "rayon": 0.18},
 }
 
+var player_class: String = ""
 var hp: float = MAX_HP
 var hunger: float = MAX_HUNGER
 var mana: float = MAX_MANA
 var bois: int = 0
 var is_dead: bool = false
 var is_night: bool = false
-## 0 = aube. Commence en matinée pour laisser le temps de s'orienter.
 var world_time: float = 4.0
 var can_chop: bool = false
+var can_strike: bool = false
 
 var move_stick: Vector2 = Vector2.ZERO
 var jump_queued: bool = false
-var cast_queued: String = ""
-var chop_queued: bool = false
+var cast_queued: bool = false
+var strike_queued: bool = false
+
+
+func has_class() -> bool:
+	return CLASSES.has(player_class)
+
+
+func class_nom() -> String:
+	if not has_class():
+		return ""
+	return str(CLASSES[player_class]["nom"])
+
+
+func class_couleur() -> Color:
+	if not has_class():
+		return Color(0.83, 0.69, 0.22)
+	return CLASSES[player_class]["couleur"]
+
+
+func class_robe() -> Color:
+	if not has_class():
+		return Color(0.42, 0.18, 0.72)
+	return CLASSES[player_class]["robe"]
+
+
+func pick_class(id: String) -> void:
+	if CLASSES.has(id):
+		player_class = id
+		stats_changed.emit()
 
 
 func reset() -> void:
+	## Rejouer garde la classe choisie.
 	hp = MAX_HP
 	hunger = MAX_HUNGER
 	mana = MAX_MANA
@@ -46,10 +82,11 @@ func reset() -> void:
 	is_night = false
 	world_time = 4.0
 	can_chop = false
+	can_strike = false
 	move_stick = Vector2.ZERO
 	jump_queued = false
-	cast_queued = ""
-	chop_queued = false
+	cast_queued = false
+	strike_queued = false
 	stats_changed.emit()
 
 
@@ -111,9 +148,9 @@ func queue_jump() -> void:
 	jump_queued = true
 
 
-func queue_cast(kind: String) -> void:
-	cast_queued = kind
+func queue_cast() -> void:
+	cast_queued = true
 
 
-func queue_chop() -> void:
-	chop_queued = true
+func queue_strike() -> void:
+	strike_queued = true

@@ -45,6 +45,12 @@ func _init() -> void:
 	game.apply_damage(250.0)
 	if not bool(game.is_dead):
 		failed.append("la mort ne se déclenche pas")
+	game.pick_class("glace")
+	game.reset()
+	if str(game.player_class) != "glace":
+		failed.append("Rejouer doit garder la classe")
+	if not bool(game.has_class()):
+		failed.append("has_class faux après pick")
 	if failed.is_empty():
 		print("SMOKE_OK solides=%d spawn=%s bois=%d" % [voxel.count_solids(), spawn, game.bois])
 		quit(0)

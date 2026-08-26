@@ -4,16 +4,15 @@ extends CanvasLayer
 @onready var hun_bar: ColorRect = $Hud/Hunger/VBox/Track/Fill
 @onready var man_bar: ColorRect = $Hud/Mana/VBox/Track/Fill
 @onready var bois_label: Label = $Hud/Bois/VBox/Count
+@onready var class_label: Label = $Hud/ClassChip/VBox/Name
 @onready var clock: Label = $Hud/Clock
 @onready var toast: Label = $Toast
 @onready var death: Control = $Death
 @onready var joystick: Control = $Joystick
 @onready var knob: Control = $Joystick/Knob
-@onready var btn_feu: Button = $Actions/Spells/Feu
-@onready var btn_glace: Button = $Actions/Spells/Glace
-@onready var btn_foudre: Button = $Actions/Spells/Foudre
+@onready var btn_sort: Button = $Actions/Sort
+@onready var btn_frapper: Button = $Actions/Row/Frapper
 @onready var btn_saut: Button = $Actions/Row/Saut
-@onready var btn_chop: Button = $Actions/Row/Couper
 @onready var btn_retry: Button = $Death/VBox/Retry
 
 var _joy_id := -1
@@ -25,17 +24,13 @@ func _ready() -> void:
 	Game.died.connect(_on_died)
 	Game.toasted.connect(_on_toast)
 	death.visible = false
-	btn_feu.pressed.connect(func() -> void: Game.queue_cast("feu"))
-	btn_glace.pressed.connect(func() -> void: Game.queue_cast("glace"))
-	btn_foudre.pressed.connect(func() -> void: Game.queue_cast("foudre"))
+	btn_sort.pressed.connect(func() -> void: Game.queue_cast())
+	btn_frapper.pressed.connect(func() -> void: Game.queue_strike())
 	btn_saut.pressed.connect(func() -> void: Game.queue_jump())
-	btn_chop.pressed.connect(func() -> void: Game.queue_chop())
 	btn_retry.pressed.connect(_on_retry)
 	joystick.gui_input.connect(_joystick_event)
 	joystick.mouse_filter = Control.MOUSE_FILTER_STOP
-	_style_spell(btn_feu, Color(0.95, 0.32, 0.08))
-	_style_spell(btn_glace, Color(0.22, 0.72, 0.88))
-	_style_spell(btn_foudre, Color(0.62, 0.32, 0.88))
+	_style_spell(btn_sort, Game.class_couleur())
 	_style_joystick()
 	_apply_safe_area()
 	_refresh()
@@ -45,7 +40,7 @@ func _ready() -> void:
 func _style_spell(btn: Button, col: Color) -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = col
-	sb.set_corner_radius_all(32)
+	sb.set_corner_radius_all(44)
 	sb.set_border_width_all(2)
 	sb.border_color = Color(1, 1, 1, 0.35)
 	btn.add_theme_stylebox_override("normal", sb)
@@ -100,14 +95,14 @@ func _process(delta: float) -> void:
 		if _toast_time <= 0.0:
 			toast.modulate.a = 0.0
 	_refresh_clock()
-	btn_feu.disabled = Game.mana < float(Game.SPELLS["feu"]["cout"]) or Game.is_dead
-	btn_glace.disabled = Game.mana < float(Game.SPELLS["glace"]["cout"]) or Game.is_dead
-	btn_foudre.disabled = Game.mana < float(Game.SPELLS["foudre"]["cout"]) or Game.is_dead
+	var spec: Dictionary = Game.SPELLS.get(Game.player_class, {})
+	var cost := float(spec.get("cout", 999.0))
+	btn_sort.disabled = Game.is_dead or Game.mana < cost or not Game.has_class()
+	btn_sort.modulate.a = 0.38 if btn_sort.disabled else 1.0
 	btn_saut.disabled = Game.is_dead
-	btn_chop.disabled = Game.is_dead
-	btn_chop.modulate.a = 1.0 if Game.can_chop and not Game.is_dead else 0.45
-	for b in [btn_feu, btn_glace, btn_foudre]:
-		b.modulate.a = 0.38 if b.disabled else 1.0
+	btn_frapper.disabled = Game.is_dead
+	var ready := (Game.can_strike or Game.can_chop) and not Game.is_dead
+	btn_frapper.modulate.a = 1.0 if ready else 0.55
 	clock.modulate = Color(0.75, 0.8, 1.0) if Game.is_night else Color.WHITE
 
 
@@ -116,6 +111,8 @@ func _refresh() -> void:
 	_set_fill(hun_bar, Game.hunger / Game.MAX_HUNGER)
 	_set_fill(man_bar, Game.mana / Game.MAX_MANA)
 	bois_label.text = str(Game.bois)
+	class_label.text = Game.class_nom().to_upper() if Game.has_class() else "—"
+	class_label.add_theme_color_override("font_color", Game.class_couleur())
 
 
 func _set_fill(fill: ColorRect, ratio: float) -> void:
@@ -176,7 +173,6 @@ func _update_joy(local_pos: Vector2) -> void:
 	var r := minf(c.x, c.y) - 8.0
 	if delta.length() > r:
 		delta = delta.normalized() * r
-	## x écran positif = droite = strafe droite. y écran bas = positif → on inverse pour l'avant.
 	var dir := Vector2(delta.x / r, -delta.y / r)
 	Game.move_stick = dir if dir.length() > 0.08 else Vector2.ZERO
 	_set_knob(Vector2(dir.x, -dir.y))

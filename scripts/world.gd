@@ -14,6 +14,9 @@ var _sky_mat: ProceduralSkyMaterial
 
 
 func _ready() -> void:
+	if not Game.has_class():
+		get_tree().change_scene_to_file("res://scenes/home.tscn")
+		return
 	Game.reset()
 	var spawn := voxel.build_world()
 	player.global_position = spawn

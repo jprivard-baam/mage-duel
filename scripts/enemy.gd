@@ -25,6 +25,14 @@ func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED
 
 
+func take_damage(amount: float) -> void:
+	if hp <= 0.0:
+		return
+	hp -= amount
+	if hp <= 0.0:
+		_die()
+
+
 func hit(bolt: SpellBolt, mul: float = 1.0) -> void:
 	if hp <= 0.0:
 		return

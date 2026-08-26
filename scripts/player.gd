@@ -7,6 +7,9 @@ const LOOK_SENS := 0.22
 const PITCH_MIN := -1.15
 const PITCH_MAX := 0.42
 const CHOP_RANGE := 5.0
+const STRIKE_RANGE := 1.95
+const STRIKE_DAMAGE := 22.0
+const STRIKE_CD := 0.48
 
 @onready var model: Node3D = $Model
 @onready var cam_pivot: Node3D = $CamPivot
@@ -17,6 +20,7 @@ var _look_pitch := -0.28
 var _look_touch_id := -1
 var _hit_flash := 0.0
 var _chop_cd := 0.0
+var _strike_cd := 0.0
 var _voxel: VoxelWorld
 
 const SPELL_SCENE := preload("res://scenes/spell.tscn")
@@ -30,6 +34,7 @@ func _ready() -> void:
 	cam_pivot.rotation.x = _look_pitch
 	camera.current = true
 	_voxel = get_tree().get_first_node_in_group("voxel_world") as VoxelWorld
+	_apply_class_look()
 	_face_look()
 
 
@@ -37,8 +42,27 @@ func facing() -> Vector3:
 	return Vector3(0.0, 0.0, -1.0).rotated(Vector3.UP, _look_yaw)
 
 
+func _apply_class_look() -> void:
+	var robe := Game.class_robe()
+	var tip := Game.class_couleur()
+	for path in ["Model/Body", "Model/ArmL", "Model/ArmR"]:
+		var mesh := get_node_or_null(path) as MeshInstance3D
+		if mesh:
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = robe
+			mat.roughness = 0.62
+			mesh.material_override = mat
+	var hat_tip := get_node_or_null("Model/HatTip") as MeshInstance3D
+	if hat_tip:
+		var tmat := StandardMaterial3D.new()
+		tmat.albedo_color = tip
+		tmat.emission_enabled = true
+		tmat.emission = tip
+		tmat.emission_energy_multiplier = 0.8
+		hat_tip.material_override = tmat
+
+
 func _face_look() -> void:
-	## Le mage regarde dans la direction de la caméra (yaw), pas celle du stick.
 	model.rotation.y = _look_yaw
 	cam_pivot.rotation.y = _look_yaw
 	cam_pivot.rotation.x = _look_pitch
@@ -47,6 +71,13 @@ func _face_look() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if Game.is_dead:
 		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.physical_keycode == KEY_E:
+			Game.queue_cast()
+			get_viewport().set_input_as_handled()
+		elif event.physical_keycode == KEY_F:
+			Game.queue_strike()
+			get_viewport().set_input_as_handled()
 	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
 		if st.pressed:
@@ -74,7 +105,6 @@ func _is_look_region(pos: Vector2) -> bool:
 
 
 func _apply_look(relative: Vector2) -> void:
-	## Swipe vers la droite → on regarde à droite (yaw Godot négatif).
 	_look_yaw -= relative.x * LOOK_SENS * 0.015
 	_look_pitch -= relative.y * LOOK_SENS * 0.015
 	_look_pitch = clampf(_look_pitch, PITCH_MIN, PITCH_MAX)
@@ -97,7 +127,6 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= g * delta
 
 	var stick := Game.move_stick
-	# WASD = extra debug, pas le livrable iPhone.
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
 		stick.x -= 1.0
 	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
@@ -116,7 +145,6 @@ func _physics_process(delta: float) -> void:
 
 	var fwd := facing()
 	var right := Vector3(1.0, 0.0, 0.0).rotated(Vector3.UP, _look_yaw)
-	## Joystick à droite → strafe à droite (pas d'inversion).
 	var wish := right * stick.x + fwd * stick.y
 	if wish.length() > 0.08:
 		wish = wish.normalized()
@@ -130,35 +158,54 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	_chop_cd = maxf(0.0, _chop_cd - delta)
-	_update_chop_target()
-	var do_chop := Game.chop_queued or Input.is_physical_key_pressed(KEY_E) or Input.is_physical_key_pressed(KEY_F)
-	Game.chop_queued = false
-	if do_chop:
-		_try_chop()
-
-	var kind := Game.cast_queued
-	Game.cast_queued = ""
-	if kind.is_empty():
-		if Input.is_physical_key_pressed(KEY_1):
-			kind = "feu"
-		elif Input.is_physical_key_pressed(KEY_2):
-			kind = "glace"
-		elif Input.is_physical_key_pressed(KEY_3):
-			kind = "foudre"
-	if not kind.is_empty():
-		_cast(kind)
+	_strike_cd = maxf(0.0, _strike_cd - delta)
+	_update_targets()
+	if Game.strike_queued:
+		Game.strike_queued = false
+		_try_strike()
+	if Game.cast_queued:
+		Game.cast_queued = false
+		_cast_class_spell()
 
 	if _hit_flash > 0.0:
 		_hit_flash = maxf(0.0, _hit_flash - delta)
 
 
-func _update_chop_target() -> void:
-	if _voxel == null:
-		Game.can_chop = false
-		return
+func _update_targets() -> void:
+	Game.can_chop = false
+	Game.can_strike = false
 	var origin := global_position + Vector3(0.0, 1.05, 0.0)
-	var cell := _voxel.raycast_tree(origin, facing(), CHOP_RANGE)
-	Game.can_chop = cell.x >= 0
+	var face := facing()
+	if _voxel:
+		var cell := _voxel.raycast_tree(origin, face, CHOP_RANGE)
+		Game.can_chop = cell.x >= 0
+	for node in get_tree().get_nodes_in_group("ennemis"):
+		if node is Enemy and is_instance_valid(node):
+			var to: Vector3 = (node as Enemy).global_position - global_position
+			to.y = 0.0
+			if to.length() <= STRIKE_RANGE and to.normalized().dot(face) > 0.12:
+				Game.can_strike = true
+				break
+
+
+func _try_strike() -> void:
+	if _strike_cd > 0.0 or Game.is_dead:
+		return
+	_strike_cd = STRIKE_CD
+	var face := facing()
+	var hit_any := false
+	for node in get_tree().get_nodes_in_group("ennemis"):
+		if not (node is Enemy) or not is_instance_valid(node):
+			continue
+		var enemy := node as Enemy
+		var to := enemy.global_position - global_position
+		to.y = 0.0
+		if to.length() <= STRIKE_RANGE and to.normalized().dot(face) > 0.12:
+			enemy.take_damage(STRIKE_DAMAGE)
+			hit_any = true
+	if hit_any:
+		return
+	_try_chop()
 
 
 func _try_chop() -> void:
@@ -167,18 +214,21 @@ func _try_chop() -> void:
 	var origin := global_position + Vector3(0.0, 1.05, 0.0)
 	var cell := _voxel.raycast_tree(origin, facing(), CHOP_RANGE)
 	if cell.x < 0:
-		Game.toasted.emit("Rien à couper")
+		Game.toasted.emit("Rien à frapper")
 		return
 	var gained := _voxel.chop_tree_at(cell)
 	_chop_cd = 0.35
 	if gained <= 0:
-		Game.toasted.emit("Rien à couper")
+		Game.toasted.emit("Rien à frapper")
 		return
 	Game.add_bois(gained)
 	Game.toasted.emit("Bois +%d" % gained)
 
 
-func _cast(kind: String) -> void:
+func _cast_class_spell() -> void:
+	if not Game.has_class():
+		return
+	var kind := Game.player_class
 	if not Game.SPELLS.has(kind):
 		return
 	var spec: Dictionary = Game.SPELLS[kind]
