@@ -580,8 +580,8 @@ html, body {
 "use strict";
 
 const VX = 2; // voxels per old world-unit
-const W = 96 * VX, H = 16 * VX, D = 96 * VX;
-const WW = 96, DW = 96;
+const W = 192 * VX, H = 16 * VX, D = 192 * VX;
+const WW = 192, DW = 192;
 const INV_VX = 1 / VX;
 const STEP_UP = INV_VX + 0.02;
 const AIR = 0, DIRT = 1, ROCK = 2, WOOD = 3, LEAF = 4;
@@ -654,17 +654,17 @@ function fbm(x, z) {
 
 function genWorld() {
   blocks.fill(0);
-  const cx = 47.5 * VX, cz = 47.5 * VX;
+  const cx = 95.5 * VX, cz = 95.5 * VX;
   const vx2 = VX * VX;
   for (let z = 0; z < D; z++) {
     for (let x = 0; x < W; x++) {
       const dx = x - cx, dz = z - cz;
       const dist = Math.hypot(dx, dz);
-      const fall = dist > 44 * VX ? 0 : dist > 32 * VX ? (44 * VX - dist) / (12 * VX) : 1;
+      const fall = dist > 88 * VX ? 0 : dist > 64 * VX ? (88 * VX - dist) / (24 * VX) : 1;
       if (fall <= 0) continue;
       const n = fbm(x * 0.045 / VX, z * 0.045 / VX);
-      const hill = Math.exp(-((x - 58 * VX) * (x - 58 * VX) + (z - 34 * VX) * (z - 34 * VX)) / (152 * vx2));
-      const knoll = Math.exp(-((x - 28 * VX) * (x - 28 * VX) + (z - 62 * VX) * (z - 62 * VX)) / (88 * vx2));
+      const hill = Math.exp(-((x - 116 * VX) * (x - 116 * VX) + (z - 68 * VX) * (z - 68 * VX)) / (608 * vx2));
+      const knoll = Math.exp(-((x - 56 * VX) * (x - 56 * VX) + (z - 124 * VX) * (z - 124 * VX)) / (352 * vx2));
       let h = (2 + fall * (3.2 + n * 4.2 + hill * 6.5 + knoll * 3.2)) * VX;
       h = Math.max(1, Math.min(H - 2, Math.floor(h)));
       const rocky = hill > 0.45 || (n > 0.62 && h >= 7 * VX);
@@ -681,7 +681,7 @@ function genWorld() {
   function plantLeaf(px, py, pz) {
     if (getB(px, py, pz) !== WOOD) setB(px, py, pz, LEAF);
   }
-  while (trees.length < 22 && tries < 600) {
+  while (trees.length < 48 && tries < 1600) {
     tries++;
     const x = 12 * VX + (hash(tries, 9) * (W - 24 * VX)) | 0;
     const z = 12 * VX + (hash(tries, 21) * (D - 24 * VX)) | 0;
@@ -1034,7 +1034,7 @@ function grantXp(n) {
   }
 }
 const player = {
-  x: 48, y: 8, z: 50, vx: 0, vy: 0, vz: 0,
+  x: 96, y: 8, z: 96, vx: 0, vy: 0, vz: 0,
   yaw: 0.35, pitch: 0.22, face: 0.35,
   hp: MAX_HP, hunger: 100, mana: 100,
   grounded: false, flash: 0, inv: 0, bob: 0,
@@ -1057,12 +1057,12 @@ const parts = [];
 const puddles = [];
 const iceZones = [];
 const burning = Object.create(null);
-const NPC_CAP = 4;
+const NPC_CAP = 8;
 let npcRespawns = [];
 const keys = Object.create(null);
 const joy = { id: null, dx: 0, dy: 0 };
 const lookT = { id: null, lx: 0, ly: 0 };
-let camX = 48, camY = 12, camZ = 62;
+let camX = 96, camY = 12, camZ = 110;
 let wasNight = false;
 let toastT = 0;
 
@@ -1073,10 +1073,10 @@ function highest(x, z) {
   return 0;
 }
 function spawnPlayer() {
-  let bx = 48 * VX, bz = 50 * VX;
+  let bx = 96 * VX, bz = 96 * VX;
   for (let t = 0; t < 80; t++) {
-    const x = (40 + (t % 16)) * VX;
-    const z = (44 + ((t / 16) | 0)) * VX;
+    const x = (88 + (t % 16)) * VX;
+    const z = (88 + ((t / 16) | 0)) * VX;
     let y = -1;
     for (let yy = H - 1; yy >= 0; yy--) if (solidOf(getB(x, yy, z))) { y = yy; break; }
     if (y >= 4 && getB(x, y, z) === DIRT && getB(x, y + 1, z) === AIR) { bx = x; bz = z; break; }
@@ -1507,8 +1507,8 @@ function pushMob(kind, minR, maxR, minDist) {
     tries++;
     const ang = Math.random() * Math.PI * 2;
     const rad = minR + Math.random() * (maxR - minR);
-    const x = 48 + Math.cos(ang) * rad;
-    const z = 48 + Math.sin(ang) * rad;
+    const x = WW * 0.5 + Math.cos(ang) * rad;
+    const z = DW * 0.5 + Math.sin(ang) * rad;
     if (x < 3 || z < 3 || x > WW - 4 || z > DW - 4) continue;
     if (Math.hypot(x - player.x, z - player.z) < minDist) continue;
     const gy = highest(x, z);
@@ -1531,8 +1531,11 @@ function pushMob(kind, minR, maxR, minDist) {
 function spawnWildlife() {
   for (let i = 0; i < 4; i++) pushMob("chevreuil", 12, 30, 10);
   pushMob("wolf", 22, 34, 20);
-  for (let i = 0; i < 3; i++) spawnNpcMage();
-  npcRespawns = [90];
+  npcRespawns = [];
+  for (let i = 0; i < 6; i++) {
+    if (!spawnNpcRing(i)) npcRespawns.push(5);
+  }
+  npcRespawns.push(90, 90);
 }
 function findWoodNear(wx, wz, maxD) {
   const mx = vox(wx), mz = vox(wz);
@@ -1565,34 +1568,25 @@ function tooCloseMage(wx, wz, minD) {
   }
   return false;
 }
-function spawnNpcMage() {
-  if (mageCount() >= NPC_CAP) return;
-  let tree = null, best = -1;
-  for (let z = 4; z < D - 4; z += 4) {
-    for (let x = 4; x < W - 4; x += 4) {
-      let yWood = -1;
-      for (let y = H - 1; y >= 1; y--) if (getB(x, y, z) === WOOD) { yWood = y; break; }
-      if (yWood < 0) continue;
-      const wx = wCenter(x), wz = wCenter(z);
-      const d = Math.hypot(wx - player.x, wz - player.z);
-      if (d < 24 || d > 40) continue;
-      if (tooCloseMage(wx, wz, 16)) continue;
-      const score = Math.min(d, 36) + hash(x, z) * 10;
-      if (score > best) { best = score; tree = { x: x, y: yWood, z: z, wx: wx, wy: wCenter(yWood), wz: wz }; }
-    }
-  }
-  if (!tree) tree = findWoodNear(player.x + 18, player.z + 14, 48);
-  if (tree && tooCloseMage(tree.wx, tree.wz, 16)) tree = null;
-  let x, z, y;
-  if (tree) {
-    const ang = Math.atan2(player.x - tree.wx, player.z - tree.wz) + Math.PI;
-    x = tree.wx + Math.sin(ang) * 1.65;
-    z = tree.wz + Math.cos(ang) * 1.65;
-    y = highest(x, z) + STEP_UP;
-  } else {
-    x = player.x + 14; z = player.z + 10; y = highest(x, z) + STEP_UP;
-  }
-  const npc = {
+function npcGroundOk(x, z) {
+  if (x < 5 || z < 5 || x > WW - 6 || z > DW - 6) return false;
+  const gy = highest(x, z);
+  if (gy < 1.2 || gy > 12) return false;
+  const top = getB(vox(x), vox(gy), vox(z));
+  if (top === WOOD || top === LEAF) return false;
+  return true;
+}
+function npcSpotOk(x, z) {
+  const d = Math.hypot(x - player.x, z - player.z);
+  if (d < 14 || d < 48 || d > 80) return false;
+  if (tooCloseMage(x, z, 32)) return false;
+  return npcGroundOk(x, z);
+}
+function makeNpcAt(x, z) {
+  if (mageCount() >= NPC_CAP) return false;
+  const tree = findWoodNear(x, z, 22);
+  const y = highest(x, z) + STEP_UP;
+  mobs.push({
     kind: "mage", cls: NPC_SCHOOLS[(Math.random() * 5) | 0],
     x: x, y: y, z: z, vx: 0, vy: 0, vz: 0,
     face: tree ? Math.atan2(tree.wx - x, tree.wz - z) : 0,
@@ -1604,8 +1598,34 @@ function spawnNpcMage() {
     hunger: 70, bois: 0, viande: 0, stuckT: 0, leaveT: 0,
     swingHitT: -1, swingAnim: 0, swingTgt: null,
     wander: 0, wAng: 0, grounded: true, dead: false
-  };
-  mobs.push(npc);
+  });
+  return true;
+}
+function spawnNpcRing(i) {
+  const base = i * (Math.PI / 3);
+  for (let t = 0; t < 24; t++) {
+    const ang = base + (hash(i + 1, t + 3) - 0.5) * 0.35;
+    const r = 64 + (hash(i + 7, t + 11) * 24 - 12);
+    const x = player.x + Math.sin(ang) * r;
+    const z = player.z + Math.cos(ang) * r;
+    if (npcSpotOk(x, z) && makeNpcAt(x, z)) return true;
+  }
+  return false;
+}
+function spawnNpcRandom() {
+  if (mageCount() >= NPC_CAP) return true;
+  for (let t = 0; t < 28; t++) {
+    const ang = (hash(t + 2, mageCount() + 9) + Math.random()) * Math.PI * 2;
+    const r = 48 + hash(t + 5, 17) * 32;
+    const x = player.x + Math.sin(ang) * r;
+    const z = player.z + Math.cos(ang) * r;
+    if (npcSpotOk(x, z) && makeNpcAt(x, z)) return true;
+  }
+  return false;
+}
+function spawnNpcMage() {
+  if (mageCount() >= NPC_CAP) return;
+  if (!spawnNpcRandom()) npcRespawns.push(5);
 }
 function npcCastE(m, tx, ty, tz, tgt) {
   const gem = npcStaffGemPos(m);
@@ -1709,6 +1729,21 @@ function tickNpcMage(m, dt) {
   if (m.swingAnim > 0) m.swingAnim = Math.max(0, m.swingAnim - dt);
   npcPickupAndEat(m, dt);
   const pdist = Math.hypot(player.x - m.x, player.z - m.z);
+  if (pdist >= 50) {
+    if (m.pose === "aggro") m.pose = "farm";
+    m.lod = (m.lod || 0) + 1;
+    if (m.lod % 4 !== 0) return;
+    m.wander += dt * 4;
+    if (m.wander > 2.2) { m.wander = 0; m.wAng = Math.random() * Math.PI * 2; }
+    let d = (m.wAng || m.face) - m.face;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    m.face += d * 0.08;
+    m.vx = Math.sin(m.face) * 0.85;
+    m.vz = Math.cos(m.face) * 0.85;
+    physics(m, PW, PH, dt);
+    return;
+  }
   if (pdist <= 5) { m.pose = "aggro"; m.leaveT = 0; }
   else if (m.pose === "aggro") {
     m.leaveT = (m.leaveT || 0) + dt;
