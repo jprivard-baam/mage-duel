@@ -14,6 +14,7 @@ var _alert: float = 0.0
 var _wander_t: float = 0.0
 var _wander_dir: Vector3 = Vector3.ZERO
 var _anim: float = 0.0
+var _grace: float = 0.0
 var _leg_nodes: Array[Node3D] = []
 var _leg_base: Array[Vector3] = []
 var _dead: bool = false
@@ -41,11 +42,15 @@ func setup(p_kind: String) -> void:
 	if col == null:
 		col = get_node("CollisionShape3D")
 	CritterVoxelsScript.build(kind, model)
+	var scl := float(_spec.get("scale", 1.0))
+	model.scale = Vector3(scl, scl, scl)
 	_cache_legs()
 	var box := BoxShape3D.new()
-	box.size = _spec["hitbox"]
+	var raw: Vector3 = _spec["hitbox"]
+	box.size = raw * scl
 	col.shape = box
 	col.position = Vector3(0.0, box.size.y * 0.5, 0.0)
+	_grace = 3.4
 
 
 func is_hostile() -> bool:
@@ -122,6 +127,7 @@ func _physics_process(delta: float) -> void:
 	_slow = maxf(0.0, _slow - delta)
 	_attack_cd = maxf(0.0, _attack_cd - delta)
 	_alert = maxf(0.0, _alert - delta)
+	_grace = maxf(0.0, _grace - delta)
 	if _burn > 0.0:
 		_burn -= delta
 		hp -= 8.0 * delta
@@ -147,7 +153,9 @@ func _physics_process(delta: float) -> void:
 
 	if is_hostile():
 		var aggro := float(_spec.get("aggro", 14.0))
-		if dist < aggro or _alert > 0.0:
+		if _grace > 0.0 and _alert <= 0.0:
+			dir = _wander(delta)
+		elif dist < aggro or _alert > 0.0:
 			if dist > 0.12:
 				dir = to_player.normalized()
 		else:

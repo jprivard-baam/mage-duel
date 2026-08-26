@@ -34,27 +34,27 @@ const CREATURES := {
 	"slime": {
 		"nom": "Gelée", "hp": 150.0, "degats": 35.0, "vitesse": 2.45,
 		"portee": 1.5, "cooldown": 1.0, "hostile": true, "burns_sun": true,
-		"faim": 8.0, "aggro": 14.0, "hitbox": Vector3(0.7, 0.72, 0.7),
+		"faim": 8.0, "aggro": 14.0, "scale": 1.35, "hitbox": Vector3(0.7, 0.72, 0.7),
 	},
 	"loup": {
 		"nom": "Loup", "hp": 220.0, "degats": 55.0, "vitesse": 3.55,
 		"portee": 1.7, "cooldown": 0.85, "hostile": true, "burns_sun": false,
-		"faim": 12.0, "aggro": 9.0, "hitbox": Vector3(0.46, 0.62, 0.82),
+		"faim": 12.0, "aggro": 9.0, "scale": 1.95, "hitbox": Vector3(0.46, 0.62, 0.82),
 	},
 	"chevreuil": {
 		"nom": "Chevreuil", "hp": 95.0, "degats": 0.0, "vitesse": 4.35,
 		"portee": 0.0, "cooldown": 1.0, "hostile": false, "burns_sun": false,
-		"faim": 45.0, "aggro": 5.4, "hitbox": Vector3(0.42, 0.92, 0.7),
+		"faim": 45.0, "aggro": 5.4, "scale": 1.85, "hitbox": Vector3(0.42, 0.92, 0.7),
 	},
 	"zombie": {
 		"nom": "Zombie", "hp": 190.0, "degats": 40.0, "vitesse": 1.28,
 		"portee": 1.6, "cooldown": 1.45, "hostile": true, "burns_sun": true,
-		"faim": 6.0, "aggro": 12.0, "hitbox": Vector3(0.5, 1.22, 0.42),
+		"faim": 6.0, "aggro": 12.0, "scale": 1.2, "hitbox": Vector3(0.5, 1.22, 0.42),
 	},
 	"squelette": {
 		"nom": "Squelette", "hp": 125.0, "degats": 48.0, "vitesse": 2.75,
 		"portee": 1.9, "cooldown": 0.92, "hostile": true, "burns_sun": true,
-		"faim": 4.0, "aggro": 14.0, "hitbox": Vector3(0.4, 1.28, 0.36),
+		"faim": 4.0, "aggro": 14.0, "scale": 1.22, "hitbox": Vector3(0.4, 1.28, 0.36),
 	},
 }
 

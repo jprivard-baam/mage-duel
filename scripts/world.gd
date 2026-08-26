@@ -33,9 +33,9 @@ func _ready() -> void:
 		_sky_mat = env.sky.sky_material
 	Game.night_changed.connect(_on_night_changed)
 	_update_sky()
-	_spawn_ahead("chevreuil", 6.8, -0.42)
-	_spawn_ahead("chevreuil", 7.6, 0.48)
-	_spawn_ahead("loup", 10.5, 0.22)
+	_spawn_ahead("chevreuil", 5.1, -0.38)
+	_spawn_ahead("chevreuil", 5.6, 0.40)
+	_spawn_ahead("loup", 6.4, 0.18)
 
 
 func _physics_process(delta: float) -> void:
