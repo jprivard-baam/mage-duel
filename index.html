@@ -312,6 +312,25 @@ html, body {
   background: rgba(244,228,166,.85);
   box-shadow: 0 0 0 2px rgba(122,92,18,.5), 0 4px 12px rgba(0,0,0,.35);
 }
+#look-wrap {
+  position: absolute;
+  right: calc(168px + var(--safe-r));
+  bottom: calc(22px + var(--safe-b));
+  width: 128px; height: 128px;
+}
+#look-base {
+  width: 128px; height: 128px; border-radius: 50%;
+  background: rgba(255,255,255,.08);
+  border: 2px solid rgba(255,255,255,.18);
+  position: relative;
+}
+#look-knob {
+  position: absolute; left: 50%; top: 50%;
+  width: 56px; height: 56px; margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: rgba(186,214,255,.85);
+  box-shadow: 0 0 0 2px rgba(40,70,120,.5), 0 4px 12px rgba(0,0,0,.35);
+}
 
 #actions {
   position: absolute;
@@ -488,6 +507,8 @@ html, body {
 @media (orientation: landscape) {
   #joy-wrap { width: 110px; height: 110px; bottom: calc(12px + var(--safe-b)); }
   #joy-base { width: 110px; height: 110px; }
+  #look-wrap { width: 110px; height: 110px; bottom: calc(12px + var(--safe-b)); right: calc(142px + var(--safe-r)); }
+  #look-base { width: 110px; height: 110px; }
   .abtn { width: 52px; height: 52px; font-size: 10px; }
   #btn-saut, #btn-eat {
   width: 62px; height: 62px;
@@ -569,6 +590,9 @@ html, body {
   <div id="joy-wrap">
     <div id="joy-base"><div id="joy-knob"></div></div>
   </div>
+  <div id="look-wrap">
+    <div id="look-base"><div id="look-knob"></div></div>
+  </div>
   <div id="actions">
     <div class="spells">
       <button class="abtn off hidden" id="btn-sort3" type="button">R</button>
@@ -637,6 +661,7 @@ const homeEl = $("home"), playUI = $("play-ui"), deathEl = $("death");
 const hpI = $("hp-i"), hunI = $("hun-i"), manI = $("man-i"), clockEl = $("clock"), toastEl = $("toast");
 const xpI = $("xp-i"), lvlLab = $("lvl-lab");
 const knob = $("joy-knob"), joyBase = $("joy-base");
+const lookKnob = $("look-knob"), lookBase = $("look-base");
 
 let gl, prog, worldBuf, worldN = 0, cubeBuf;
 let uMVP, uModel, uTint, uSun, uAmb, uFog, uCam, uFogN, uFogF, uGlow;
@@ -1200,7 +1225,7 @@ const NPC_CAP = 8;
 let npcRespawns = [];
 const keys = Object.create(null);
 const joy = { id: null, dx: 0, dy: 0 };
-const lookT = { id: null, lx: 0, ly: 0 };
+const look = { id: null, dx: 0, dy: 0 };
 let camX = 96, camY = 12, camZ = 110;
 let wasNight = false;
 let toastT = 0;
@@ -4144,7 +4169,7 @@ function render() {
 }
 
 function updateCamera(dt) {
-  const fy = player.face;
+  const fy = player.yaw;
   const backX = Math.sin(fy), backZ = Math.cos(fy);
   let dist = 8;
   let tx = player.x - backX * dist;
@@ -4251,6 +4276,11 @@ function update(dt) {
     if (keys.KeyS || keys.ArrowDown) mz -= 1;
     if (keys.KeyA || keys.ArrowLeft) mx += 1;
     if (keys.KeyD || keys.ArrowRight) mx -= 1;
+    const lv = lookMove();
+    if (lv.mag > 0) {
+      player.yaw -= lv.dx * 2.6 * dt;
+      player.pitch = Math.max(-0.5, Math.min(1.05, player.pitch + lv.dy * 2.0 * dt));
+    }
     const jv = joyMove();
     mx -= jv.dx;
     mz += -jv.dy;
@@ -4265,7 +4295,7 @@ function update(dt) {
       player.face = player.yaw;
     } else {
       if (jv.mag > 0.12) player.face = lerpAng(player.face, Math.atan2(player.vx, player.vz), 10 * dt);
-      player.yaw = lerpAng(player.yaw, player.face, 6 * dt);
+      if (lv.mag < 0.12) player.yaw = lerpAng(player.yaw, player.face, 6 * dt);
     }
     if (ml > 0.12) {
       player.bob += dt * 10;
@@ -4315,8 +4345,8 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-function joyPos(cx, cy) {
-  const r = joyBase.getBoundingClientRect();
+function stickPos(base, cx, cy) {
+  const r = base.getBoundingClientRect();
   const mx = r.left + r.width / 2, my = r.top + r.height / 2;
   let dx = (cx - mx) / (r.width * 0.42);
   let dy = (cy - my) / (r.height * 0.42);
@@ -4324,6 +4354,8 @@ function joyPos(cx, cy) {
   if (l > 1) { dx /= l; dy /= l; }
   return { dx, dy };
 }
+function joyPos(cx, cy) { return stickPos(joyBase, cx, cy); }
+function lookPos(cx, cy) { return stickPos(lookBase, cx, cy); }
 function joyMove() {
   let dx = joy.dx || 0, dy = joy.dy || 0;
   const mag = Math.hypot(dx, dy);
@@ -4332,8 +4364,24 @@ function joyMove() {
   t = Math.pow(t, 2.5);
   return { dx: dx / mag * t, dy: dy / mag * t, mag: t };
 }
+function lookMove() {
+  let dx = look.dx || 0, dy = look.dy || 0;
+  const mag = Math.hypot(dx, dy);
+  if (mag < 0.22) return { dx: 0, dy: 0, mag: 0 };
+  let t = (mag - 0.22) / 0.78;
+  t = Math.pow(t, 1.6);
+  return { dx: dx / mag * t, dy: dy / mag * t, mag: t };
+}
 function setKnob() {
   knob.style.transform = "translate(" + (joy.dx * 34) + "px," + (joy.dy * 34) + "px)";
+}
+function setLookKnob() {
+  lookKnob.style.transform = "translate(" + (look.dx * 34) + "px," + (look.dy * 34) + "px)";
+}
+function inStick(el, x, y) {
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 }
 function uiEl(t) {
   let el = t;
@@ -4393,13 +4441,16 @@ function onDown(e) {
   const x = t.clientX, y = t.clientY;
   if (uiEl(e.target)) return;
   if (mode !== "play") return;
-  const left = x < innerWidth * 0.46;
-  if (left && joy.id == null) {
+  const overLook = inStick($("look-wrap"), x, y);
+  const overJoy = inStick($("joy-wrap"), x, y);
+  if ((overLook || (!overJoy && x >= innerWidth * 0.46)) && look.id == null) {
+    look.id = id;
+    const p = lookPos(x, y);
+    look.dx = p.dx; look.dy = p.dy; setLookKnob();
+  } else if (joy.id == null) {
     joy.id = id;
     const p = joyPos(x, y);
     joy.dx = p.dx; joy.dy = p.dy; setKnob();
-  } else if (lookT.id == null) {
-    lookT.id = id; lookT.lx = x; lookT.ly = y;
   }
 }
 function onMove(e) {
@@ -4411,9 +4462,9 @@ function onMove(e) {
     if (id === joy.id) {
       const p = joyPos(t.clientX, t.clientY);
       joy.dx = p.dx; joy.dy = p.dy; setKnob();
-    } else if (id === lookT.id) {
-      player.pitch = Math.max(-0.5, Math.min(1.05, player.pitch + (t.clientY - lookT.ly) * 0.0055));
-      lookT.lx = t.clientX; lookT.ly = t.clientY;
+    } else if (id === look.id) {
+      const p = lookPos(t.clientX, t.clientY);
+      look.dx = p.dx; look.dy = p.dy; setLookKnob();
     }
   }
   if (e.cancelable) e.preventDefault();
@@ -4424,7 +4475,7 @@ function onUp(e) {
     const t = list[i];
     const id = t.identifier != null ? t.identifier : "m";
     if (id === joy.id) { joy.id = null; joy.dx = 0; joy.dy = 0; setKnob(); }
-    if (id === lookT.id) lookT.id = null;
+    if (id === look.id) { look.id = null; look.dx = 0; look.dy = 0; setLookKnob(); }
   }
 }
 
@@ -4436,7 +4487,7 @@ window.addEventListener("mousedown", (e) => {
   if (e.button === 0 && mode === "play" && !uiEl(e.target) && document.pointerLockElement !== canvas) onDown(e);
 });
 window.addEventListener("mousemove", (e) => {
-  if (lookT.id === "m" || joy.id === "m") onMove(e);
+  if (look.id === "m" || joy.id === "m") onMove(e);
 });
 window.addEventListener("mouseup", onUp);
 
