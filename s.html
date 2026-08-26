@@ -531,7 +531,7 @@ html, body {
     </div>
     <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
     <p class="home-hint">Choisis une classe · E pour le sort<br>Force secondaire au level up</p>
-    <p class="home-hint" id="build-id">b.sol</p>
+    <p class="home-hint" id="build-id">b.rollback</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -678,7 +678,7 @@ function noise(x, z) {
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
 function fbm(x, z) {
-  return noise(x, z) * 0.52 + noise(x * 2.03, z * 2.03) * 0.31;
+  return noise(x, z) * 0.52 + noise(x * 2.03, z * 2.03) * 0.31 + noise(x * 4.1, z * 4.1) * 0.17;
 }
 
 function genWorld() {
@@ -695,8 +695,7 @@ function genWorld() {
       const hill = Math.exp(-((x - 116 * VX) * (x - 116 * VX) + (z - 68 * VX) * (z - 68 * VX)) / (608 * vx2));
       const knoll = Math.exp(-((x - 56 * VX) * (x - 56 * VX) + (z - 124 * VX) * (z - 124 * VX)) / (352 * vx2));
       let h = (2 + fall * (3.2 + n * 4.2 + hill * 6.5 + knoll * 3.2)) * VX;
-      h = Math.floor(h / 2) * 2;
-      h = Math.max(1, Math.min(H - 2, h));
+      h = Math.max(1, Math.min(H - 2, Math.floor(h)));
       const rocky = hill > 0.45 || (n > 0.62 && h >= 7 * VX);
       for (let y = 0; y < h; y++) {
         let t = DIRT;
@@ -773,78 +772,15 @@ function genWorld() {
     }
     trees.push([x, z]);
   }
-  bakeFloorDress();
-}
-
-const floorDress = [];
-function nearTrunk(x, z, top) {
-  for (let ox = -1; ox <= 1; ox++) {
-    for (let oz = -1; oz <= 1; oz++) {
-      for (let y = top; y <= top + 5; y++) {
-        if (getB(x + ox, y, z + oz) === WOOD) return true;
-      }
-    }
-  }
-  return false;
-}
-function bakeFloorDress() {
-  floorDress.length = 0;
-  const hc = COL.herbeC;
-  const tr = hc[0] * 1.05, tg = Math.min(1, hc[1] * 1.05), tb = hc[2] * 1.05;
-  for (let z = 4; z < D - 4; z++) {
-    for (let x = 4; x < W - 4; x++) {
-      let top = -1;
-      for (let y = H - 1; y >= 0; y--) if (getB(x, y, z) === DIRT) { top = y; break; }
-      if (top < 0 || getB(x, top + 1, z) !== AIR) continue;
-      if (nearTrunk(x, z, top)) continue;
-      const y0 = (top + 1) * INV_VX;
-      const cx = wCenter(x), cz = wCenter(z);
-      if (hash(x, z) < 0.10) {
-        const n = 2 + ((hash(x + 1, z) * 2) | 0);
-        for (let i = 0; i < n; i++) {
-          const ox = (hash(x, z + i + 3) - 0.5) * 0.30;
-          const oz = (hash(x + i + 5, z) - 0.5) * 0.30;
-          const sc = 0.10 + hash(x + i, z + 7) * 0.04;
-          const yy = y0 + 0.06 + hash(x + 9, z + i) * 0.08;
-          floorDress.push(cx + ox, yy, cz + oz, sc, sc, sc, tr, tg, tb);
-        }
-      }
-      if (hash(x + 17, z + 9) < (1 / 22)) {
-        floorDress.push(cx, y0 + 0.08, cz, 0.06, 0.16, 0.06, 0.18, 0.55, 0.16);
-        const fk = hash(x + 21, z + 4);
-        const fr = fk < 0.34 ? 1.00 : fk < 0.67 ? 0.95 : 1.00;
-        const fg = fk < 0.34 ? 0.86 : fk < 0.67 ? 0.92 : 0.45;
-        const fb = fk < 0.34 ? 0.22 : fk < 0.67 ? 0.88 : 0.62;
-        floorDress.push(cx, y0 + 0.20, cz, 0.10, 0.10, 0.10, fr, fg, fb);
-      }
-      if (hash(x + 3, z + 5) < (1 / 28)) {
-        const n = 1 + ((hash(x + 6, z) * 2) | 0);
-        for (let i = 0; i < n; i++) {
-          const sc = 0.12 + hash(x + i, z + 8) * 0.06;
-          const rock = hash(x + 11, z + i) < 0.5;
-          const rr = rock ? 0.70 : 0.88, rg = rock ? 0.74 : 0.90, rb = rock ? 0.88 : 0.98;
-          floorDress.push(cx + (hash(x + i, z) - 0.5) * 0.16, y0 + 0.05, cz + (hash(x, z + i) - 0.5) * 0.16, sc, sc * 0.7, sc, rr, rg, rb);
-        }
-      }
-      if (hash(x + 8, z + 2) < (1 / 18)) {
-        floorDress.push(cx, y0 + 0.04, cz, 0.85, 0.08, 0.85, 0.72, 0.42, 0.16);
-      }
-    }
-  }
-}
-function drawFloorDress() {
-  for (let i = 0; i < floorDress.length; i += 9) {
-    drawCube(floorDress[i], floorDress[i + 1], floorDress[i + 2], floorDress[i + 3], floorDress[i + 4], floorDress[i + 5], 0, floorDress[i + 6], floorDress[i + 7], floorDress[i + 8], 0);
-  }
 }
 
 const COL = {
-  herbeA: [0.28, 0.72, 0.22], herbeC: [0.46, 0.86, 0.30],
-  terreA: [0.92, 0.52, 0.16], terreB: [0.62, 0.30, 0.08],
-  terreBot: [0.48, 0.22, 0.06],
-  rocheA: [0.70, 0.74, 0.88], rocheC: [0.88, 0.90, 0.98],
-  boisA: [0.56, 0.28, 0.08], boisB: [0.40, 0.18, 0.05], boisC: [0.68, 0.38, 0.12],
-  feuilleA: [0.12, 0.88, 0.22], feuilleB: [0.06, 0.42, 0.12], feuilleC: [0.42, 0.98, 0.18]
+  herbeA: [0.36, 0.72, 0.28], herbeB: [0.30, 0.64, 0.24], herbeC: [0.42, 0.78, 0.30],
+  terreA: [0.55, 0.38, 0.20], terreB: [0.48, 0.32, 0.16],
+  terreBot: [0.42, 0.28, 0.14],
+  rocheA: [0.55, 0.57, 0.62], rocheB: [0.46, 0.48, 0.52], rocheC: [0.62, 0.63, 0.66],
+  boisA: [0.42, 0.26, 0.12], boisB: [0.32, 0.18, 0.08], boisC: [0.50, 0.32, 0.16],
+  feuilleA: [0.22, 0.72, 0.32], feuilleB: [0.14, 0.52, 0.22], feuilleC: [0.32, 0.78, 0.28]
 };
 const FACES = [
   [0, 1, 0, [[0,1,0],[1,1,0],[1,1,1],[0,1,1]]],
@@ -856,32 +792,34 @@ const FACES = [
 ];
 
 function faceColor(t, ny, x, y, z, nx, nz) {
+  const hv = hash(x * 1.3 + y * 17.1, z * 2.9);
+  const pick = (n) => (hv * n) | 0;
   if (t === DIRT) {
     if (ny > 0.5) {
-      const chk = ((x + z) & 1);
-      return chk ? COL.herbeA : COL.herbeC;
+      const i = pick(3);
+      return i === 0 ? COL.herbeA : i === 1 ? COL.herbeB : COL.herbeC;
     }
     if (ny < -0.5) return COL.terreBot;
-    return ((nx + nz) & 1) ? COL.terreB : COL.terreA;
+    return pick(2) ? COL.terreB : COL.terreA;
   }
   if (t === ROCK) {
-    const p = hash((x >> 2), (z >> 2)) < 0.5;
-    return p ? COL.rocheA : COL.rocheC;
+    const i = pick(3);
+    return i === 0 ? COL.rocheA : i === 1 ? COL.rocheB : COL.rocheC;
   }
   if (t === WOOD) {
     if (nz === -1 || nx === 1) return COL.boisB;
     return COL.boisA;
   }
   if (getB(x + 1, y, z) === LEAF && getB(x - 1, y, z) === LEAF && getB(x, y, z + 1) === LEAF && getB(x, y, z - 1) === LEAF) return COL.feuilleB;
-  return hash(x >> 3, z >> 3) < 0.5 ? COL.feuilleA : COL.feuilleC;
+  return pick(2) ? COL.feuilleC : COL.feuilleA;
 }
 
 function buildWorldMesh() {
   const pos = [], nrm = [], col = [];
   function addFace(x, y, z, nx, ny, nz, verts, t) {
     const c = faceColor(t, ny, x, y, z, nx, nz);
-    const j = 0;
-    const shade = ny > 0.5 ? 1 : ny < -0.5 ? 0.50 : 0.78;
+    const j = hash(x * 1.7 + nx, z * 2.3 + y) * 0.08 - 0.04;
+    const shade = ny > 0.5 ? 1 : ny < -0.5 ? 0.55 : 0.78;
     const r = Math.min(1, Math.max(0, c[0] * shade + j));
     const g = Math.min(1, Math.max(0, c[1] * shade + j * 0.7));
     const b = Math.min(1, Math.max(0, c[2] * shade + j * 0.4));
@@ -3606,15 +3544,18 @@ function skyColors() {
   const sunY = Math.sin(phase * Math.PI * 2);
   const dusk = Math.max(0, 1 - Math.abs(sunY) * 3);
   let r, g, b;
-  if (sunY <= 0) {
-    r = 0.22; g = 0.10; b = 0.42;
-  } else if (dusk > 0.35) {
-    r = 0.86; g = 0.38; b = 0.68;
+  if (sunY > 0) {
+    r = 0.45 + sunY * 0.2 + dusk * 0.4;
+    g = 0.62 + sunY * 0.18 + dusk * 0.1;
+    b = 0.92 - dusk * 0.45;
   } else {
-    r = 0.42; g = 0.80; b = 1.00;
+    const n = -sunY;
+    r = 0.07 + (1 - n) * 0.2;
+    g = 0.05 + (1 - n) * 0.12;
+    b = 0.14 + (1 - n) * 0.2;
   }
-  const amb = sunY > 0 ? 0.48 + sunY * 0.22 : 0.16;
-  const sunDx = Math.cos(phase * Math.PI * 2), sunDy = Math.max(0.22, sunY * 0.7 + 0.35), sunDz = 0.35;
+  const amb = sunY > 0 ? 0.38 + sunY * 0.22 : 0.16;
+  const sunDx = Math.cos(phase * Math.PI * 2), sunDy = Math.max(0.15, sunY * 0.7 + 0.35), sunDz = 0.35;
   const sl = Math.hypot(sunDx, sunDy, sunDz);
   return {
     fog: [r, g, b], amb: [amb * 0.9, amb, amb * 1.15],
@@ -4098,15 +4039,6 @@ function drawServiteur(m) {
   drawCube(x + c * 0.28 * k, y + 0.95 * k, z - s * 0.28 * k, 0.08 * sk, 0.08 * sk, 0.36 * sk, yaw, r, g, b, glow);
 }
 
-function drawSkyDecor() {
-  const mx = camX - 38, my = camY + 34, mz = camZ - 52;
-  drawCube(mx, my, mz, 5.4, 5.4, 5.4, 0, 0.98, 0.96, 1.00, 0.92);
-  drawCube(camX + 22, camY + 22, camZ - 64, 16, 2.2, 7, 0, 0.70, 0.46, 0.88, 0.18);
-  drawCube(camX - 28, camY + 18, camZ - 70, 12, 2.0, 6, 0, 0.78, 0.42, 0.80, 0.14);
-  drawCube(camX + 8, camY + 26, camZ - 78, 10, 1.8, 5, 0, 0.62, 0.38, 0.82, 0.12);
-  drawCube(camX + 40, camY + 16, camZ - 58, 9, 1.6, 4.5, 0, 0.84, 0.50, 0.72, 0.10);
-}
-
 function render() {
   const sky = skyColors();
   const flashK = boltFlash > 0 ? Math.min(1, boltFlash * 5.5) : 0;
@@ -4117,8 +4049,8 @@ function render() {
   gl.uniform3f(uAmb, sky.amb[0] + flashK * 0.85, sky.amb[1] + flashK * 0.85, sky.amb[2] + flashK * 0.95);
   gl.uniform3f(uFog, sky.fog[0] * (1 - flashK) + flashK, sky.fog[1] * (1 - flashK) + flashK, sky.fog[2] * (1 - flashK) + flashK);
   gl.uniform3f(uCam, camX, camY, camZ);
-  gl.uniform1f(uFogN, 38);
-  gl.uniform1f(uFogF, 140);
+  gl.uniform1f(uFogN, 52);
+  gl.uniform1f(uFogF, 236);
 
   bindInterleaved(worldBuf);
   gl.uniformMatrix4fv(uModel, false, ident);
@@ -4130,8 +4062,6 @@ function render() {
   if (worldN) gl.drawArrays(gl.TRIANGLES, 0, worldN);
 
   bindInterleaved(cubeBuf);
-  drawSkyDecor();
-  drawFloorDress();
   const bob = Math.sin(player.bob) * 0.05;
   const tFire = performance.now() * 0.012;
   for (const k in burning) {
