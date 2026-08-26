@@ -528,8 +528,8 @@ const AIR = 0, DIRT = 1, ROCK = 2, WOOD = 3, LEAF = 4;
 const CYCLE = 120;
 const MAX_HP = 1000;
 const TREE_MAX_HP = 100;
-const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 35, DMG_ARCANE = 30, DMG_NECRO = 22;
-const FOUDRE_RANGE = 200;
+const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 52, DMG_ARCANE = 30, DMG_NECRO = 22;
+const FOUDRE_RANGE = 26;
 const SERV_HP = 90, SERV_ATK = 22, SERV_SPD = 2.0, SERV_ARM = 0.10, SERV_LIFE = 40;
 const SLIME_HP = 150, SLIME_ATK = 35, SLIME_SPD = 1.9, SLIME_ARM = 0.05;
 const WOLF_HP = 220, WOLF_ATK = 55, WOLF_SPD = 3.6, WOLF_ARM = 0.20;
@@ -1158,14 +1158,14 @@ function spellCost(kind, slot) {
   if (kind === "necro" && slot === 2) return 28;
   if (kind === "feu") return 26;
   if (kind === "glace") return 22;
-  if (kind === "foudre") return 32;
+  if (kind === "foudre") return 55;
   if (kind === "arcane") return 20;
   if (kind === "necro") return 24;
   return 26;
 }
 function spellCdFor(kind, slot) {
   if (kind === "necro" && slot === 2) return 7.0;
-  if (kind === "foudre") return 0.5;
+  if (kind === "foudre") return 0.65;
   if (kind === "arcane") return 0.28;
   if (kind === "necro") return 0.55;
   return 0.32;
@@ -1204,6 +1204,19 @@ function shotDmg(kind) {
     lvlK = 1 + 0.035 * Math.max(0, (player.level || 1) - u);
   }
   return Math.round(base * lvlK * (1 + bonus));
+}
+function foudreMult(dist) {
+  if (dist >= 26) return 0;
+  return Math.max(0, 1 - 0.02 * Math.min(dist, 10) - 0.05 * Math.max(0, dist - 10));
+}
+function foudreMuzzle() {
+  return staffGemPos();
+}
+function foudreDmgAt(x, y, z) {
+  const m = foudreMuzzle();
+  const dist = Math.hypot(x - m.x, y - m.y, z - m.z);
+  if (dist >= 26) return 0;
+  return Math.round(shotDmg("foudre") * foudreMult(dist));
 }
 function punchDmg() {
   return DMG_PUNCH + (player.punchBonus || 0);
@@ -1413,8 +1426,10 @@ function cast(kind, slot) {
     const gem = staffGemPos();
     let hx = ox + d.x * FOUDRE_RANGE, hy = oy + d.y * FOUDRE_RANGE, hz = oz + d.z * FOUDRE_RANGE, hit = null;
     let treeHit = null;
-    for (let t = 0.4; t < FOUDRE_RANGE; t += 0.22) {
+    for (let t = 0.4; t < FOUDRE_RANGE; t += 0.12) {
       const x = ox + d.x * t, y = oy + d.y * t, z = oz + d.z * t;
+      const dist = Math.hypot(x - ox, y - oy, z - oz);
+      if (dist >= 26) break;
       if (x < -4 || x > W + 4 || z < -4 || z > D + 4 || y < -6 || y > 48) break;
       if (t > 1.2) {
         const bx = x | 0, by = y | 0, bz = z | 0;
@@ -1447,7 +1462,7 @@ function cast(kind, slot) {
     }
     boltFlash = 0.07;
     shake = Math.max(shake, 0.28);
-    if (treeHit) damageTree(treeHit[0], treeHit[1], treeHit[2], shotDmg("foudre"));
+    if (treeHit) damageTree(treeHit[0], treeHit[1], treeHit[2], foudreDmgAt(treeHit[0] + 0.5, treeHit[1] + 0.5, treeHit[2] + 0.5));
   } else if (kind === "arcane") {
     beep(640, 0.07, 0.05, "triangle");
     const tgt = nearestHostileAt(ox, oy, oz, 28, true);
@@ -1888,8 +1903,11 @@ function updateShots(dt) {
       if (b.hit && !b.hit.dead) {
         const dx = b.x1 - b.x0, dz = b.z1 - b.z0;
         const len = Math.hypot(dx, dz) || 1;
-        hurtMob(b.hit, shotDmg("foudre"), dx / len, dz / len, 7);
-        b.hit.para = 2;
+        const dmg = foudreDmgAt(b.hit.x, b.hit.y, b.hit.z);
+        if (dmg > 0) {
+          hurtMob(b.hit, dmg, dx / len, dz / len, 7);
+          b.hit.para = 2;
+        }
       }
     }
     if (b.flash > 0) b.flash -= dt;
