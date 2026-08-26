@@ -998,7 +998,7 @@ let spawnedNight = false;
 let shake = 0;
 let boltFlash = 0;
 let meshDirty = false;
-let eatCD = 0, spellCD = 0, spellCD2 = 0, punchCD = 0, staffCD = 0, woodCD = 0, potCD = 0;
+let eatCD = 0, spellCD = 0, spellCD2 = 0, punchCD = 0, staffCD = 0, staffHitT = -1, staffSwing = 0, staffHitDone = true, woodCD = 0, potCD = 0;
 let draftCards = [];
 let lastSpell = null;
 const MAX_LVL = 100;
@@ -1230,7 +1230,7 @@ function killMob(m) {
   if (m.kind !== "chevreuil") rollPotionDrops(m);
 }
 function hurtMob(m, dmg, kx, kz, kb) {
-  if (m.kind === "mage") m.pose = "aggro";
+  if (m.kind === "mage") { m.pose = "aggro"; m.leaveT = 0; }
   const taken = Math.max(1, (dmg * (1 - mobArm(m.kind)) + 0.5) | 0);
   m.hp -= taken;
   m.flash = 0.16;
@@ -1585,6 +1585,8 @@ function spawnNpcMage() {
     treeX: tree ? tree.x : 0, treeY: tree ? tree.y : 0, treeZ: tree ? tree.z : 0,
     hp: 480, maxHp: 480, mana: 80, maxMana: 80,
     slow: 0, para: 0, burn: 0, atk: 0, spellCD: 0,
+    hunger: 70, bois: 0, viande: 0, stuckT: 0, leaveT: 0,
+    swingHitT: -1, swingAnim: 0, swingTgt: null,
     wander: 0, wAng: 0, grounded: true, dead: false
   };
   npcMage = npc;
@@ -1637,6 +1639,42 @@ function npcFaceTo(m, tx, tz, snap) {
   while (d < -Math.PI) d += Math.PI * 2;
   m.face += d * 0.18;
 }
+function npcWalkToward(m, tx, tz, spd) {
+  const dx = tx - m.x, dz = tz - m.z;
+  const d = Math.hypot(dx, dz) || 1;
+  m.vx = dx / d * spd;
+  m.vz = dz / d * spd;
+}
+function npcPickupAndEat(m, dt) {
+  m.hunger = Math.max(0, (m.hunger == null ? 70 : m.hunger) - 0.35 * dt);
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    const pk = pickups[i];
+    if (!pk || pk.burn != null) continue;
+    if (Math.hypot(pk.x - m.x, pk.z - m.z) > 1.2) continue;
+    if (pk.kind === "bois") m.bois = (m.bois || 0) + 1;
+    else if (pk.kind === "viande") m.viande = (m.viande || 0) + 1;
+    else continue;
+    pickups.splice(i, 1);
+  }
+  if ((m.hunger || 0) < 50 && (m.viande || 0) > 0) {
+    m.viande--;
+    m.hunger = Math.min(100, m.hunger + 55);
+  }
+}
+function npcResolveStaff(m, tgt) {
+  if (tgt === "player") {
+    const dx = player.x - m.x, dz = player.z - m.z;
+    const d = Math.hypot(dx, dz);
+    if (d >= 2.2 || d < 0.01) return;
+    hurtPlayer(64, dx / d * 3.2, dz / d * 3.2);
+    return;
+  }
+  if (!tgt || tgt.dead) return;
+  const dx = tgt.x - m.x, dz = tgt.z - m.z;
+  const d = Math.hypot(dx, dz);
+  if (d >= 2.2 || d < 0.01) return;
+  hurtMob(tgt, 64, dx / d, dz / d, 4);
+}
 function updateNpcMage(dt) {
   if (npcMageRespawn > 0 && (!npcMage || npcMage.dead)) {
     npcMageRespawn -= dt;
@@ -1649,21 +1687,32 @@ function updateNpcMage(dt) {
   m.atk = Math.max(0, m.atk - dt);
   m.spellCD = Math.max(0, m.spellCD - dt);
   m.chopAnim = Math.max(0, m.chopAnim - dt);
+  if (m.swingAnim > 0) m.swingAnim = Math.max(0, m.swingAnim - dt);
+  npcPickupAndEat(m, dt);
   const pdist = Math.hypot(player.x - m.x, player.z - m.z);
-  if (pdist < 11) m.pose = "aggro";
-  else if (pdist > 18 && m.pose === "aggro") m.pose = "farm";
-  const bobSp = m.pose === "aggro" ? 12.5 : m.pose === "farm" ? 5.5 : 7;
-  m.bob += dt * bobSp;
+  if (pdist <= 5) { m.pose = "aggro"; m.leaveT = 0; }
+  else if (m.pose === "aggro" && pdist > 8) m.pose = "farm";
+  if (m.swingHitT != null && m.swingHitT >= 0) {
+    m.swingHitT -= dt;
+    if (m.swingHitT <= 0) {
+      m.swingHitT = -1;
+      npcResolveStaff(m, m.swingTgt);
+      m.swingTgt = null;
+    }
+  }
+  const SPD = 2.55;
   if (m.pose === "aggro") {
     npcFaceTo(m, player.x, player.z, false);
-    const sp = 2.55;
-    if (pdist > 12) {
-      m.vx = (player.x - m.x) / (pdist || 1) * sp;
-      m.vz = (player.z - m.z) / (pdist || 1) * sp;
-    } else if (pdist < 8) {
-      m.vx = (m.x - player.x) / (pdist || 1) * sp;
-      m.vz = (m.z - player.z) / (pdist || 1) * sp;
-    } else { m.vx = 0; m.vz = 0; }
+    if (pdist > 5.5) npcWalkToward(m, player.x, player.z, SPD);
+    else if (pdist < 3.5) {
+      m.vx = (m.x - player.x) / (pdist || 1) * SPD;
+      m.vz = (m.z - player.z) / (pdist || 1) * SPD;
+    } else {
+      const sx = -(player.z - m.z) / (pdist || 1);
+      const sz = (player.x - m.x) / (pdist || 1);
+      m.vx = sx * SPD * 0.45;
+      m.vz = sz * SPD * 0.45;
+    }
     physics(m, PW, PH, dt);
     if (m.spellCD <= 0 && m.mana >= 20 && pdist < 16) {
       m.mana -= 20;
@@ -1672,31 +1721,55 @@ function updateNpcMage(dt) {
     }
     if (m.atk <= 0 && pdist < 2.2) {
       m.atk = 0.80;
-      const dx = player.x - m.x, dz = player.z - m.z;
-      const len = Math.hypot(dx, dz) || 1;
-      hurtPlayer(64, dx / len * 3.2, dz / len * 3.2);
+      m.swingHitT = 0.15;
+      m.swingAnim = 0.35;
+      m.swingTgt = "player";
     }
     return;
   }
-  let deer = null, deerD = 7;
+  let deer = null, deerD = 40;
   for (let i = 0; i < mobs.length; i++) {
     const o = mobs[i];
-    if (o.dead || o.kind !== "chevreuil") continue;
+    if (!o || o.dead || o.kind !== "chevreuil") continue;
     const dd = Math.hypot(o.x - m.x, o.z - m.z);
     if (dd < deerD) { deerD = dd; deer = o; }
   }
-  if (deer) {
+  let treeOk = getB(m.treeX, m.treeY, m.treeZ) === WOOD;
+  if (!treeOk) {
+    const t = findWoodNear(m.x, m.z, 40);
+    if (t) { m.treeX = t.x; m.treeY = t.y; m.treeZ = t.z; treeOk = true; }
+  }
+  const twx = treeOk ? wCenter(m.treeX) : 0, twz = treeOk ? wCenter(m.treeZ) : 0;
+  const td = treeOk ? (Math.hypot(twx - m.x, twz - m.z) || 1) : 99;
+  if (!deer && !treeOk) {
+    m.pose = "farm";
+    m.wander += dt;
+    if (m.wander > 1.6) { m.wander = 0; m.wAng = Math.random() * Math.PI * 2; }
+    let d = (m.wAng || m.face) - m.face;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    m.face += d * 0.08;
+    m.vx = Math.sin(m.face) * SPD * 0.55;
+    m.vz = Math.cos(m.face) * SPD * 0.55;
+    physics(m, PW, PH, dt);
+    return;
+  }
+  m.pose = "farm";
+  if (deer && deerD <= td) {
     npcFaceTo(m, deer.x, deer.z, false);
-    if (deerD > 1.5) {
-      m.vx = (deer.x - m.x) / deerD * 2.55;
-      m.vz = (deer.z - m.z) / deerD * 2.55;
-    } else { m.vx = 0; m.vz = 0; }
+    if (deerD > 1.5) npcWalkToward(m, deer.x, deer.z, SPD);
+    else { m.vx = 0; m.vz = 0; }
+    const spdNow = Math.hypot(m.vx, m.vz);
+    if (spdNow < 0.05 && deerD > 1.5) {
+      m.stuckT = (m.stuckT || 0) + dt;
+      if (m.stuckT > 1) { m.stuckT = 0; npcWalkToward(m, deer.x, deer.z, SPD); }
+    } else m.stuckT = 0;
     physics(m, PW, PH, dt);
     if (m.atk <= 0 && deerD < 2.2) {
       m.atk = 0.80;
-      const dx = deer.x - m.x, dz = deer.z - m.z;
-      const len = Math.hypot(dx, dz) || 1;
-      hurtMob(deer, 64, dx / len, dz / len, 4);
+      m.swingHitT = 0.15;
+      m.swingAnim = 0.35;
+      m.swingTgt = deer;
     }
     if (m.spellCD <= 0 && m.mana >= 20 && deerD < 10) {
       m.mana -= 20;
@@ -1705,47 +1778,19 @@ function updateNpcMage(dt) {
     }
     return;
   }
-  let treeOk = getB(m.treeX, m.treeY, m.treeZ) === WOOD;
-  if (!treeOk) {
-    const t = findWoodNear(m.x, m.z, 22);
-    if (t) {
-      m.treeX = t.x; m.treeY = t.y; m.treeZ = t.z;
-      treeOk = true;
-    }
-  }
-  if (!treeOk) {
-    m.pose = "idle";
-    m.vx = 0; m.vz = 0;
-    m.wander += dt;
-    if (m.wander > 2.4) {
-      m.wander = 0;
-      m.wAng = m.face + (Math.random() - 0.5) * 0.9;
-    }
-    let d = (m.wAng || m.face) - m.face;
-    while (d > Math.PI) d -= Math.PI * 2;
-    while (d < -Math.PI) d += Math.PI * 2;
-    m.face += d * 0.04;
-    physics(m, PW, PH, dt);
-    return;
-  }
-  m.pose = "farm";
-  const twx = wCenter(m.treeX), twz = wCenter(m.treeZ);
-  const td = Math.hypot(twx - m.x, twz - m.z) || 1;
   const treeFace = Math.atan2(twx - m.x, twz - m.z);
   if (m.chopAnim <= 0) {
     m.wander += dt;
-    if (m.wander > 1.15) {
-      m.wander = 0;
-      m.wAng = (Math.random() - 0.5) * 0.5;
-    }
+    if (m.wander > 1.15) { m.wander = 0; m.wAng = (Math.random() - 0.5) * 0.5; }
     m.face = treeFace + (m.wAng || 0);
-  } else {
-    m.face = treeFace;
-  }
-  if (td > 1.7) {
-    m.vx = (twx - m.x) / td * 2.2;
-    m.vz = (twz - m.z) / td * 2.2;
-  } else { m.vx = 0; m.vz = 0; }
+  } else m.face = treeFace;
+  if (td > 1.7) npcWalkToward(m, twx, twz, SPD);
+  else { m.vx = 0; m.vz = 0; }
+  const spdNow = Math.hypot(m.vx, m.vz);
+  if (spdNow < 0.05 && td > 1.7) {
+    m.stuckT = (m.stuckT || 0) + dt;
+    if (m.stuckT > 1) { m.stuckT = 0; npcWalkToward(m, twx, twz, SPD); }
+  } else m.stuckT = 0;
   physics(m, PW, PH, dt);
   m.chopT += dt;
   if (m.chopT >= 1.8 && td < 2.1) {
@@ -2266,9 +2311,9 @@ function cast(kind, slot) {
   }
 }
 
-function staffStrike() {
-  if (mode !== "play" || staffCD > 0) return;
-  staffCD = 0.80;
+function resolveStaffHit() {
+  if (staffHitDone) return;
+  staffHitDone = true;
   const dmg = 2 * shotDmg(player.cls);
   const fwd = faceFwd();
   const COS = Math.cos(70 * Math.PI / 180 / 2);
@@ -2292,6 +2337,13 @@ function staffStrike() {
   } else {
     beep(110, 0.08, 0.03, "sine");
   }
+}
+function staffStrike() {
+  if (mode !== "play" || isDraftOpen() || staffCD > 0) return;
+  staffCD = 0.80;
+  staffSwing = 0.35;
+  staffHitT = 0.15;
+  staffHitDone = false;
 }
 
 function treeKey(sx, sy, sz) {
@@ -3587,6 +3639,11 @@ function update(dt) {
     spellCD2 = Math.max(0, spellCD2 - dt);
     punchCD = Math.max(0, punchCD - dt);
     staffCD = Math.max(0, staffCD - dt);
+    if (staffSwing > 0) staffSwing = Math.max(0, staffSwing - dt);
+    if (staffHitT >= 0) {
+      staffHitT -= dt;
+      if (staffHitT <= 0) { staffHitT = -1; resolveStaffHit(); }
+    }
     woodCD = Math.max(0, woodCD - dt);
     potCD = Math.max(0, potCD - dt);
     tryEat(dt);
@@ -3639,6 +3696,7 @@ function update(dt) {
     updateHazards(dt);
     updateBurning(dt);
     updateMobs(dt);
+    updateNpcMage(dt);
     updateShots(dt);
     updateHUD();
   } else {
