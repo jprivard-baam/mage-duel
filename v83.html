@@ -1276,7 +1276,7 @@ function highestGround(x, z) {
   const vz = Math.max(0, Math.min(D - 1, vox(z)));
   for (let y = H - 1; y >= 0; y--) {
     const b = getB(vx, y, vz);
-    if (b === DIRT || b === ROCK || b === WOOD) return y * INV_VX;
+    if (b === DIRT || b === ROCK) return y * INV_VX;
   }
   return 0;
 }
@@ -1575,9 +1575,7 @@ function spellCost(kind, slot) {
   else if (kind === "foudre") cost = 55;
   else if (kind === "arcane") cost = 20;
   else if (kind === "necro") cost = 24;
-  const red = warRed();
-  cost = Math.max(1, Math.floor(cost * (1 - red)));
-  return cost;
+  return Math.max(1, Math.floor(cost * (1 - warRed())));
 }
 function spellCdFor(kind, slot) {
   if (kind === "necro" && slot === 3) return 7.0;
@@ -2882,7 +2880,7 @@ function cast(kind, slot) {
       if (t > 1.2) {
         const bx = vox(x), by = vox(y), bz = vox(z);
         const bb = getB(bx, by, bz);
-        if (bb === DIRT || bb === ROCK || bb === WOOD) { hx = x; hy = y; hz = z; break; }
+        if (bb === WOOD || bb === DIRT || bb === ROCK) { hx = x; hy = y; hz = z; break; }
       }
       for (let i = 0; i < mobs.length; i++) {
         const m = mobs[i];
@@ -3850,7 +3848,7 @@ function updateShots(dt) {
         if (s.kind === "feu") igniteBlock(bx, by, bz, 0);
       } else if (bb === WOOD) {
         if (s.kind === "feu") igniteBlock(bx, by, bz, 0);
-        if (s.kind !== "arcane") { dead = true; blockHit = true; }
+        dead = true; blockHit = true;
       } else if ((bb === DIRT || bb === ROCK) && s.kind !== "arcane") { dead = true; blockHit = true; }
     }
     if (isBall) {
@@ -5087,6 +5085,11 @@ function cardFromId(id, kind) {
   const m = boostMul();
   if (id === "UP_E") return { id: id, title: spellLabel(player.cls) + " +", body: "Primaire +" + rhu(10 * m) + " % dégâts" };
   if (id === "UP_Q") return { id: id, title: spellLabel(player.cls2) + " +", body: "Secondaire +" + rhu(10 * m) + " % dégâts" };
+  if (id === "WAR") {
+    const next = Math.min(10, (player.warRank || 0) + 1);
+    const pct = Math.round((WAR_RED[next] || 0) * 100);
+    return { id: id, title: "War Wizard", body: "Mana E/R −" + pct + " %" };
+  }
   if (isSecId(id) || id === "SEC") {
     const k = kind || id.slice(4);
     return { id: "SEC_" + k, kind: k, title: "Débloquer " + spellLabel(k), body: "Force secondaire (R)" };
@@ -5132,11 +5135,6 @@ function cardFromId(id, kind) {
   if (id === "REG") return { id: id, title: "Régén +", body: "+" + (Math.round(0.8 * m * 10) / 10) + " mana/s" };
   if (id === "PUNCH") return { id: id, title: "Frappe +", body: "+" + rhu(8 * m) + " dégâts" };
   if (id === "FAIM") { const step = boostMul() > 1 ? 30 : 20; return { id: id, title: "Faim -", body: "Drain -" + step + " % (max -80 %). +20 faim" }; }
-  if (id === "WAR") {
-    const next = Math.min(10, (player.warRank || 0) + 1);
-    const pct = Math.round((WAR_RED[next] || 0) * 100);
-    return { id: id, title: "War Wizard", body: "Mana E/R −" + pct + " %" };
-  }
   return { id: id, title: id, body: "" };
 }
 function weightTable(L, unlocked) {
@@ -5148,8 +5146,8 @@ function weightTable(L, unlocked) {
   add("UP_E", 26);
   const sk1 = sk2OfCls(player.cls);
   for (let i = 0; i < sk1.length; i++) add(sk1[i], 10);
-  add("PV", 18); add("MANA", 16); add("SPD", 10); add("ARM", 8); add("REG", 8); add("PUNCH", 6); add("FAIM", 12);
   if (L >= 2) add("WAR", 12);
+  add("PV", 18); add("MANA", 16); add("SPD", 10); add("ARM", 8); add("REG", 8); add("PUNCH", 6); add("FAIM", 12);
   if (unlocked) {
     add("UP_Q", 22);
     const sk2s = sk2OfCls(player.cls2);
