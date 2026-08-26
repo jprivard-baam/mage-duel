@@ -899,37 +899,37 @@ function cast(kind) {
   player.mana -= cost;
   spellCD = kind === "foudre" ? 0.5 : 0.32;
   lastSpell = kind;
-  const d = lookDir();
   const fwd = faceFwd();
-  const ox = player.x + fwd.x * 0.7;
-  const oy = player.y + 1.12;
-  const oz = player.z + fwd.z * 0.7;
+  const d = { x: fwd.x, y: 0.04, z: fwd.z };
+  const ox = player.x + fwd.x * 1.45;
+  const oy = player.y + 1.28;
+  const oz = player.z + fwd.z * 1.45;
   if (kind === "foudre") {
     beep(880, 0.1, 0.06, "sawtooth");
-    let hx = ox + d.x * 16, hy = oy + d.y * 16, hz = oz + d.z * 16, hit = null;
-    for (let t = 0.5; t < 16; t += 0.22) {
+    let hx = ox + d.x * 22, hy = oy + d.y * 22, hz = oz + d.z * 22, hit = null;
+    for (let t = 0.4; t < 22; t += 0.18) {
       const x = ox + d.x * t, y = oy + d.y * t, z = oz + d.z * t;
-      if (isSolid(x, y, z)) { hx = x; hy = y; hz = z; break; }
+      if (t > 1.2 && isSolid(x, y, z)) { hx = x; hy = y; hz = z; break; }
       for (let i = 0; i < mobs.length; i++) {
         const m = mobs[i];
         if (m.dead) continue;
-        if (Math.abs(m.x - x) < 0.75 && Math.abs(m.y + 0.45 - y) < 0.9 && Math.abs(m.z - z) < 0.75) {
+        if (Math.abs(m.x - x) < 1.35 && Math.abs(m.y + 0.5 - y) < 1.2 && Math.abs(m.z - z) < 1.35) {
           hit = m; hx = m.x; hy = m.y + 0.5; hz = m.z; break;
         }
       }
       if (hit) break;
       hx = x; hy = y; hz = z;
     }
-    bolts.push({ x0: ox, y0: oy, z0: oz, x1: hx, y1: hy, z1: hz, life: 0.2 });
+    bolts.push({ x0: ox, y0: oy, z0: oz, x1: hx, y1: hy, z1: hz, life: 0.38 });
     burst(hx, hy, hz, 0.85, 0.55, 1, 10, 6);
     if (hit) hurtMob(hit, 20, d.x, d.z, 7);
   } else {
-    const spd = kind === "feu" ? 16 : 11.5;
+    const spd = kind === "feu" ? 18 : 14;
     beep(kind === "feu" ? 240 : 500, 0.07, 0.05, "square");
     shots.push({
       kind, x: ox, y: oy, z: oz,
-      vx: d.x * spd, vy: d.y * spd, vz: d.z * spd,
-      life: 1.6
+      vx: d.x * spd, vy: 0.8, vz: d.z * spd,
+      life: 1.7, age: 0
     });
   }
 }
@@ -1024,14 +1024,15 @@ function updateMobs(dt) {
 function updateShots(dt) {
   for (let i = shots.length - 1; i >= 0; i--) {
     const s = shots[i];
-    s.life -= dt;
+    s.life -= dt; s.age = (s.age || 0) + dt;
     s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
-    if (s.kind === "glace") s.vy -= 4 * dt;
-    let dead = s.life <= 0 || s.y < -2 || isSolid(s.x, s.y, s.z);
+    if (s.kind === "glace") s.vy -= 1.6 * dt;
+    let dead = s.life <= 0 || s.y < -2;
+    if (s.age > 0.14 && isSolid(s.x, s.y, s.z)) dead = true;
     for (let j = 0; j < mobs.length; j++) {
       const m = mobs[j];
       if (m.dead) continue;
-      if (Math.abs(m.x - s.x) < 0.7 && Math.abs(m.y + 0.4 - s.y) < 0.85 && Math.abs(m.z - s.z) < 0.7) {
+      if (Math.abs(m.x - s.x) < 1.45 && Math.abs(m.y + 0.5 - s.y) < 1.25 && Math.abs(m.z - s.z) < 1.45) {
         const dmg = s.kind === "feu" ? 25 : 15;
         const len = Math.hypot(s.vx, s.vz) || 1;
         hurtMob(m, dmg, s.vx / len, s.vz / len, 8);
@@ -1142,8 +1143,8 @@ function render() {
     if (m.kind === "wolf") drawWolf(m); else drawSlime(m);
   }
   for (const s of shots) {
-    if (s.kind === "feu") drawCube(s.x, s.y, s.z, 0.32, 0.32, 0.32, 0, 1, 0.4, 0.08, 0.45);
-    else drawCube(s.x, s.y, s.z, 0.3, 0.3, 0.3, 0, 0.5, 0.9, 1, 0.4);
+    if (s.kind === "feu") drawCube(s.x, s.y, s.z, 0.55, 0.55, 0.55, 0, 1, 0.38, 0.08, 0.7);
+    else drawCube(s.x, s.y, s.z, 0.5, 0.5, 0.5, 0, 0.45, 0.92, 1, 0.65);
   }
   for (const b of bolts) {
     const dx = b.x1 - b.x0, dy = b.y1 - b.y0, dz = b.z1 - b.z0;
@@ -1164,7 +1165,7 @@ function render() {
 function updateCamera(dt) {
   const fy = player.face;
   const backX = Math.sin(fy), backZ = Math.cos(fy);
-  let dist = 7.2;
+  let dist = 8;
   let tx = player.x - backX * dist;
   let ty = player.y + 2.35 + player.pitch * 1.4;
   let tz = player.z - backZ * dist;
