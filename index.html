@@ -1656,10 +1656,10 @@ function mageStaffTip(e, pose) {
   if (swingT > 0) {
     const u = 1 - Math.min(1, swingT / 0.35);
     const arc = Math.sin(Math.PI * u);
-    tipFwd += 0.50 * arc;
-    handY -= 0.22 * arc;
-    tipY -= 0.14 * arc;
-    swingAng = (50 * Math.PI / 180) * (2 * u - 1);
+    tipFwd += 0.62 * arc;
+    handY -= 0.20 * arc;
+    tipY -= 0.06 * arc;
+    swingAng = (62 * Math.PI / 180) * (2 * u - 1);
     const sf = face + swingAng;
     srx = Math.cos(sf); srz = -Math.sin(sf);
     sfx = Math.sin(sf); sfz = Math.cos(sf);
@@ -4401,8 +4401,13 @@ function updateCamera(dt) {
   }
   const hx = player.x, hy = player.y + 1.25, hz = player.z;
   const camSolid = (wx, wy, wz) => {
-    const b = getB(vox(wx), vox(wy), vox(wz));
-    return b === DIRT || b === ROCK || b === WOOD || b === LEAF;
+    const blk = (x, y, z) => {
+      const b = getB(vox(x), vox(y), vox(z));
+      return b === DIRT || b === ROCK || b === WOOD || b === LEAF || isSolid(vox(x), vox(y), vox(z));
+    };
+    if (blk(wx, wy, wz)) return true;
+    if (blk(wx + 0.4, wy, wz) || blk(wx - 0.4, wy, wz) || blk(wx, wy, wz + 0.4) || blk(wx, wy, wz - 0.4)) return true;
+    return false;
   };
   {
     let lastX = hx, lastY = hy, lastZ = hz;
@@ -4440,6 +4445,14 @@ function updateCamera(dt) {
     camY += (Math.random() - 0.5) * shake * 0.5;
     camZ += (Math.random() - 0.5) * shake;
     shake = Math.max(0, shake - dt * 2.2);
+  }
+  for (let i = 0; i < 16; i++) {
+    if (!camSolid(camX, camY, camZ)) break;
+    const pdx = hx - camX, pdy = hy - camY, pdz = hz - camZ;
+    const plen = Math.hypot(pdx, pdy, pdz) || 1;
+    camX += pdx / plen * 0.2;
+    camY += pdy / plen * 0.2;
+    camZ += pdz / plen * 0.2;
   }
   const lx = player.x;
   const ly = player.y + 1.05;
