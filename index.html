@@ -934,6 +934,58 @@ function cast(kind) {
   }
 }
 
+function harvestTree(sx, sy, sz) {
+  const q = [[sx, sy, sz]];
+  const seen = Object.create(null);
+  let woods = 0, leaves = 0;
+  const nbr = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  while (q.length) {
+    const pt = q.pop();
+    const x = pt[0], y = pt[1], z = pt[2];
+    const k = x + y * 1024 + z * 32768;
+    if (seen[k]) continue;
+    seen[k] = 1;
+    const b = getB(x, y, z);
+    if (b !== WOOD && b !== LEAF) continue;
+    if (b === WOOD) woods++; else leaves++;
+    setB(x, y, z, AIR);
+    burst(x + 0.5, y + 0.5, z + 0.5, b === WOOD ? 0.45 : 0.2, b === WOOD ? 0.28 : 0.85, b === WOOD ? 0.12 : 0.3, 3, 2.4);
+    for (let i = 0; i < 6; i++) {
+      const n = nbr[i];
+      const nx = x + n[0], ny = y + n[1], nz = z + n[2];
+      if (inB(nx, ny, nz)) q.push([nx, ny, nz]);
+    }
+  }
+  if (!woods && !leaves) return;
+  const gain = Math.min(8, Math.max(3, woods || 3));
+  player.bois += gain;
+  meshDirty = true;
+  toast("+" + gain + " bois");
+  beep(320, 0.09, 0.05, "triangle");
+}
+
+function punch() {
+  if (mode !== "play" || punchCD > 0) return;
+  punchCD = 0.38;
+  const d = lookDir();
+  const ox = player.x, oy = player.y + 1.05, oz = player.z;
+  for (let t = 0.35; t < 3.4; t += 0.1) {
+    const x = Math.floor(ox + d.x * t);
+    const y = Math.floor(oy + d.y * t);
+    const z = Math.floor(oz + d.z * t);
+    const b = getB(x, y, z);
+    if (b === WOOD || b === LEAF) {
+      harvestTree(x, y, z);
+      return;
+    }
+    if (solidOf(b)) {
+      beep(90, 0.05, 0.025, "square");
+      return;
+    }
+  }
+  beep(90, 0.05, 0.02, "square");
+}
+
 function jump() {
   if (mode !== "play") return;
   if (player.grounded) {
@@ -1110,11 +1162,12 @@ function render() {
 }
 
 function updateCamera(dt) {
-  let dist = 8;
-  const d = lookDir();
-  let tx = player.x - d.x * dist;
-  let ty = player.y + 1.7 - d.y * dist;
-  let tz = player.z - d.z * dist;
+  const fy = player.face;
+  const backX = Math.sin(fy), backZ = Math.cos(fy);
+  let dist = 7.2;
+  let tx = player.x - backX * dist;
+  let ty = player.y + 2.35 + player.pitch * 1.4;
+  let tz = player.z - backZ * dist;
   if (mode === "home") {
     const t = performance.now() / 1000;
     const ang = t * 0.42;
@@ -1125,11 +1178,11 @@ function updateCamera(dt) {
   for (let i = 0; i < 6; i++) {
     if (!isSolid(tx, ty, tz)) break;
     dist *= 0.75;
-    tx = player.x - d.x * dist;
-    ty = player.y + 1.4;
-    tz = player.z - d.z * dist;
+    tx = player.x - backX * dist;
+    ty = player.y + 2.1;
+    tz = player.z - backZ * dist;
   }
-  const k = mode === "home" ? 3 * dt : 10 * dt;
+  const k = mode === "home" ? 3 * dt : 1;
   camX += (tx - camX) * Math.min(1, k);
   camY += (ty - camY) * Math.min(1, k);
   camZ += (tz - camZ) * Math.min(1, k);
@@ -1244,6 +1297,7 @@ function uiEl(t) {
 window.addEventListener("keydown", (e) => {
   keys[e.code] = true;
   if (e.code === "Space") { e.preventDefault(); jump(); }
+  if (e.code === "KeyF") { e.preventDefault(); punch(); }
   if (e.code === "Digit1") cast("feu");
   if (e.code === "Digit2") cast("glace");
   if (e.code === "Digit3") cast("foudre");
@@ -1251,12 +1305,15 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => { keys[e.code] = false; });
 
 canvas.addEventListener("click", () => {
-  if (mode === "play" && canvas.requestPointerLock) canvas.requestPointerLock();
+  if (mode !== "play") return;
+  if (document.pointerLockElement === canvas) punch();
+  else if (canvas.requestPointerLock) canvas.requestPointerLock();
 });
 document.addEventListener("mousemove", (e) => {
   if (mode !== "play") return;
   if (document.pointerLockElement === canvas) {
     player.yaw -= e.movementX * 0.0024;
+    player.face = player.yaw;
     player.pitch = Math.max(-0.5, Math.min(1.05, player.pitch + e.movementY * 0.002));
   }
 });
@@ -1287,6 +1344,7 @@ function onMove(e) {
       joy.dx = p.dx; joy.dy = p.dy; setKnob();
     } else if (id === lookT.id) {
       player.yaw -= (t.clientX - lookT.lx) * 0.007;
+      player.face = player.yaw;
       player.pitch = Math.max(-0.5, Math.min(1.05, player.pitch + (t.clientY - lookT.ly) * 0.0055));
       lookT.lx = t.clientX; lookT.ly = t.clientY;
     }
@@ -1329,6 +1387,7 @@ $("btn-retry").addEventListener("click", () => {
   playUI.classList.remove("hidden");
 });
 $("btn-saut").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); jump(); });
+$("btn-frap").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); punch(); });
 $("btn-feu").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); cast("feu"); });
 $("btn-glace").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); cast("glace"); });
 $("btn-foudre").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); cast("foudre"); });
@@ -1343,7 +1402,7 @@ try {
   genWorld();
   buildWorldMesh();
   spawnPlayer();
-  camX = player.x + 6; camY = player.y + 4; camZ = player.z + 7;
+  camX = player.x + 8; camY = player.y + 5; camZ = player.z + 9;
   if (/[?&]play\b/.test(location.search)) {
     homeEl.classList.add("hidden");
     playUI.classList.remove("hidden");
