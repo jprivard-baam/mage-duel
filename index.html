@@ -377,7 +377,7 @@ html, body {
   pointer-events: none;
   z-index: 2;
 }
-#slot-viande { pointer-events: auto; cursor: pointer; }
+#slot-bois, #slot-viande, #slot-vie, #slot-mana { pointer-events: auto; cursor: pointer; }
 .slot {
   width: 58px; height: 62px;
   background: rgba(8,4,16,.62);
@@ -397,6 +397,14 @@ html, body {
 .slot .ico.ico-viande {
   background: linear-gradient(180deg, #e07a5a, #8b2e1a);
   box-shadow: 1px 1px 0 #3a1008, inset 0 1px 0 rgba(255,200,160,.4);
+}
+.slot .ico.ico-vie {
+  background: linear-gradient(180deg, #f87171, #be123c);
+  box-shadow: 1px 1px 0 #4a0818, inset 0 1px 0 rgba(255,200,200,.4);
+}
+.slot .ico.ico-mana {
+  background: linear-gradient(180deg, #60a5fa, #1d4ed8);
+  box-shadow: 1px 1px 0 #0a1a4a, inset 0 1px 0 rgba(180,210,255,.4);
 }
 .slot .lab {
   font-size: 8px;
@@ -526,6 +534,16 @@ html, body {
       <div class="lab">Viande</div>
       <div class="cnt" id="viande-n">0</div>
     </div>
+    <div class="slot" id="slot-vie">
+      <div class="ico ico-vie"></div>
+      <div class="lab">Vie</div>
+      <div class="cnt" id="vie-n">0</div>
+    </div>
+    <div class="slot" id="slot-mana">
+      <div class="ico ico-mana"></div>
+      <div class="lab">Mana</div>
+      <div class="cnt" id="mana-n">0</div>
+    </div>
   </div>
   <div id="joy-wrap">
     <div id="joy-base"><div id="joy-knob"></div></div>
@@ -538,7 +556,7 @@ html, body {
     </div>
     <div class="spells">
       <button class="abtn" id="btn-eat" type="button">Manger</button>
-      <button class="abtn" id="btn-frap" type="button">Frapper</button>
+      <button class="abtn hidden" id="btn-frap" type="button">Frapper</button>
       <button class="abtn" id="btn-saut" type="button">Saut</button>
     </div>
   </div>
@@ -565,7 +583,7 @@ const AIR = 0, DIRT = 1, ROCK = 2, WOOD = 3, LEAF = 4;
 const CYCLE = 120;
 const MAX_HP = 1000;
 const TREE_MAX_HP = 100;
-const DMG_PUNCH = 25, DMG_FEU = 80, DMG_GLACE = 56, DMG_FOUDRE = 104, DMG_ARCANE = 60, DMG_NECRO = 44;
+const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 52, DMG_ARCANE = 30, DMG_NECRO = 22;
 const FOUDRE_RANGE = 26;
 const SERV_HP = 90, SERV_ATK = 22, SERV_SPD = 2.0, SERV_ARM = 0.10, SERV_LIFE = 40;
 const SLIME_HP = 150, SLIME_ATK = 35, SLIME_SPD = 1.9, SLIME_ARM = 0.05;
@@ -655,43 +673,69 @@ function genWorld() {
   }
   const trees = [];
   let tries = 0;
-  while (trees.length < 22 && tries < 400) {
+  function plantLeaf(px, py, pz) {
+    if (getB(px, py, pz) !== WOOD) setB(px, py, pz, LEAF);
+  }
+  while (trees.length < 22 && tries < 600) {
     tries++;
     const x = 12 * VX + (hash(tries, 9) * (W - 24 * VX)) | 0;
     const z = 12 * VX + (hash(tries, 21) * (D - 24 * VX)) | 0;
-    if (x < 2 || z < 2 || x + 1 >= W - 2 || z + 1 >= D - 2) continue;
+    if (x < 3 || z < 3 || x + 1 >= W - 3 || z + 1 >= D - 3) continue;
     let top = -1;
     for (let y = H - 1; y >= 0; y--) if (getB(x, y, z) === DIRT) { top = y; break; }
     if (top < 4 || top > 18) continue;
     let ok = true;
-    for (const t of trees) if (Math.hypot(t[0] - x, t[1] - z) < 12) ok = false;
+    for (const t of trees) if (Math.hypot(t[0] - x, t[1] - z) < 14) ok = false;
     if (!ok) continue;
-    const th = 6 + (hash(x, z) * 5) | 0;
-    if (top + th + 4 >= H) continue;
+    const oak = hash(x, z) < 0.55;
+    const th = oak ? 8 + (hash(x + 3, z) * 4) | 0 : 10 + (hash(x + 5, z) * 5) | 0;
+    if (top + th + 5 >= H) continue;
     for (let i = 1; i <= th; i++) {
       setB(x, top + i, z, WOOD);
       setB(x + 1, top + i, z, WOOD);
       setB(x, top + i, z + 1, WOOD);
       setB(x + 1, top + i, z + 1, WOOD);
     }
-    const ly = top + th;
-    for (let ox = -3; ox <= 4; ox++) for (let oz = -3; oz <= 4; oz++) {
-      const dist = Math.hypot(ox - 0.5, oz - 0.5);
-      if (dist > 3.6) continue;
-      const trunk = ox >= 0 && ox <= 1 && oz >= 0 && oz <= 1;
-      if (!trunk) setB(x + ox, ly, z + oz, LEAF);
-      if (dist <= 2.4) setB(x + ox, ly + 1, z + oz, LEAF);
+    if (oak) {
+      for (const frac of [0.55, 0.75]) {
+        const i = Math.floor(th * frac);
+        const dir = (hash(x + i, z + frac * 10) * 4) | 0;
+        const d = [[1, 0], [-1, 0], [0, 1], [0, -1]][dir];
+        const bx = x + (d[0] === 1 ? 2 : d[0] === -1 ? -1 : 0);
+        const bz = z + (d[1] === 1 ? 2 : d[1] === -1 ? -1 : 0);
+        for (let step = 0; step < 2; step++) {
+          const px = bx + d[0] * step, pz = bz + d[1] * step;
+          if (inB(px, top + i, pz)) setB(px, top + i, pz, WOOD);
+        }
+      }
+      const ly = top + th;
+      for (let ox = -4; ox <= 5; ox++) for (let oz = -4; oz <= 5; oz++) {
+        const dist = Math.hypot(ox - 0.5, oz - 0.5);
+        const manhattan = Math.abs(ox) + Math.abs(oz);
+        const trunk = ox >= 0 && ox <= 1 && oz >= 0 && oz <= 1;
+        if (dist <= 1.7 && !trunk) plantLeaf(x + ox, ly - 1, z + oz);
+        if (dist <= 3.2 && manhattan <= 5) plantLeaf(x + ox, ly, z + oz);
+        if (dist <= 2.4) plantLeaf(x + ox, ly + 1, z + oz);
+        if (dist <= 1.5) plantLeaf(x + ox, ly + 2, z + oz);
+        if (dist <= 0.9) plantLeaf(x + ox, ly + 3, z + oz);
+      }
+    } else {
+      const ly = top + th;
+      for (let ox = -4; ox <= 5; ox++) for (let oz = -4; oz <= 5; oz++) {
+        const dist = Math.hypot(ox - 0.5, oz - 0.5);
+        const manhattan = Math.abs(ox) + Math.abs(oz);
+        if (dist <= 2.6 && manhattan <= 4) plantLeaf(x + ox, ly - 2, z + oz);
+        if (dist <= 2.0) plantLeaf(x + ox, ly - 1, z + oz);
+        if (dist <= 1.4) plantLeaf(x + ox, ly, z + oz);
+        if (dist <= 0.9) plantLeaf(x + ox, ly + 1, z + oz);
+      }
+      plantLeaf(x, ly + 2, z);
+      plantLeaf(x + 1, ly + 2, z);
+      plantLeaf(x, ly + 2, z + 1);
+      plantLeaf(x + 1, ly + 2, z + 1);
+      if (hash(x, z + 1) < 0.5) plantLeaf(x, ly + 3, z + 1);
+      else plantLeaf(x + 1, ly + 3, z);
     }
-    setB(x, ly + 1, z, LEAF);
-    setB(x + 1, ly + 1, z, LEAF);
-    setB(x, ly + 1, z + 1, LEAF);
-    setB(x + 1, ly + 1, z + 1, LEAF);
-    setB(x, ly + 2, z, LEAF);
-    setB(x + 1, ly + 2, z, LEAF);
-    setB(x, ly + 2, z + 1, LEAF);
-    setB(x + 1, ly + 2, z + 1, LEAF);
-    setB(x, ly + 3, z, LEAF);
-    setB(x + 1, ly + 3, z + 1, LEAF);
     trees.push([x, z]);
   }
 }
@@ -949,7 +993,8 @@ let spawnedNight = false;
 let shake = 0;
 let boltFlash = 0;
 let meshDirty = false;
-let eatCD = 0, spellCD = 0, spellCD2 = 0, punchCD = 0, staffCD = 0;
+let eatCD = 0, spellCD = 0, spellCD2 = 0, punchCD = 0, staffCD = 0, woodCD = 0, potCD = 0;
+let draftCards = [];
 let lastSpell = null;
 const MAX_LVL = 100;
 let runSeed = (Math.random() * 1e9) | 0;
@@ -988,7 +1033,7 @@ const player = {
   yaw: 0.35, pitch: 0.22, face: 0.35,
   hp: MAX_HP, hunger: 100, mana: 100,
   grounded: false, flash: 0, inv: 0, bob: 0,
-  bois: 0, viande: 0, cls: null, cls2: null, level: 1, xp: 0,
+  bois: 0, viande: 0, potVie: 0, potMana: 0, cls: null, cls2: null, level: 1, xp: 0,
   maxHp: MAX_HP, maxMana: 100,
   priRank: 0, secRank: 0, pvRank: 0, manaRank: 0, spdRank: 0, armRank: 0, regRank: 0, punchRank: 0, hungerRank: 0,
   priBonus: 0, secBonus: 0, spdBonus: 0, armDR: 0, regBonus: 0, punchBonus: 0, hungerMul: 1,
@@ -1038,7 +1083,7 @@ function spawnPlayer() {
   player.hp = MAX_HP; player.hunger = 100; player.mana = 100;
   player.yaw = 0.2; player.pitch = 0.18; player.face = 0.2;
   player.flash = 0; player.inv = 0; player.grounded = true;
-  player.bois = 0; player.viande = 0;
+  player.bois = 0; player.viande = 0; player.potVie = 0; player.potMana = 0;
   player.level = 1; player.xp = 0;
   player.maxHp = MAX_HP; player.maxMana = 100;
   player.priRank = 0; player.secRank = 0; player.pvRank = 0; player.manaRank = 0;
@@ -1046,7 +1091,7 @@ function spawnPlayer() {
   player.priBonus = 0; player.secBonus = 0; player.spdBonus = 0; player.armDR = 0;
   player.regBonus = 0; player.punchBonus = 0; player.hungerMul = 1; player.hungerRed = 0;
   player.qUnlockL = 0; player.draftQueue = []; player.noSecStreak = 0;
-  player.cls2 = null; player.slow = 0;
+  player.cls2 = null; player.slow = 0; player.para = 0; player.burn = 0;
   runSeed = (Math.random() * 1e9) | 0;
 }
 function collides(x, y, z, w, h) {
@@ -1170,13 +1215,14 @@ function killMob(m) {
     for (let i = 0; i < 3; i++) spawnPickup("bois", m.x + (i - 1) * 0.28, m.y + 0.1, m.z + (i === 1 ? 0.2 : -0.1));
     spawnPickup("viande", m.x, m.y + 0.12, m.z);
     grantXp(36);
-    toast("Mage de glace");
+    toast("Mage " + spellLabel(m.cls));
     beep(480, 0.12, 0.05, "triangle");
     npcMageRespawn = 90;
     npcMage = null;
   } else if (HOSTILE[m.kind]) {
     grantXp(xpFor(m.kind));
   }
+  if (m.kind !== "chevreuil") rollPotionDrops(m);
 }
 function hurtMob(m, dmg, kx, kz, kb) {
   if (m.kind === "mage") m.pose = "aggro";
@@ -1499,6 +1545,7 @@ function findWoodNear(wx, wz, maxD) {
     }
   return best;
 }
+const NPC_SCHOOLS = ["feu","glace","foudre","arcane","necro"];
 function spawnNpcMage() {
   for (let i = mobs.length - 1; i >= 0; i--) if (mobs[i].kind === "mage") mobs.splice(i, 1);
   let tree = null;
@@ -1525,7 +1572,7 @@ function spawnNpcMage() {
     x = player.x + 14; z = player.z + 10; y = highest(x, z) + STEP_UP;
   }
   const npc = {
-    kind: "mage", cls: "glace",
+    kind: "mage", cls: NPC_SCHOOLS[(Math.random() * 5) | 0],
     x: x, y: y, z: z, vx: 0, vy: 0, vz: 0,
     face: tree ? Math.atan2(tree.wx - x, tree.wz - z) : 0,
     yaw: 0, bob: 0, flash: 0, hop: 0,
@@ -1539,18 +1586,43 @@ function spawnNpcMage() {
   npcMageRespawn = 0;
   mobs.push(npc);
 }
-function npcCastIce(m, tx, ty, tz, tgt) {
+function npcCastE(m, tx, ty, tz, tgt) {
   const gem = npcStaffGemPos(m);
   const dx = tx - gem.x, dy = ty - gem.y, dz = tz - gem.z;
   const len = Math.hypot(dx, dy, dz) || 1;
-  const spd = 14;
-  shots.push({
-    kind: "glace", npc: true, tgt: tgt, q: false,
+  const cls = m.cls;
+  if (cls === "foudre") {
+    const dmg = Math.round(32 * foudreMult(len));
+    pushBolt(gem.x, gem.y, gem.z, tx, ty, tz, 0, null, { npc: true });
+    if (dmg > 0) {
+      if (tgt === "player") {
+        const klen = Math.hypot(tx - m.x, tz - m.z) || 1;
+        hurtPlayer(dmg, (tx - m.x) / klen * 3.2, (tz - m.z) / klen * 3.2);
+        player.para = Math.max(player.para || 0, 2);
+      } else if (tgt && !tgt.dead) {
+        const klen = Math.hypot(tx - m.x, tz - m.z) || 1;
+        hurtMob(tgt, dmg, (tx - m.x) / klen, (tz - m.z) / klen, 7);
+        tgt.para = 2;
+      }
+    }
+    beep(880, 0.07, 0.045, "sawtooth");
+    return;
+  }
+  const spd = cls === "feu" ? 17 : cls === "arcane" ? 11 : cls === "necro" ? 12 : 14;
+  const shot = {
+    kind: cls, npc: true, tgt: tgt, q: false,
     x: gem.x, y: gem.y, z: gem.z,
     vx: dx / len * spd, vy: dy / len * spd, vz: dz / len * spd,
-    life: 1.7, age: 0, trail: 0, dmg: 32
-  });
-  beep(500, 0.07, 0.045, "square");
+    life: cls === "arcane" ? 2.4 : 1.7, age: 0, trail: 0, dmg: 32
+  };
+  if (cls === "arcane") {
+    if (tgt === "player") shot.target = player;
+    else if (tgt && tgt.kind !== "serviteur") shot.target = tgt;
+  }
+  shots.push(shot);
+  const freq = cls === "feu" ? 240 : cls === "arcane" ? 640 : cls === "necro" ? 180 : 500;
+  const wave = cls === "necro" ? "sawtooth" : cls === "arcane" ? "triangle" : "square";
+  beep(freq, 0.07, 0.045, wave);
 }
 function npcFaceTo(m, tx, tz, snap) {
   const want = Math.atan2(tx - m.x, tz - m.z);
@@ -1580,21 +1652,24 @@ function updateNpcMage(dt) {
   if (m.pose === "aggro") {
     npcFaceTo(m, player.x, player.z, false);
     const sp = 2.55;
-    if (pdist > 6.5) {
+    if (pdist > 12) {
       m.vx = (player.x - m.x) / (pdist || 1) * sp;
       m.vz = (player.z - m.z) / (pdist || 1) * sp;
+    } else if (pdist < 8) {
+      m.vx = (m.x - player.x) / (pdist || 1) * sp;
+      m.vz = (m.z - player.z) / (pdist || 1) * sp;
     } else { m.vx = 0; m.vz = 0; }
     physics(m, PW, PH, dt);
     if (m.spellCD <= 0 && m.mana >= 20 && pdist < 16) {
       m.mana -= 20;
       m.spellCD = 0.90;
-      npcCastIce(m, player.x, player.y + 0.9, player.z, "player");
+      npcCastE(m, player.x, player.y + 0.9, player.z, "player");
     }
-    if (m.atk <= 0 && pdist < 1.55) {
-      m.atk = 0.65;
+    if (m.atk <= 0 && pdist < 2.2) {
+      m.atk = 0.80;
       const dx = player.x - m.x, dz = player.z - m.z;
       const len = Math.hypot(dx, dz) || 1;
-      hurtPlayer(20, dx / len * 3.2, dz / len * 3.2);
+      hurtPlayer(64, dx / len * 3.2, dz / len * 3.2);
     }
     return;
   }
@@ -1612,16 +1687,16 @@ function updateNpcMage(dt) {
       m.vz = (deer.z - m.z) / deerD * 2.55;
     } else { m.vx = 0; m.vz = 0; }
     physics(m, PW, PH, dt);
-    if (m.atk <= 0 && deerD < 1.6) {
-      m.atk = 0.65;
+    if (m.atk <= 0 && deerD < 2.2) {
+      m.atk = 0.80;
       const dx = deer.x - m.x, dz = deer.z - m.z;
       const len = Math.hypot(dx, dz) || 1;
-      hurtMob(deer, 20, dx / len, dz / len, 4);
+      hurtMob(deer, 64, dx / len, dz / len, 4);
     }
     if (m.spellCD <= 0 && m.mana >= 20 && deerD < 10) {
       m.mana -= 20;
       m.spellCD = 0.90;
-      npcCastIce(m, deer.x, deer.y + 0.6, deer.z, deer);
+      npcCastE(m, deer.x, deer.y + 0.6, deer.z, deer);
     }
     return;
   }
@@ -1697,6 +1772,39 @@ function clearHostiles() {
   }
 }
 
+function isDraftOpen() {
+  return mode === "pick2";
+}
+function useBois() {
+  if (mode !== "play" || isDraftOpen()) return;
+  if (woodCD > 0) return;
+  if ((player.bois | 0) < 1) return;
+  const eye = { x: player.x, y: player.y + 1.05, z: player.z };
+  const d = lookDir();
+  let lastAir = null;
+  for (let t = 0.35; t < 5; t += 0.08) {
+    const x = eye.x + d.x * t, y = eye.y + d.y * t, z = eye.z + d.z * t;
+    const bx = vox(x), by = vox(y), bz = vox(z);
+    if (!inB(bx, by, bz)) break;
+    if (isSolid(bx, by, bz)) {
+      if (!lastAir) { beep(110, 0.08, 0.03, "sine"); return; }
+      const px = lastAir[0], py = lastAir[1], pz = lastAir[2];
+      const wx = wCenter(px), wy = wCenter(py), wz = wCenter(pz);
+      if (Math.abs(wx - player.x) < PW + 0.42 && wy < player.y + PH && wy + INV_VX > player.y - 0.08) {
+        beep(110, 0.08, 0.03, "sine"); return;
+      }
+      setB(px, py, pz, WOOD);
+      player.bois--;
+      woodCD = 0.35;
+      meshDirty = true;
+      toast("Bois");
+      beep(300, 0.06, 0.03, "square");
+      return;
+    }
+    lastAir = [bx, by, bz];
+  }
+  beep(110, 0.08, 0.03, "sine");
+}
 function eatViande() {
   if (mode !== "play") return;
   if (eatCD > 0) return;
@@ -1707,6 +1815,40 @@ function eatViande() {
   eatCD = 0.6;
   toast("Viande");
   beep(660, 0.06, 0.04, "triangle");
+}
+function usePotVie() {
+  if (mode !== "play" || isDraftOpen()) return;
+  if (potCD > 0) return;
+  if ((player.potVie | 0) < 1) return;
+  player.potVie--;
+  player.hp = Math.min(player.maxHp || MAX_HP, player.hp + 250);
+  potCD = 1.2;
+  toast("Potion vie");
+  beep(520, 0.08, 0.04, "triangle");
+}
+function usePotMana() {
+  if (mode !== "play" || isDraftOpen()) return;
+  if (potCD > 0) return;
+  if ((player.potMana | 0) < 1) return;
+  player.potMana--;
+  player.mana = Math.min(player.maxMana || 100, player.mana + 70);
+  potCD = 1.2;
+  toast("Potion mana");
+  beep(700, 0.08, 0.04, "sine");
+}
+function pickDraftKey(i) {
+  if (!isDraftOpen() || !draftCards || !draftCards[i]) return;
+  applyDraft(draftCards[i]);
+}
+function rollPotionDrops(m) {
+  let pv = 0, pm = 0;
+  if (m.kind === "slime") pv = 0.06;
+  else if (m.kind === "wolf") { pv = 0.08; pm = 0.05; }
+  else if (m.kind === "zombie") pv = 0.10;
+  else if (m.kind === "squelette") { pv = 0.06; pm = 0.10; }
+  else if (m.kind === "mage") { pv = 0.20; pm = 0.20; }
+  if (pv && Math.random() < pv) spawnPickup("potVie", m.x + 0.22, m.y + 0.15, m.z);
+  if (pm && Math.random() < pm) spawnPickup("potMana", m.x - 0.22, m.y + 0.15, m.z);
 }
 function tryEat(dt) {
   eatCD -= dt;
@@ -2158,6 +2300,36 @@ function treeKey(sx, sy, sz) {
   }
   return found ? (minX + "," + minZ) : null;
 }
+function listTreeBlocks(sx, sy, sz) {
+  const woods = [], leaves = [];
+  const q = [[sx, sy, sz]];
+  const seen = Object.create(null);
+  const nbr = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  while (q.length) {
+    const pt = q.pop();
+    const x = pt[0], y = pt[1], z = pt[2];
+    const k = x + y * 1024 + z * 32768;
+    if (seen[k]) continue;
+    seen[k] = 1;
+    const b = getB(x, y, z);
+    if (b !== WOOD && b !== LEAF) continue;
+    if (b === WOOD) woods.push({ x: x, y: y, z: z });
+    else leaves.push({ x: x, y: y, z: z });
+    for (let i = 0; i < 6; i++) {
+      const n = nbr[i];
+      const nx = x + n[0], ny = y + n[1], nz = z + n[2];
+      if (inB(nx, ny, nz)) q.push([nx, ny, nz]);
+    }
+  }
+  return { woods: woods, leaves: leaves };
+}
+function firstAirDir(x, y, z) {
+  for (let i = 0; i < 6; i++) {
+    const d = BURN_NBR[i];
+    if (getB(x + d[0], y + d[1], z + d[2]) === AIR) return d;
+  }
+  return null;
+}
 function damageTree(sx, sy, sz, dmg, silent) {
   const key = treeKey(sx, sy, sz);
   if (!key) return;
@@ -2324,15 +2496,20 @@ function updateBurning(dt) {
     const wx = wCenter(br.x), wy = wCenter(br.y), wz = wCenter(br.z);
     if (Math.hypot(player.x - wx, (player.y + 0.7) - wy, player.z - wz) < 1.4) nearFire = true;
     if (cur === LEAF) {
-      br.emberT = (br.emberT || 0) + dt;
-      if (br.emberT >= 0.10) {
-        br.emberT -= 0.10;
-        parts.push({
-          x: wx + (Math.random() - 0.5) * 0.12, y: wy + 0.10, z: wz + (Math.random() - 0.5) * 0.12,
-          vx: (Math.random() - 0.5) * 0.2, vy: -2.2, vz: (Math.random() - 0.5) * 0.2,
-          r: FIRE_EMBER[0], g: FIRE_EMBER[1], b: FIRE_EMBER[2],
-          life: 0.50, age: 0, s: 0.08, style: "ember"
-        });
+      const ad = firstAirDir(br.x, br.y, br.z);
+      if (ad) {
+        br.emberT = (br.emberT || 0) + dt;
+        if (br.emberT >= 0.10) {
+          br.emberT -= 0.10;
+          parts.push({
+            x: wx + ad[0] * 0.12 + (Math.random() - 0.5) * 0.12,
+            y: wy + ad[1] * 0.12 + 0.10,
+            z: wz + ad[2] * 0.12 + (Math.random() - 0.5) * 0.12,
+            vx: (Math.random() - 0.5) * 0.2, vy: -2.2, vz: (Math.random() - 0.5) * 0.2,
+            r: FIRE_EMBER[0], g: FIRE_EMBER[1], b: FIRE_EMBER[2],
+            life: 0.50, age: 0, s: 0.08, style: "ember"
+          });
+        }
       }
     }
     if (br.nextTick <= 0) {
@@ -2373,11 +2550,9 @@ function drawBurnOverlays() {
     if (br.delay > 0) continue;
     const tk = treeKey(br.x, br.y, br.z) || ("b:" + k);
     if (!groups[tk]) {
-      groups[tk] = { woods: [], leaves: [], wx: wCenter(br.x), wz: wCenter(br.z) };
+      groups[tk] = { seed: br, wx: wCenter(br.x), wz: wCenter(br.z) };
       order.push(tk);
     }
-    if (br.kind === WOOD) groups[tk].woods.push(br);
-    else groups[tk].leaves.push(br);
   }
   order.sort((a, b) => {
     const ga = groups[a], gb = groups[b];
@@ -2386,18 +2561,35 @@ function drawBurnOverlays() {
   const vis = order.slice(0, 4);
   for (let g = 0; g < vis.length; g++) {
     const grp = groups[vis[g]];
-    const woods = grp.woods.slice(0, 8);
-    const leaves = grp.leaves.slice(0, 8);
+    const listed = listTreeBlocks(grp.seed.x, grp.seed.y, grp.seed.z);
+    const surfWood = [];
+    for (let i = 0; i < listed.woods.length; i++) {
+      const w = listed.woods[i];
+      const ad = firstAirDir(w.x, w.y, w.z);
+      if (ad) surfWood.push({ x: w.x, y: w.y, z: w.z, ad: ad });
+    }
+    const surfLeaf = [];
+    for (let i = 0; i < listed.leaves.length; i++) {
+      const lf = listed.leaves[i];
+      if (firstAirDir(lf.x, lf.y, lf.z)) surfLeaf.push(lf);
+    }
+    const woods = [];
+    const leaves = [];
+    if (surfWood.length <= 8) for (let i = 0; i < surfWood.length; i++) woods.push(surfWood[i]);
+    else for (let i = 0; i < 8; i++) woods.push(surfWood[((i * surfWood.length) / 8) | 0]);
+    if (surfLeaf.length <= 8) for (let i = 0; i < surfLeaf.length; i++) leaves.push(surfLeaf[i]);
+    else for (let i = 0; i < 8; i++) leaves.push(surfLeaf[((i * surfLeaf.length) / 8) | 0]);
     for (let i = 0; i < woods.length; i++) {
       const br = woods[i];
-      const cx = wCenter(br.x), cy = wCenter(br.y), cz = wCenter(br.z);
-      const ang = i * 2.1 + br.x * 0.4 + br.z * 0.25;
+      const cx = wCenter(br.x) + br.ad[0] * 0.35;
+      const cy = wCenter(br.y) + br.ad[1] * 0.35;
+      const cz = wCenter(br.z) + br.ad[2] * 0.35;
       const flick = 0.5 + 0.5 * Math.sin(t * 18 + i);
       const sy = 0.26 + 0.08 * Math.sin(t * 18 + i);
       const rr = FIRE_FLAME[0] + (FIRE_HOT[0] - FIRE_FLAME[0]) * flick;
       const gg = FIRE_FLAME[1] + (FIRE_HOT[1] - FIRE_FLAME[1]) * flick;
       const bb = FIRE_FLAME[2] + (FIRE_HOT[2] - FIRE_FLAME[2]) * flick;
-      drawCube(cx + Math.cos(ang) * 0.35, cy + 0.12, cz + Math.sin(ang) * 0.35, 0.16, sy, 0.16, 0, rr, gg, bb, 0.65);
+      drawCube(cx, cy, cz, 0.16, sy, 0.16, 0, rr, gg, bb, 0.65);
     }
     for (let i = 0; i < leaves.length; i++) {
       if (Math.sin(t * 12 + i) < 0) continue;
@@ -2408,35 +2600,7 @@ function drawBurnOverlays() {
 }
 
 function punch() {
-  if (mode !== "play" || punchCD > 0) return;
-  punchCD = 0.38;
-  const d = lookDir();
-  const ox = player.x, oy = player.y + 1.05, oz = player.z;
-  for (let t = 0.35; t < 3.4; t += 0.1) {
-    const px = ox + d.x * t, py = oy + d.y * t, pz = oz + d.z * t;
-    for (let i = 0; i < mobs.length; i++) {
-      const m = mobs[i];
-      if (m.dead || isAlly(m)) continue;
-      if (Math.abs(m.x - px) < 1.2 && Math.abs(m.y + 0.45 - py) < 1.1 && Math.abs(m.z - pz) < 1.2) {
-        const len = Math.hypot(d.x, d.z) || 1;
-        hurtMob(m, punchDmg(), d.x / len, d.z / len, 5);
-        return;
-      }
-    }
-    const x = vox(px);
-    const y = vox(py);
-    const z = vox(pz);
-    const b = getB(x, y, z);
-    if (b === WOOD || b === LEAF) {
-      damageTree(x, y, z, punchDmg());
-      return;
-    }
-    if (solidOf(b)) {
-      beep(90, 0.05, 0.025, "square");
-      return;
-    }
-  }
-  beep(90, 0.05, 0.02, "square");
+  staffStrike();
 }
 
 function jump() {
@@ -2593,27 +2757,35 @@ function updateMobs(dt) {
 
 function emitShotTrail(s) {
   if (s.kind === "feu") {
-    const k = Math.min(1, (s.age || 0) / 0.9);
-    parts.push({
-      x: s.x, y: s.y, z: s.z,
-      vx: (Math.random() - 0.5) * 0.4, vy: 1.2, vz: (Math.random() - 0.5) * 0.4,
-      r: 1, g: 0.5, b: 0.1, r1: 0.18, g1: 0.08, b1: 0.04,
-      life: s.q ? 0.24 : 0.20, age: 0, s: s.q ? 0.24 : 0.20, style: "trail"
-    });
+    const n = s.q ? 1 : (2 + ((Math.random() * 2) | 0));
+    for (let i = 0; i < n; i++) {
+      parts.push({
+        x: s.x, y: s.y, z: s.z,
+        vx: (Math.random() - 0.5) * 0.4, vy: 1.2, vz: (Math.random() - 0.5) * 0.4,
+        r: 1, g: 0.5, b: 0.1, r1: 0.18, g1: 0.08, b1: 0.04,
+        life: s.q ? 0.24 : 0.20, age: 0, s: s.q ? 0.24 : 0.20, style: "trail"
+      });
+    }
   } else if (s.kind === "arcane") {
-    parts.push({
-      x: s.x, y: s.y + 0.05 * Math.sin((s.age || 0) * 14), z: s.z,
-      vx: 0, vy: 0, vz: 0,
-      r: 0.62, g: 0.16, b: 0.78,
-      life: 0.28, age: 0, s: 0.09, style: "float"
-    });
+    const n = s.q ? 1 : 2;
+    for (let i = 0; i < n; i++) {
+      parts.push({
+        x: s.x, y: s.y + 0.05 * Math.sin((s.age || 0) * 14), z: s.z,
+        vx: 0, vy: 0, vz: 0,
+        r: 0.62, g: 0.16, b: 0.78,
+        life: 0.28, age: 0, s: 0.09, style: "float"
+      });
+    }
   } else if (s.kind === "necro") {
-    parts.push({
-      x: s.x, y: s.y + 0.04 * Math.sin((s.age || 0) * 8), z: s.z,
-      vx: 0, vy: -1.8, vz: 0,
-      r: 0.18, g: 0.70, b: 0.32,
-      life: 0.32, age: 0, s: 0.10, style: "drip"
-    });
+    const n = s.q ? 1 : 2;
+    for (let i = 0; i < n; i++) {
+      parts.push({
+        x: s.x, y: s.y + 0.04 * Math.sin((s.age || 0) * 8), z: s.z,
+        vx: 0, vy: -1.8, vz: 0,
+        r: 0.18, g: 0.70, b: 0.32,
+        life: 0.32, age: 0, s: 0.10, style: "drip"
+      });
+    }
   }
 }
 function impactFeu(x, y, z, q) {
@@ -2625,7 +2797,7 @@ function impactFeu(x, y, z, q) {
   fx.push({ type: "boom", x: x, y: y, z: z, age: 0, life: 0.28 });
   fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.08, s: 0.9, r: 1, g: 0.92, b: 0.45, glow: 1 });
   const gy = highest(x, z) + STEP_UP;
-  const nEm = 10 + ((Math.random() * 3) | 0);
+  const nEm = 16 + ((Math.random() * 4) | 0);
   for (let i = 0; i < nEm; i++) {
     const a = Math.random() * Math.PI * 2;
     const rad = 0.25 + Math.random() * 1.35;
@@ -2637,23 +2809,42 @@ function impactFeu(x, y, z, q) {
       s: 0.10 + Math.random() * 0.06, style: "emberg", ground: gy
     });
   }
+  for (let i = 0; i < 6; i++) {
+    const a = Math.random() * Math.PI * 2;
+    parts.push({
+      x: x, y: y + 0.12, z: z,
+      vx: Math.cos(a) * (2.2 + Math.random() * 2), vy: 1.6 + Math.random() * 2.4, vz: Math.sin(a) * (2.2 + Math.random() * 2),
+      r: 1, g: 0.62, b: 0.16,
+      life: 0.22 + Math.random() * 0.12, age: 0,
+      s: 0.06 + Math.random() * 0.04, style: "spark"
+    });
+  }
 }
 function impactGlace(x, y, z, q) {
   if (q && qRank() >= 1) { impactGlaceQ(x, y, z); return; }
   const gy = highest(x, z) + STEP_UP;
   fx.push({ type: "nova", x: x, y: gy, z: z, age: 0, life: 1.15 });
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + Math.random() * 0.3;
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 + Math.random() * 0.3;
     const rad = 0.2 + Math.random() * 0.7;
     fx.push({
       type: "gnd", x: x + Math.cos(a) * rad, y: gy, z: z + Math.sin(a) * rad,
       age: 0, life: 0.9, s: 0.24, r: 0.70, g: 0.88, b: 1, glow: 0.20
     });
   }
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.random() * 0.4;
+    parts.push({
+      x: x + Math.cos(a) * 0.18, y: y + 0.16, z: z + Math.sin(a) * 0.18,
+      vx: Math.cos(a) * 2.4, vy: 2.2 + Math.random() * 1.8, vz: Math.sin(a) * 2.4,
+      r: 0.70, g: 0.90, b: 1.00,
+      life: 0.34 + Math.random() * 0.1, age: 0, s: 0.10, style: "shard"
+    });
+  }
 }
 function impactArcane(x, y, z) {
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
     parts.push({
       x: x + Math.cos(a) * 0.16, y: y, z: z + Math.sin(a) * 0.16,
       vx: 0, vy: 0, vz: 0,
@@ -2664,8 +2855,8 @@ function impactArcane(x, y, z) {
 }
 function impactNecro(x, y, z) {
   const gy = highest(x, z) + STEP_UP;
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
     fx.push({
       type: "gnd", x: x + Math.cos(a) * 0.28, y: gy, z: z + Math.sin(a) * 0.28,
       age: 0, life: 0.8, s: 0.20, r: 0.10, g: 0.45, b: 0.22, glow: 0.15
@@ -2675,11 +2866,18 @@ function impactNecro(x, y, z) {
 function steerArcane(s, dt) {
   let tgt = s.target;
   const acq = s.acq || 28;
-  if (!tgt || tgt.dead || tgt.kind === "serviteur" || !(HOSTILE[tgt.kind] || tgt.kind === "chevreuil")) {
-    tgt = nearestHostileAt(s.x, s.y, s.z, acq, false);
-    s.target = tgt;
+  if (s.npc && s.tgt === "player") {
+    tgt = player;
+  } else if (!tgt || tgt.dead || tgt.kind === "serviteur" || tgt === player || !(HOSTILE[tgt.kind] || tgt.kind === "chevreuil")) {
+    if (s.npc) {
+      if (s.tgt && s.tgt !== "player" && !s.tgt.dead && s.tgt.kind !== "serviteur") tgt = s.tgt;
+      else return;
+    } else {
+      tgt = nearestHostileAt(s.x, s.y, s.z, acq, false);
+      s.target = tgt;
+    }
   }
-  if (!tgt) return;
+  if (!tgt || tgt.kind === "serviteur") return;
   const tx = tgt.x - s.x, ty = (tgt.y + 0.5) - s.y, tz = tgt.z - s.z;
   const tlen = Math.hypot(tx, ty, tz) || 1;
   const wx = tx / tlen, wy = ty / tlen, wz = tz / tlen;
@@ -2709,7 +2907,7 @@ function updateShots(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
     if (s.kind === "glace") s.vy -= 1.6 * dt;
     s.trail = (s.trail || 0) + dt;
-    const tint = s.kind === "feu" ? (s.q ? 0.02 : 0.025) : (s.kind === "arcane" || s.kind === "necro") ? 0.04 : 0.05;
+    const tint = s.kind === "feu" ? (s.q ? 0.02 : 0.018) : (s.kind === "arcane" || s.kind === "necro") ? 0.04 : 0.05;
     if (s.kind === "feu" || s.kind === "arcane" || s.kind === "necro") {
       if (s.trail > tint) { s.trail = 0; emitShotTrail(s); }
     }
@@ -2721,7 +2919,7 @@ function updateShots(dt) {
       const bx = vox(s.x), by = vox(s.y), bz = vox(s.z);
       const bb = getB(bx, by, bz);
       if (bb === WOOD || bb === LEAF) {
-        if (s.kind === "feu" && !s.npc) igniteBlock(bx, by, bz, 0);
+        if (s.kind === "feu") igniteBlock(bx, by, bz, 0);
         else if (!s.npc) damageTree(bx, by, bz, Math.round(shotDmg(s.kind) * (s.dmgMul != null ? s.dmgMul : 1)));
         dead = true;
       } else if (isSolid(bx, by, bz)) dead = true;
@@ -2731,7 +2929,8 @@ function updateShots(dt) {
         if (s.age > 0.08 && Math.abs(player.x - s.x) < 0.85 && Math.abs(player.y + 0.75 - s.y) < 1.15 && Math.abs(player.z - s.z) < 0.85) {
           const len = Math.hypot(s.vx, s.vz) || 1;
           hurtPlayer(s.dmg || 32, s.vx / len * 4, s.vz / len * 4);
-          player.slow = Math.max(player.slow || 0, 3);
+          if (s.kind === "glace") player.slow = Math.max(player.slow || 0, 3);
+          if (s.kind === "feu") player.burn = Math.max(player.burn || 0, 4);
           dead = true;
         }
       } else if (s.tgt && !s.tgt.dead) {
@@ -2739,7 +2938,8 @@ function updateShots(dt) {
         if (Math.abs(m.x - s.x) < 1.2 && Math.abs(m.y + 0.5 - s.y) < 1.2 && Math.abs(m.z - s.z) < 1.2) {
           const len = Math.hypot(s.vx, s.vz) || 1;
           hurtMob(m, s.dmg || 32, s.vx / len, s.vz / len, 6);
-          m.slow = 3;
+          if (s.kind === "glace") m.slow = 3;
+          if (s.kind === "feu") m.burn = 4;
           dead = true;
         }
       }
@@ -2767,9 +2967,9 @@ function updateShots(dt) {
       }
     }
     if (dead) {
-      if (s.kind === "feu" && !s.npc) {
-        impactFeu(s.x, s.y, s.z, s.q);
-        if (s.q) applyFeuQImpact(s.x, s.y, s.z);
+      if (s.kind === "feu") {
+        impactFeu(s.x, s.y, s.z, s.q && !s.npc);
+        if (s.q && !s.npc) applyFeuQImpact(s.x, s.y, s.z);
       } else if (s.kind === "glace") {
         impactGlace(s.x, s.y, s.z, s.q && !s.npc);
         if (s.q && !s.npc) applyGlaceQImpact(s.x, s.y, s.z);
@@ -3048,11 +3248,14 @@ function drawFireShot(s) {
   const flick = 0.08 * Math.sin((s.age || 0) * 36);
   const heart = 0.50 + flick;
   drawCube(s.x, s.y, s.z, 0.62, 0.62, 0.62, 0, 1.00, 0.35, 0.12, 0.55);
+  drawCube(s.x, s.y, s.z, 0.40, 0.40, 0.40, 0, 1.00, 0.55, 0.16, 0.70);
   drawCube(s.x, s.y, s.z, heart, heart, heart, 0, 1.00, 0.82, 0.18, 0.90);
 }
 function drawIceShot(s) {
   const yaw = (s.age || 0) * 10;
   const cr = s.q ? 0.34 : 0.28;
+  const gh = cr * 1.15;
+  drawCube(s.x, s.y, s.z, gh, gh, gh, yaw, 0.85, 0.97, 1.00, 0.25);
   drawCube(s.x, s.y, s.z, cr, cr, cr, yaw, 0.85, 0.97, 1.00, 0.65);
   const len = Math.hypot(s.vx, s.vz) || 1;
   const tx = s.x + (s.vx / len) * 0.22, tz = s.z + (s.vz / len) * 0.22;
@@ -3071,7 +3274,7 @@ function drawNecroShot(s) {
 function drawBoltSegs(b, after) {
   const dx = b.x1 - b.x0, dy = b.y1 - b.y0, dz = b.z1 - b.z0;
   const len = Math.hypot(dx, dy, dz) || 1;
-  const steps = Math.max(4, (len / 0.55) | 0);
+  const steps = Math.max(4, (len / (b.q ? 0.55 : 0.37)) | 0);
   const sl = Math.hypot(dx, dz) || 1;
   const sx = -dz / sl, sz = dx / sl;
   const seed = b.seed || 1;
@@ -3087,6 +3290,7 @@ function drawBoltSegs(b, after) {
     const z = b.z0 + dz * t + sz * side;
     drawCube(x, y, z, thick * 1.25, thick * 1.25, thick * 1.25, 0, or, og, ob, glowO);
     if (!after) drawCube(x, y, z, thick * 0.55, thick * 0.55, thick * 0.55, 0, 0.85, 0.95, 1.00, 1.0);
+    if (!after && !b.q) drawCube(x + sx * 0.10, y + 0.05, z + sz * 0.10, thick * 0.7, thick * 0.7, thick * 0.7, 0, 0.306, 0.639, 1.00, 0.55);
   }
 }
 function drawLightning(b) {
@@ -3213,6 +3417,10 @@ function render() {
     if (pk.kind === "bois") {
       if (pk.burn != null) drawCube(pk.x, by, pk.z, 0.3, 0.22, 0.3, pk.bob * 0.25, 1.00, 0.32, 0.06, 0.40);
       else drawCube(pk.x, by, pk.z, 0.3, 0.22, 0.3, pk.bob * 0.25, 0.5, 0.3, 0.12, 0.04);
+    } else if (pk.kind === "potVie") {
+      drawCube(pk.x, by, pk.z, 0.18, 0.28, 0.18, pk.bob * 0.4, 0.95, 0.22, 0.32, 0.35);
+    } else if (pk.kind === "potMana") {
+      drawCube(pk.x, by, pk.z, 0.18, 0.28, 0.18, pk.bob * 0.4, 0.25, 0.45, 0.95, 0.35);
     } else {
       drawCube(pk.x, by, pk.z, 0.26, 0.2, 0.26, pk.bob * 0.35, 0.86, 0.34, 0.2, 0.08);
     }
@@ -3329,6 +3537,8 @@ function updateHUD() {
   if (sort3) sort3.classList.toggle("off", !player.cls2 || player.mana < spellCost(player.cls2, 3));
   const bn = $("bois-n"); if (bn) bn.textContent = String(player.bois | 0);
   const vn = $("viande-n"); if (vn) vn.textContent = String(player.viande | 0);
+  const vieN = $("vie-n"); if (vieN) vieN.textContent = String(player.potVie | 0);
+  const manaN = $("mana-n"); if (manaN) manaN.textContent = String(player.potMana | 0);
   const eatBtn = $("btn-eat");
   if (eatBtn) eatBtn.classList.toggle("off", (player.viande | 0) < 1 || player.hunger >= 100 || eatCD > 0);
   if (toastT > 0) {
@@ -3345,13 +3555,21 @@ function update(dt) {
     player.mana = Math.min(player.maxMana || 100, player.mana + (5 + (player.regBonus || 0)) * dt);
     player.hunger = Math.max(0, player.hunger - 0.48 * (player.hungerMul || 1) * dt);
     if (player.hunger <= 0) player.hp -= 7 * dt;
+    if (player.burn > 0) {
+      player.burn -= dt;
+      player.hp -= (player.maxHp || 1000) * 0.03 * dt;
+    }
     if (player.hp <= 0) die();
+    if (player.slow > 0) player.slow -= dt;
+    if (player.para > 0) player.para -= dt;
     player.flash = Math.max(0, player.flash - dt);
     player.inv = Math.max(0, player.inv - dt);
     spellCD = Math.max(0, spellCD - dt);
     spellCD2 = Math.max(0, spellCD2 - dt);
     punchCD = Math.max(0, punchCD - dt);
     staffCD = Math.max(0, staffCD - dt);
+    woodCD = Math.max(0, woodCD - dt);
+    potCD = Math.max(0, potCD - dt);
     tryEat(dt);
     if (meshDirty) { buildWorldMesh(); meshDirty = false; }
 
@@ -3371,7 +3589,7 @@ function update(dt) {
     mz += -joy.dy;
     const ml = Math.hypot(mx, mz);
     if (ml > 1) { mx /= ml; mz /= ml; }
-    const sp = 4.5 * (1 + (player.spdBonus || 0));
+    const sp = 4.5 * (1 + (player.spdBonus || 0)) * (player.para > 0 ? 0.25 : player.slow > 0 ? 0.45 : 1);
     const s = Math.sin(player.yaw), c = Math.cos(player.yaw);
     player.vx = (s * mz + c * mx) * sp;
     player.vz = (c * mz - s * mx) * sp;
@@ -3389,7 +3607,13 @@ function update(dt) {
       if (dx * dx + dz * dz > 1.21) continue;
       if (Math.abs(player.y - pk.y) > 1.5) continue;
       if (pk.kind === "bois") { player.bois++; toast("+1 bois"); }
-      else { player.viande++; toast("+1 viande"); }
+      else if (pk.kind === "potVie") {
+        if ((player.potVie | 0) >= 8) continue;
+        player.potVie++; toast("+1 potion vie");
+      } else if (pk.kind === "potMana") {
+        if ((player.potMana | 0) >= 8) continue;
+        player.potMana++; toast("+1 potion mana");
+      } else { player.viande++; toast("+1 viande"); }
       beep(540, 0.07, 0.04, "triangle");
       pickups.splice(i, 1);
     }
@@ -3440,12 +3664,27 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "KeyE") { e.preventDefault(); if (player.cls) cast(player.cls, 1); }
   if (e.code === "KeyQ") { e.preventDefault(); staffStrike(); }
   if (e.code === "KeyR") { e.preventDefault(); if (player.cls2) cast(player.cls2, 3); }
+  const digit = e.code === "Digit1" || e.code === "Numpad1" ? 1
+    : e.code === "Digit2" || e.code === "Numpad2" ? 2
+    : e.code === "Digit3" || e.code === "Numpad3" ? 3
+    : e.code === "Digit4" || e.code === "Numpad4" ? 4 : 0;
+  if (digit) {
+    e.preventDefault();
+    if (isDraftOpen()) {
+      if (digit <= 3) pickDraftKey(digit - 1);
+      return;
+    }
+    if (digit === 1) useBois();
+    else if (digit === 2) eatViande();
+    else if (digit === 3) usePotVie();
+    else if (digit === 4) usePotMana();
+  }
 }, { passive: false });
 window.addEventListener("keyup", (e) => { keys[e.code] = false; });
 
 canvas.addEventListener("click", () => {
   if (mode !== "play") return;
-  if (document.pointerLockElement === canvas) punch();
+  if (document.pointerLockElement === canvas) staffStrike();
   else if (canvas.requestPointerLock) canvas.requestPointerLock();
 });
 document.addEventListener("mousemove", (e) => {
@@ -3690,6 +3929,7 @@ function renderDraft() {
   if (!row) return;
   row.innerHTML = "";
   const cards = drawDraftCards(L);
+  draftCards = cards;
   for (let i = 0; i < cards.length; i++) {
     const c = cards[i];
     const b = document.createElement("button");
@@ -3800,7 +4040,15 @@ $("btn-retry").addEventListener("click", () => {
 });
 $("btn-saut").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); jump(); });
 $("btn-eat").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); eatViande(); });
-$("btn-frap").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); punch(); });
+const slotBois = $("slot-bois");
+if (slotBois) slotBois.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); useBois(); });
+const slotViande = $("slot-viande");
+if (slotViande) slotViande.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); eatViande(); });
+const slotVie = $("slot-vie");
+if (slotVie) slotVie.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); usePotVie(); });
+const slotMana = $("slot-mana");
+if (slotMana) slotMana.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); usePotMana(); });
+$("btn-frap").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); staffStrike(); });
 $("btn-sort").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (player.cls) cast(player.cls, 1); });
 $("btn-sort2").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); staffStrike(); });
 const btnSort3 = $("btn-sort3");
