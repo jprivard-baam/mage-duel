@@ -538,7 +538,7 @@ html, body {
 <div id="home">
   <div class="home-hero">
     <h1>Cubemancy</h1>
-    <p class="home-ver" id="build-id">Version 82</p>
+    <p class="home-ver" id="build-id">Version 81</p>
     <div class="gold-rule"></div>
     <div class="sub">Survive. Cast. Cube.</div>
     <div class="tag-wrap">
@@ -629,7 +629,7 @@ html, body {
 (function () {
 "use strict";
 
-const GAME_VER = 82; // bump GAME_VER and the visible vN on EVERY deploy
+const GAME_VER = 81; // bump GAME_VER and the visible vN on EVERY deploy
 
 const DEBUG = true; // playtest: dmg/regen joueur ×5. Virer cette ligne + les if (DEBUG).
 
@@ -1275,6 +1275,15 @@ function highest(x, z) {
   const vx = Math.max(0, Math.min(W - 1, vox(x)));
   const vz = Math.max(0, Math.min(D - 1, vox(z)));
   for (let y = H - 1; y >= 0; y--) if (getB(vx, y, vz)) return y * INV_VX;
+  return 0;
+}
+function highestGround(x, z) {
+  const vx = Math.max(0, Math.min(W - 1, vox(x)));
+  const vz = Math.max(0, Math.min(D - 1, vox(z)));
+  for (let y = H - 1; y >= 0; y--) {
+    const b = getB(vx, y, vz);
+    if (b === DIRT || b === ROCK) return y * INV_VX;
+  }
   return 0;
 }
 function spawnPlayer() {
@@ -3973,7 +3982,7 @@ function updateShots(dt) {
       if (s.trail > tint) { s.trail = 0; emitShotTrail(s); }
     }
     let lifeOrGround = s.life <= 0 || s.y < -2;
-    if (s.kind === "feu" && s.y < highest(s.x, s.z) + 0.35) lifeOrGround = true;
+    if (s.kind === "feu" && s.y < highestGround(s.x, s.z) + 0.35) lifeOrGround = true;
     let dead = lifeOrGround;
     let hitMob = null;
     let didHit = false;
