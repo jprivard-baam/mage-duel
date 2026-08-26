@@ -814,7 +814,6 @@ function buildWorldMesh() {
           const nb = getB(x + nx, y + ny, z + nz);
           const see = (t === LEAF) ? (nb === AIR) : (nb === AIR || nb === LEAF);
           if (see) {
-            if (ny > 0.5 && t === DIRT && pos.length > 3000000) continue;
             addFace(x, y, z, nx, ny, nz, F[3], t);
           }
         }
@@ -988,7 +987,7 @@ function resize() {
   canvas.style.width = w + "px";
   canvas.style.height = h + "px";
   gl.viewport(0, 0, canvas.width, canvas.height);
-  perspective(proj, 1.05, canvas.width / canvas.height, 0.12, 140);
+  perspective(proj, 1.05, canvas.width / canvas.height, 0.12, 320);
 }
 
 let mode = "home";
@@ -1168,6 +1167,10 @@ function burst(x, y, z, r, g, b, n, spd, extra) {
       style
     });
   }
+}
+function pushPart(p) {
+  if (parts.length >= 120) parts.splice(0, parts.length - 119);
+  parts.push(p);
 }
 function addStain(x, y, z, s0) {
   stains.push({ x, y: y - 0.02, z, life: 0.72, age: 0, s: s0 || 1.15 });
@@ -2392,9 +2395,38 @@ function resolveStaffHit() {
   if (best) {
     const len = Math.hypot(best.x - player.x, best.z - player.z) || 1;
     hurtMob(best, dmg, (best.x - player.x) / len, (best.z - player.z) / len, 4);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      pushPart({
+        x: best.x, y: best.y + 0.7, z: best.z,
+        vx: Math.cos(a) * 2.4, vy: 1.4 + Math.random(), vz: Math.sin(a) * 2.4,
+        r: gcol[0], g: gcol[1], b: gcol[2],
+        life: 0.16, age: 0, s: 0.06, style: "spark"
+      });
+    }
   } else {
     beep(110, 0.08, 0.03, "sine");
   }
+}
+function emitStaffSwing() {
+  const gem = staffGemPos();
+  const fwd = faceFwd();
+  const gcol = mageGemColor(player.cls);
+  for (let i = 0; i < 5; i++) {
+    const t = (i + 1) / 6;
+    pushPart({
+      x: gem.x + fwd.x * t * 2.2, y: gem.y, z: gem.z + fwd.z * t * 2.2,
+      vx: 0, vy: 0, vz: 0,
+      r: 0.42, g: 0.26, b: 0.12,
+      life: 0.12, age: 0, s: 0.10, style: "float"
+    });
+  }
+  pushPart({
+    x: gem.x + fwd.x * 1.1, y: gem.y, z: gem.z + fwd.z * 1.1,
+    vx: fwd.x * 4, vy: 0.2, vz: fwd.z * 4,
+    r: gcol[0], g: gcol[1], b: gcol[2],
+    life: 0.12, age: 0, s: 0.12, style: "spark"
+  });
 }
 function staffStrike() {
   if (mode !== "play" || isDraftOpen() || staffCD > 0) return;
@@ -2402,6 +2434,7 @@ function staffStrike() {
   staffSwing = 0.35;
   staffHitT = 0.15;
   staffHitDone = false;
+  emitStaffSwing();
 }
 
 function treeKey(sx, sy, sz) {
@@ -3036,8 +3069,8 @@ function updateShots(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
     if (s.kind === "glace") s.vy -= 1.6 * dt;
     s.trail = (s.trail || 0) + dt;
-    const tint = s.kind === "feu" ? (s.q ? 0.02 : 0.018) : (s.kind === "arcane" || s.kind === "necro") ? 0.04 : 0.05;
-    if (s.kind === "feu" || s.kind === "arcane" || s.kind === "necro") {
+    const tint = s.kind === "feu" ? 0.012 : s.kind === "glace" ? 0.022 : s.kind === "arcane" ? 0.020 : s.kind === "necro" ? 0.030 : 0.05;
+    if (s.kind === "feu" || s.kind === "glace" || s.kind === "arcane" || s.kind === "necro") {
       if (s.trail > tint) { s.trail = 0; emitShotTrail(s); }
     }
     let dead = s.life <= 0 || s.y < -2;
@@ -3518,8 +3551,8 @@ function render() {
   gl.uniform3f(uAmb, sky.amb[0] + flashK * 0.85, sky.amb[1] + flashK * 0.85, sky.amb[2] + flashK * 0.95);
   gl.uniform3f(uFog, sky.fog[0] * (1 - flashK) + flashK, sky.fog[1] * (1 - flashK) + flashK, sky.fog[2] * (1 - flashK) + flashK);
   gl.uniform3f(uCam, camX, camY, camZ);
-  gl.uniform1f(uFogN, 28);
-  gl.uniform1f(uFogF, 118);
+  gl.uniform1f(uFogN, 52);
+  gl.uniform1f(uFogF, 236);
 
   bindInterleaved(worldBuf);
   gl.uniformMatrix4fv(uModel, false, ident);
