@@ -36,6 +36,7 @@ func _ready() -> void:
 	_style_spell(btn_feu, Color(0.95, 0.32, 0.08))
 	_style_spell(btn_glace, Color(0.22, 0.72, 0.88))
 	_style_spell(btn_foudre, Color(0.62, 0.32, 0.88))
+	_style_joystick()
 	_apply_safe_area()
 	_refresh()
 	call_deferred("_set_knob", Vector2.ZERO)
@@ -53,6 +54,28 @@ func _style_spell(btn: Button, col: Color) -> void:
 	btn.add_theme_stylebox_override("hover", hover)
 	btn.add_theme_stylebox_override("pressed", hover)
 	btn.add_theme_color_override("font_color", Color.WHITE)
+
+
+func _style_joystick() -> void:
+	var base := StyleBoxFlat.new()
+	base.bg_color = Color(1, 1, 1, 0.10)
+	base.set_corner_radius_all(80)
+	base.set_border_width_all(2)
+	base.border_color = Color(1, 1, 1, 0.22)
+	joystick.add_theme_stylebox_override("panel", base)
+	if joystick.has_node("Base"):
+		joystick.get_node("Base").visible = false
+	if knob is ColorRect:
+		(knob as ColorRect).color = Color(0.96, 0.89, 0.65, 0.0)
+	var knob_panel := Panel.new()
+	knob_panel.name = "KnobVisual"
+	knob_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	knob_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ks := StyleBoxFlat.new()
+	ks.bg_color = Color(0.96, 0.89, 0.65, 0.88)
+	ks.set_corner_radius_all(40)
+	knob_panel.add_theme_stylebox_override("panel", ks)
+	knob.add_child(knob_panel)
 
 
 func _apply_safe_area() -> void:
@@ -102,7 +125,7 @@ func _set_fill(fill: ColorRect, ratio: float) -> void:
 
 
 func _refresh_clock() -> void:
-	clock.text = "☾" if Game.is_night else "☀"
+	clock.text = "Nuit" if Game.is_night else "Jour"
 
 
 func _on_died() -> void:

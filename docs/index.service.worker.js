@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1787713340|2035728';
+const CACHE_VERSION = '1787713645|3097523';
 /** @type {string} */
 const CACHE_PREFIX = 'Mage Duel-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
