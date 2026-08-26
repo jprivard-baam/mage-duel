@@ -1277,6 +1277,15 @@ function highest(x, z) {
   for (let y = H - 1; y >= 0; y--) if (getB(vx, y, vz)) return y * INV_VX;
   return 0;
 }
+function highestGround(x, z) {
+  const vx = Math.max(0, Math.min(W - 1, vox(x)));
+  const vz = Math.max(0, Math.min(D - 1, vox(z)));
+  for (let y = H - 1; y >= 0; y--) {
+    const b = getB(vx, y, vz);
+    if (b === DIRT || b === ROCK) return y * INV_VX;
+  }
+  return 0;
+}
 function spawnPlayer() {
   let bx = 96 * VX, bz = 96 * VX;
   for (let t = 0; t < 80; t++) {
@@ -2142,9 +2151,10 @@ function findWoodNear(wx, wz, maxD) {
   return best;
 }
 const NPC_SCHOOLS = ["feu","glace","foudre","arcane","necro","war"];
-function bumpNpcSeed() {
+function bumpNpcSeed(t) {
+  const rnd = mulberry32((runSeed + spawnIndex + (t | 0)) | 0);
   spawnIndex++;
-  return mulberry32((runSeed + spawnIndex + ((runT * 1000) | 0)) | 0);
+  return rnd;
 }
 function scaleNpc(L) {
   const shot = Math.floor(32 * (1 + 0.035 * (L - 1)));
@@ -2183,9 +2193,9 @@ function npcSpotOk(x, z) {
   if (tooCloseMage(x, z, 32)) return false;
   return npcGroundOk(x, z);
 }
-function makeNpcAt(x, z) {
+function makeNpcAt(x, z, t) {
   if (mageCount() >= NPC_CAP) return false;
-  const rnd = bumpNpcSeed();
+  const rnd = bumpNpcSeed(t);
   const cls = NPC_SCHOOLS[(rnd() * NPC_SCHOOLS.length) | 0];
   const pL = player.level || 1;
   const lo = Math.max(1, pL - 6);
@@ -2213,24 +2223,22 @@ function makeNpcAt(x, z) {
 function spawnNpcRing(i) {
   const base = i * (Math.PI / 3);
   for (let t = 0; t < 24; t++) {
-    bumpNpcSeed();
     const ang = base + (hash(i + 1, t + 3) - 0.5) * 0.35;
     const r = 64 + (hash(i + 7, t + 11) * 24 - 12);
     const x = player.x + Math.sin(ang) * r;
     const z = player.z + Math.cos(ang) * r;
-    if (npcSpotOk(x, z) && makeNpcAt(x, z)) return true;
+    if (npcSpotOk(x, z) && makeNpcAt(x, z, t)) return true;
   }
   return false;
 }
 function spawnNpcRandom() {
   if (mageCount() >= NPC_CAP) return true;
   for (let t = 0; t < 28; t++) {
-    bumpNpcSeed();
     const ang = (hash(t + 2, mageCount() + 9) + Math.random()) * Math.PI * 2;
     const r = 48 + hash(t + 5, 17) * 32;
     const x = player.x + Math.sin(ang) * r;
     const z = player.z + Math.cos(ang) * r;
-    if (npcSpotOk(x, z) && makeNpcAt(x, z)) return true;
+    if (npcSpotOk(x, z) && makeNpcAt(x, z, t)) return true;
   }
   return false;
 }
@@ -2989,7 +2997,6 @@ function cast(kind, slot) {
   if (kind === "foudre") {
     beep(880, 0.1, 0.06, "sawtooth");
     let hx = ox + d.x * FOUDRE_RANGE, hy = oy + d.y * FOUDRE_RANGE, hz = oz + d.z * FOUDRE_RANGE, hit = null;
-    let treeHit = null;
     for (let t = 0.4; t < FOUDRE_RANGE; t += 0.12) {
       const x = ox + d.x * t, y = oy + d.y * t, z = oz + d.z * t;
       const dist = Math.hypot(x - ox, y - oy, z - oz);
@@ -2997,8 +3004,7 @@ function cast(kind, slot) {
       if (t > 1.2) {
         const bx = vox(x), by = vox(y), bz = vox(z);
         const bb = getB(bx, by, bz);
-        if (bb === WOOD || bb === LEAF) { treeHit = [bx, by, bz]; hx = x; hy = y; hz = z; break; }
-        if (isSolid(bx, by, bz)) { hx = x; hy = y; hz = z; break; }
+        if (bb === DIRT || bb === ROCK) { hx = x; hy = y; hz = z; break; }
       }
       for (let i = 0; i < mobs.length; i++) {
         const m = mobs[i];
@@ -3034,7 +3040,6 @@ function cast(kind, slot) {
     shake = Math.max(shake, 0.28);
     const st = sk2Row("SK2_FOU_STORM");
     if (st) storms.push({ x: player.x, z: player.z, r: st.r, dmg: st.dmg, life: st.dur, age: 0, tick: 0 });
-    if (treeHit) damageTree(treeHit[0], treeHit[1], treeHit[2], foudreDmgAt(wCenter(treeHit[0]), wCenter(treeHit[1]), wCenter(treeHit[2])));
   } else if (kind === "arcane") {
     beep(640, 0.07, 0.05, "triangle");
     const q = isQCast(kind, slot);
@@ -3138,6 +3143,15 @@ function cast(kind, slot) {
   }
 }
 
+function staffLosClear(x0, y0, z0, x1, y1, z1) {
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+  const len = Math.hypot(dx, dy, dz) || 1;
+  for (let t = 0.2; t < len - 0.12; t += 0.10) {
+    const bb = getB(vox(x0 + dx / len * t), vox(y0 + dy / len * t), vox(z0 + dz / len * t));
+    if (bb === DIRT || bb === ROCK) return false;
+  }
+  return true;
+}
 function resolveStaffHit() {
   if (staffHitDone) return;
   staffHitDone = true;
@@ -3156,6 +3170,7 @@ function resolveStaffHit() {
     if (dist > 2.2 || dist < 0.01) continue;
     const dot = (dx / dist) * fwd.x + (dz / dist) * fwd.z;
     if (dot < COS) continue;
+    if (!staffLosClear(player.x, player.y + 0.9, player.z, m.x, m.y + 0.7, m.z)) continue;
     if (dist < bestD) { bestD = dist; best = m; }
   }
   if (best) {
@@ -3967,7 +3982,7 @@ function updateShots(dt) {
       if (s.trail > tint) { s.trail = 0; emitShotTrail(s); }
     }
     let lifeOrGround = s.life <= 0 || s.y < -2;
-    if (s.kind === "feu" && s.y < highest(s.x, s.z) + 0.35) lifeOrGround = true;
+    if (s.kind === "feu" && s.y < highestGround(s.x, s.z) + 0.35) lifeOrGround = true;
     let dead = lifeOrGround;
     let hitMob = null;
     let didHit = false;
@@ -3977,10 +3992,7 @@ function updateShots(dt) {
       const bb = getB(bx, by, bz);
       if (bb === WOOD || bb === LEAF) {
         if (s.kind === "feu") igniteBlock(bx, by, bz, 0);
-        else if (!s.npc) damageTree(bx, by, bz, Math.round(shotDmg(s.kind) * (s.dmgMul != null ? s.dmgMul : 1)));
-        dead = true;
-        blockHit = true;
-      } else if (isSolid(bx, by, bz) && s.kind !== "arcane") { dead = true; blockHit = true; }
+      } else if ((bb === DIRT || bb === ROCK) && s.kind !== "arcane") { dead = true; blockHit = true; }
     }
     if (isBall) {
       let t = ballTgt && ballHitTgt(s, ballTgt) ? ballTgt : null;
