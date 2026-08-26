@@ -1223,7 +1223,7 @@ function killMob(m) {
     grantXp(36);
     toast("Mage " + spellLabel(m.cls));
     beep(480, 0.12, 0.05, "triangle");
-    npcRespawns.push(90);
+    npcRespawns.push(30);
   } else if (HOSTILE[m.kind]) {
     grantXp(xpFor(m.kind));
   }
@@ -1575,14 +1575,14 @@ function spawnNpcMage() {
       if (yWood < 0) continue;
       const wx = wCenter(x), wz = wCenter(z);
       const d = Math.hypot(wx - player.x, wz - player.z);
-      if (d < 10 || d > 50) continue;
+      if (d < 24 || d > 40) continue;
       if (tooCloseMage(wx, wz, 16)) continue;
       const score = Math.min(d, 36) + hash(x, z) * 10;
       if (score > best) { best = score; tree = { x: x, y: yWood, z: z, wx: wx, wy: wCenter(yWood), wz: wz }; }
     }
   }
   if (!tree) tree = findWoodNear(player.x + 18, player.z + 14, 48);
-  if (tree && tooCloseMage(tree.wx, tree.wz, 12)) tree = null;
+  if (tree && tooCloseMage(tree.wx, tree.wz, 16)) tree = null;
   let x, z, y;
   if (tree) {
     const ang = Math.atan2(player.x - tree.wx, player.z - tree.wz) + Math.PI;
