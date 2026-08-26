@@ -1578,7 +1578,7 @@ function npcGroundOk(x, z) {
 }
 function npcSpotOk(x, z) {
   const d = Math.hypot(x - player.x, z - player.z);
-  if (d < 14 || d < 48 || d > 80) return false;
+  if (d < 24 || d < 48 || d > 80) return false;
   if (tooCloseMage(x, z, 32)) return false;
   return npcGroundOk(x, z);
 }
