@@ -531,7 +531,7 @@ html, body {
     </div>
     <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
     <p class="home-hint">Choisis une classe · E pour le sort<br>Force secondaire au level up</p>
-    <p class="home-hint" id="build-id">b.back</p>
+    <p class="home-hint" id="build-id">b.mat</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -776,7 +776,7 @@ function genWorld() {
 }
 
 const COL = {
-  herbeA: [0.22, 0.86, 0.18], herbeC: [0.42, 0.96, 0.28],
+  herbeA: [0.16, 0.52, 0.14], herbeB: [0.20, 0.46, 0.12], herbeC: [0.26, 0.64, 0.18],
   terreA: [0.92, 0.52, 0.16], terreB: [0.62, 0.30, 0.08],
   terreBot: [0.48, 0.22, 0.06],
   rocheA: [0.70, 0.74, 0.88], rocheC: [0.88, 0.90, 0.98],
@@ -795,8 +795,10 @@ const FACES = [
 function faceColor(t, ny, x, y, z, nx, nz) {
   if (t === DIRT) {
     if (ny > 0.5) {
-      const chk = ((x + z) & 1);
-      return chk ? COL.herbeA : COL.herbeC;
+      const px = x >> 2, pz = z >> 2;
+      const cell = hash(px, pz);
+      if (cell < 0.12) return COL.herbeB;
+      return ((px + pz) & 1) ? COL.herbeA : COL.herbeC;
     }
     if (ny < -0.5) return COL.terreBot;
     return ((nx + nz) & 1) ? COL.terreB : COL.terreA;
