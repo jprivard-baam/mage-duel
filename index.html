@@ -523,7 +523,11 @@ html, body {
 (function () {
 "use strict";
 
-const W = 96, H = 16, D = 96;
+const VX = 2; // voxels per old world-unit
+const W = 96 * VX, H = 16 * VX, D = 96 * VX;
+const WW = 96, DW = 96;
+const INV_VX = 1 / VX;
+const STEP_UP = INV_VX + 0.02;
 const AIR = 0, DIRT = 1, ROCK = 2, WOOD = 3, LEAF = 4;
 const CYCLE = 120;
 const MAX_HP = 1000;
@@ -573,6 +577,9 @@ function setB(x, y, z, b) {
   if (inB(x, y, z)) blocks[ix(x, y, z)] = b;
 }
 function isSolid(x, y, z) { return solidOf(getB(x, y, z)); }
+function vox(x) { return (x * VX) | 0; }
+function wPos(v) { return v * INV_VX; }
+function wCenter(v) { return (v + 0.5) * INV_VX; }
 
 function hash(x, z) {
   let n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
@@ -591,19 +598,20 @@ function fbm(x, z) {
 
 function genWorld() {
   blocks.fill(0);
-  const cx = 47.5, cz = 47.5;
+  const cx = 47.5 * VX, cz = 47.5 * VX;
+  const vx2 = VX * VX;
   for (let z = 0; z < D; z++) {
     for (let x = 0; x < W; x++) {
       const dx = x - cx, dz = z - cz;
       const dist = Math.hypot(dx, dz);
-      const fall = dist > 44 ? 0 : dist > 32 ? (44 - dist) / 12 : 1;
+      const fall = dist > 44 * VX ? 0 : dist > 32 * VX ? (44 * VX - dist) / (12 * VX) : 1;
       if (fall <= 0) continue;
-      const n = fbm(x * 0.045, z * 0.045);
-      const hill = Math.exp(-((x - 58) * (x - 58) + (z - 34) * (z - 34)) / 152);
-      const knoll = Math.exp(-((x - 28) * (x - 28) + (z - 62) * (z - 62)) / 88);
-      let h = 2 + fall * (3.2 + n * 4.2 + hill * 6.5 + knoll * 3.2);
+      const n = fbm(x * 0.045 / VX, z * 0.045 / VX);
+      const hill = Math.exp(-((x - 58 * VX) * (x - 58 * VX) + (z - 34 * VX) * (z - 34 * VX)) / (152 * vx2));
+      const knoll = Math.exp(-((x - 28 * VX) * (x - 28 * VX) + (z - 62 * VX) * (z - 62 * VX)) / (88 * vx2));
+      let h = (2 + fall * (3.2 + n * 4.2 + hill * 6.5 + knoll * 3.2)) * VX;
       h = Math.max(1, Math.min(H - 2, Math.floor(h)));
-      const rocky = hill > 0.45 || (n > 0.62 && h >= 7);
+      const rocky = hill > 0.45 || (n > 0.62 && h >= 7 * VX);
       for (let y = 0; y < h; y++) {
         let t = DIRT;
         if (y === 0 || (rocky && y >= h - 2) || (y < h - 1 && hash(x * 3, z + y * 7) > 0.82)) t = ROCK;
@@ -616,36 +624,52 @@ function genWorld() {
   let tries = 0;
   while (trees.length < 22 && tries < 400) {
     tries++;
-    const x = 12 + (hash(tries, 9) * (W - 24)) | 0;
-    const z = 12 + (hash(tries, 21) * (D - 24)) | 0;
+    const x = 12 * VX + (hash(tries, 9) * (W - 24 * VX)) | 0;
+    const z = 12 * VX + (hash(tries, 21) * (D - 24 * VX)) | 0;
+    if (x < 2 || z < 2 || x + 1 >= W - 2 || z + 1 >= D - 2) continue;
     let top = -1;
     for (let y = H - 1; y >= 0; y--) if (getB(x, y, z) === DIRT) { top = y; break; }
-    if (top < 2 || top > 9) continue;
+    if (top < 4 || top > 18) continue;
     let ok = true;
-    for (const t of trees) if (Math.hypot(t[0] - x, t[1] - z) < 6) ok = false;
+    for (const t of trees) if (Math.hypot(t[0] - x, t[1] - z) < 12) ok = false;
     if (!ok) continue;
-    const th = 3 + (hash(x, z) * 2) | 0;
-    for (let i = 1; i <= th; i++) setB(x, top + i, z, WOOD);
+    const th = 6 + (hash(x, z) * 5) | 0;
+    if (top + th + 4 >= H) continue;
+    for (let i = 1; i <= th; i++) {
+      setB(x, top + i, z, WOOD);
+      setB(x + 1, top + i, z, WOOD);
+      setB(x, top + i, z + 1, WOOD);
+      setB(x + 1, top + i, z + 1, WOOD);
+    }
     const ly = top + th;
-    for (let ox = -2; ox <= 2; ox++) for (let oz = -2; oz <= 2; oz++) {
-      if (Math.abs(ox) === 2 && Math.abs(oz) === 2) continue;
-      if (ox === 0 && oz === 0) continue;
-      setB(x + ox, ly, z + oz, LEAF);
-      if (Math.abs(ox) + Math.abs(oz) <= 2) setB(x + ox, ly + 1, z + oz, LEAF);
+    for (let ox = -3; ox <= 4; ox++) for (let oz = -3; oz <= 4; oz++) {
+      const dist = Math.hypot(ox - 0.5, oz - 0.5);
+      if (dist > 3.6) continue;
+      const trunk = ox >= 0 && ox <= 1 && oz >= 0 && oz <= 1;
+      if (!trunk) setB(x + ox, ly, z + oz, LEAF);
+      if (dist <= 2.4) setB(x + ox, ly + 1, z + oz, LEAF);
     }
     setB(x, ly + 1, z, LEAF);
+    setB(x + 1, ly + 1, z, LEAF);
+    setB(x, ly + 1, z + 1, LEAF);
+    setB(x + 1, ly + 1, z + 1, LEAF);
     setB(x, ly + 2, z, LEAF);
+    setB(x + 1, ly + 2, z, LEAF);
+    setB(x, ly + 2, z + 1, LEAF);
+    setB(x + 1, ly + 2, z + 1, LEAF);
+    setB(x, ly + 3, z, LEAF);
+    setB(x + 1, ly + 3, z + 1, LEAF);
     trees.push([x, z]);
   }
 }
 
 const COL = {
-  dirtTop: [0.36, 0.72, 0.28],
-  dirtSide: [0.55, 0.38, 0.20],
-  dirtBot: [0.42, 0.28, 0.14],
-  rock: [0.55, 0.57, 0.62],
-  wood: [0.42, 0.26, 0.12],
-  leaf: [0.22, 0.72, 0.32]
+  herbeA: [0.36, 0.72, 0.28], herbeB: [0.30, 0.64, 0.24], herbeC: [0.42, 0.78, 0.30],
+  terreA: [0.55, 0.38, 0.20], terreB: [0.48, 0.32, 0.16],
+  terreBot: [0.42, 0.28, 0.14],
+  rocheA: [0.55, 0.57, 0.62], rocheB: [0.46, 0.48, 0.52], rocheC: [0.62, 0.63, 0.66],
+  boisA: [0.42, 0.26, 0.12], boisB: [0.32, 0.18, 0.08], boisC: [0.50, 0.32, 0.16],
+  feuilleA: [0.22, 0.72, 0.32], feuilleB: [0.14, 0.52, 0.22], feuilleC: [0.32, 0.78, 0.28]
 };
 const FACES = [
   [0, 1, 0, [[0,1,0],[1,1,0],[1,1,1],[0,1,1]]],
@@ -656,18 +680,34 @@ const FACES = [
   [-1,0, 0, [[0,0,1],[0,0,0],[0,1,0],[0,1,1]]]
 ];
 
-function faceColor(t, ny) {
-  if (t === DIRT) return ny > 0.5 ? COL.dirtTop : ny < -0.5 ? COL.dirtBot : COL.dirtSide;
-  if (t === ROCK) return COL.rock;
-  if (t === WOOD) return COL.wood;
-  return COL.leaf;
+function faceColor(t, ny, x, y, z, nx, nz) {
+  const hv = hash(x * 1.3 + y * 17.1, z * 2.9);
+  const pick = (n) => (hv * n) | 0;
+  if (t === DIRT) {
+    if (ny > 0.5) {
+      const i = pick(3);
+      return i === 0 ? COL.herbeA : i === 1 ? COL.herbeB : COL.herbeC;
+    }
+    if (ny < -0.5) return COL.terreBot;
+    return pick(2) ? COL.terreB : COL.terreA;
+  }
+  if (t === ROCK) {
+    const i = pick(3);
+    return i === 0 ? COL.rocheA : i === 1 ? COL.rocheB : COL.rocheC;
+  }
+  if (t === WOOD) {
+    if (nz === -1 || nx === 1) return COL.boisB;
+    return COL.boisA;
+  }
+  if (getB(x + 1, y, z) === LEAF && getB(x - 1, y, z) === LEAF && getB(x, y, z + 1) === LEAF && getB(x, y, z - 1) === LEAF) return COL.feuilleB;
+  return pick(2) ? COL.feuilleC : COL.feuilleA;
 }
 
 function buildWorldMesh() {
   const pos = [], nrm = [], col = [];
   function addFace(x, y, z, nx, ny, nz, verts, t) {
-    const c = faceColor(t, ny);
-    const j = hash(x * 1.7 + nx, z * 2.3 + y) * 0.16 - 0.08;
+    const c = faceColor(t, ny, x, y, z, nx, nz);
+    const j = hash(x * 1.7 + nx, z * 2.3 + y) * 0.08 - 0.04;
     const shade = ny > 0.5 ? 1 : ny < -0.5 ? 0.55 : 0.78;
     const r = Math.min(1, Math.max(0, c[0] * shade + j));
     const g = Math.min(1, Math.max(0, c[1] * shade + j * 0.7));
@@ -676,7 +716,7 @@ function buildWorldMesh() {
     const tri = [0, 1, 2, 0, 2, 3];
     for (let k = 0; k < 6; k++) {
       const p = v[tri[k]];
-      pos.push(x + p[0], y + p[1], z + p[2]);
+      pos.push((x + p[0]) * INV_VX, (y + p[1]) * INV_VX, (z + p[2]) * INV_VX);
       nrm.push(nx, ny, nz);
       col.push(r, g, b);
     }
@@ -691,7 +731,10 @@ function buildWorldMesh() {
           const nx = F[0], ny = F[1], nz = F[2];
           const nb = getB(x + nx, y + ny, z + nz);
           const see = (t === LEAF) ? (nb === AIR) : (nb === AIR || nb === LEAF);
-            if (see) addFace(x, y, z, nx, ny, nz, F[3], t);
+          if (see) {
+            if (ny > 0.5 && t === DIRT && pos.length > 3000000) continue;
+            addFace(x, y, z, nx, ny, nz, F[3], t);
+          }
         }
       }
     }
@@ -929,6 +972,7 @@ const treeHp = Object.create(null);
 const parts = [];
 const puddles = [];
 const iceZones = [];
+const burning = Object.create(null);
 const keys = Object.create(null);
 const joy = { id: null, dx: 0, dy: 0 };
 const lookT = { id: null, lx: 0, ly: 0 };
@@ -937,24 +981,24 @@ let wasNight = false;
 let toastT = 0;
 
 function highest(x, z) {
-  x = Math.max(0, Math.min(W - 1, x | 0));
-  z = Math.max(0, Math.min(D - 1, z | 0));
-  for (let y = H - 1; y >= 0; y--) if (getB(x, y, z)) return y;
+  const vx = Math.max(0, Math.min(W - 1, vox(x)));
+  const vz = Math.max(0, Math.min(D - 1, vox(z)));
+  for (let y = H - 1; y >= 0; y--) if (getB(vx, y, vz)) return y * INV_VX;
   return 0;
 }
 function spawnPlayer() {
-  let bx = 48, bz = 50;
+  let bx = 48 * VX, bz = 50 * VX;
   for (let t = 0; t < 80; t++) {
-    const x = 40 + (t % 16);
-    const z = 44 + ((t / 16) | 0);
+    const x = (40 + (t % 16)) * VX;
+    const z = (44 + ((t / 16) | 0)) * VX;
     let y = -1;
     for (let yy = H - 1; yy >= 0; yy--) if (solidOf(getB(x, yy, z))) { y = yy; break; }
-    if (y >= 2 && getB(x, y, z) === DIRT && getB(x, y + 1, z) === AIR) { bx = x; bz = z; break; }
+    if (y >= 4 && getB(x, y, z) === DIRT && getB(x, y + 1, z) === AIR) { bx = x; bz = z; break; }
   }
-  player.x = bx + 0.5; player.z = bz + 0.5;
+  player.x = bx * INV_VX + 0.5 * INV_VX; player.z = bz * INV_VX + 0.5 * INV_VX;
   let sy = 0;
   for (let yy = H - 1; yy >= 0; yy--) if (solidOf(getB(bx, yy, bz))) { sy = yy; break; }
-  player.y = sy + 1.02;
+  player.y = (sy + 1) * INV_VX + 0.02;
   player.vx = player.vy = player.vz = 0;
   player.hp = MAX_HP; player.hunger = 100; player.mana = 100;
   player.yaw = 0.2; player.pitch = 0.18; player.face = 0.2;
@@ -971,9 +1015,9 @@ function spawnPlayer() {
   runSeed = (Math.random() * 1e9) | 0;
 }
 function collides(x, y, z, w, h) {
-  const x0 = Math.floor(x - w), x1 = Math.floor(x + w);
-  const y0 = Math.floor(y + 0.001), y1 = Math.floor(y + h - 0.02);
-  const z0 = Math.floor(z - w), z1 = Math.floor(z + w);
+  const x0 = Math.floor((x - w) * VX), x1 = Math.floor((x + w) * VX);
+  const y0 = Math.floor((y + 0.001) * VX), y1 = Math.floor((y + h - 0.02) * VX);
+  const z0 = Math.floor((z - w) * VX), z1 = Math.floor((z + w) * VX);
   for (let yi = y0; yi <= y1; yi++)
     for (let zi = z0; zi <= z1; zi++)
       for (let xi = x0; xi <= x1; xi++)
@@ -991,12 +1035,12 @@ function physics(p, w, h, dt) {
   } else p.grounded = false;
   p.x += p.vx * dt;
   if (collides(p.x, p.y, p.z, w, h)) {
-    if (p.grounded && !collides(p.x, p.y + 1.02, p.z, w, h)) p.y += 1.02;
+    if (p.grounded && !collides(p.x, p.y + STEP_UP, p.z, w, h)) p.y += STEP_UP;
     else { p.x -= p.vx * dt; p.vx = 0; }
   }
   p.z += p.vz * dt;
   if (collides(p.x, p.y, p.z, w, h)) {
-    if (p.grounded && !collides(p.x, p.y + 1.02, p.z, w, h)) p.y += 1.02;
+    if (p.grounded && !collides(p.x, p.y + STEP_UP, p.z, w, h)) p.y += STEP_UP;
     else { p.z -= p.vz * dt; p.vz = 0; }
   }
 }
@@ -1116,6 +1160,7 @@ function resetPlay() {
   buildWorldMesh();
   spawnPlayer();
   for (const k of Object.keys(treeHp)) delete treeHp[k];
+  for (const k of Object.keys(burning)) delete burning[k];
   mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0; stains.length = 0; fx.length = 0; pickups.length = 0; puddles.length = 0; iceZones.length = 0;
   boltFlash = 0;
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
@@ -1313,7 +1358,7 @@ function spawnServiteur(x, z, offMul) {
   const ang = player.face + Math.PI * 0.5;
   const sx = x + Math.cos(ang) * off;
   const sz = z + Math.sin(ang) * off;
-  const gy = highest(sx, sz) + 1.05;
+  const gy = highest(sx, sz) + INV_VX + 0.05;
   mobs.push({
     kind: "serviteur", x: sx, y: gy, z: sz, vx: 0, vy: 0, vz: 0,
     hp: SERV_HP, maxHp: SERV_HP,
@@ -1325,19 +1370,21 @@ function spawnServiteur(x, z, offMul) {
   beep(160, 0.12, 0.05, "sawtooth");
 }
 function spawnNecroVfx(x, z) {
-  const gy = highest(x, z) + 1.02;
+  const gy = highest(x, z) + STEP_UP;
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;
-    fx.push({
-      type: "gnd", x: x + Math.cos(a) * 0.45, y: gy, z: z + Math.sin(a) * 0.45,
-      age: 0, life: 0.85, s: 0.22, r: 0.10, g: 0.45, b: 0.22, glow: 0.20
+    parts.push({
+      x: x + Math.cos(a) * 0.48, y: gy - 0.02, z: z + Math.sin(a) * 0.48,
+      vx: (Math.random() - 0.5) * 0.12, vy: 0, vz: (Math.random() - 0.5) * 0.12,
+      r: 0.10, g: 0.45, b: 0.22,
+      life: 0.85, age: 0, s: 0.24, style: "stain"
     });
   }
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;
     parts.push({
       x: x + Math.cos(a) * 0.22, y: gy + 0.55, z: z + Math.sin(a) * 0.22,
-      vx: 0, vy: -2, vz: 0,
+      vx: 0, vy: -1.8, vz: 0,
       r: 0.22, g: 0.92, b: 0.42,
       life: 0.45, age: 0, s: 0.10, style: "drip"
     });
@@ -1351,12 +1398,12 @@ function pushMob(kind, minR, maxR, minDist) {
     const rad = minR + Math.random() * (maxR - minR);
     const x = 48 + Math.cos(ang) * rad;
     const z = 48 + Math.sin(ang) * rad;
-    if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue;
+    if (x < 3 || z < 3 || x > WW - 4 || z > DW - 4) continue;
     if (Math.hypot(x - player.x, z - player.z) < minDist) continue;
     const gy = highest(x, z);
-    const top = getB(x | 0, gy, z | 0);
+    const top = getB(vox(x), vox(gy), vox(z));
     if (top === WOOD || top === LEAF) continue;
-    const y = gy + 1.05;
+    const y = gy + INV_VX + 0.05;
     if (y < 1.5 || y > 11) continue;
     const mhp = mobHp(kind);
     mobs.push({
@@ -1411,18 +1458,19 @@ function eatViande() {
 function tryEat(dt) {
   eatCD -= dt;
   if (eatCD > 0 || player.hunger >= 99) return;
-  const x0 = Math.floor(player.x - 1.35), x1 = Math.floor(player.x + 1.35);
-  const y0 = Math.floor(player.y), y1 = Math.floor(player.y + 2.1);
-  const z0 = Math.floor(player.z - 1.35), z1 = Math.floor(player.z + 1.35);
+  const x0 = Math.floor((player.x - 1.35) * VX), x1 = Math.floor((player.x + 1.35) * VX);
+  const y0 = Math.floor(player.y * VX), y1 = Math.floor((player.y + 2.1) * VX);
+  const z0 = Math.floor((player.z - 1.35) * VX), z1 = Math.floor((player.z + 1.35) * VX);
   for (let y = y0; y <= y1; y++)
     for (let z = z0; z <= z1; z++)
       for (let x = x0; x <= x1; x++) {
         if (getB(x, y, z) === LEAF) {
           setB(x, y, z, AIR);
+          delete burning[burnKey(x, y, z)];
           player.hunger = Math.min(100, player.hunger + 24);
           eatCD = 0.45;
           meshDirty = true;
-          burst(x + 0.5, y + 0.5, z + 0.5, 0.2, 0.9, 0.3, 7, 3);
+          burst(wCenter(x), wCenter(y), wCenter(z), 0.2, 0.9, 0.3, 7, 3);
           beep(660, 0.06, 0.04, "triangle");
           if (player.hunger < 40) toast("Faim restaurée");
           return;
@@ -1474,7 +1522,7 @@ function addBoltForks(x0, y0, z0, x1, y1, z1, delay) {
 function feuQCount() {
   const r = qRank();
   if (r >= 8) return 3;
-  if (r >= 3) return 2;
+  if (r >= 3) return 3;
   return 1;
 }
 function glaceQCount() { return feuQCount(); }
@@ -1485,7 +1533,7 @@ function arcaneQCount() {
   if (r >= 5) return 4;
   if (r >= 2) return 3;
   if (r >= 1) return 2;
-  return 1;
+  return 0;
 }
 function foudreHops() {
   const r = qRank();
@@ -1547,10 +1595,11 @@ function addPuddle(x, z, r, dmg, dur) {
       return;
     }
   }
-  puddles.push({ x: x, z: z, tx: tx, tz: tz, r: r, dmg: dmg, life: dur, age: 0, tick: 0 });
+  puddles.push({ x: x, y: highest(x, z) + STEP_UP, z: z, tx: tx, tz: tz, r: r, dmg: dmg, life: dur, age: 0, tick: 0 });
+  ignitePuddle(puddles[puddles.length - 1]);
 }
 function spawnBraisesVfx(x, z) {
-  const gy = highest(x, z) + 1.02;
+  const gy = highest(x, z) + STEP_UP;
   for (let i = 0; i < 20; i++) {
     const a = Math.random() * Math.PI * 2;
     const rad = Math.random() * 1.6;
@@ -1564,15 +1613,15 @@ function spawnBraisesVfx(x, z) {
   }
 }
 function feuQBoom(x, y, z) {
-  const sc = feuExplRadius() / 2.2;
-  fx.push({ type: "boom", x: x, y: y, z: z, age: 0, life: 0.32, n: 8, r0: 0.35, r1: 2.2 * sc, s0: 0.38, s1: 0.12, r: 1.00, g: 0.40, b: 0.08, glow: 0.90 });
-  fx.push({ type: "boom2", x: x, y: y, z: z, age: 0, life: 0.32, delay: 0.08, n: 6, r0: 0.5, r1: 2.8 * sc, s0: 0.28, s1: 0.10, r: 1.00, g: 0.55, b: 0.12, glow: 0.70 });
+  fx.push({ type: "boom", x: x, y: y, z: z, age: 0, life: 0.32, n: 8, r0: 0.35, r1: 2.2, s0: 0.38, s1: 0.12, r: 1.00, g: 0.40, b: 0.08, glow: 0.90 });
+  fx.push({ type: "boom2", x: x, y: y, z: z, age: 0, life: 0.32, delay: 0.08, n: 6, r0: 0.5, r1: 2.8, s0: 0.28, s1: 0.10, r: 1.00, g: 0.55, b: 0.12, glow: 0.70 });
   fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.10, s: 1.05, r: 1.00, g: 0.92, b: 0.40, glow: 1 });
 }
 function applyFeuQImpact(x, y, z) {
   const rnk = qRank();
   if (rnk < 1) return;
-  hurtFoesAround(x, z, feuExplRadius(), Math.round(shotDmg("feu") * feuExplMul()), 5);
+  hurtFoesAround(x, z, feuExplRadius(), Math.round(shotDmg("feu") * feuExplMul()), 0);
+  igniteRadius(x, y, z, feuExplRadius(), 0);
   if (rnk >= 2) {
     const spec = rnk >= 10 ? { n: 8, dmg: 11, dur: 4.0 } : rnk >= 5 ? { n: 6, dmg: 9, dur: 3.2 } : { n: 4, dmg: 7, dur: 2.4 };
     for (let i = 0; i < spec.n; i++) {
@@ -1584,22 +1633,29 @@ function applyFeuQImpact(x, y, z) {
   }
 }
 function impactGlaceQ(x, y, z) {
-  fx.push({ type: "nova", x: x, y: y, z: z, age: 0, life: 1.05, n: 12, r0: 0.2, r1: 2.4, sx: 0.18, sy: 0.32, sz: 0.18, r: 0.55, g: 0.82, b: 1.00, glow: 0.45, fallAt: 0.55, expand: 0.35, yOff: 0.08 });
-  const gy = highest(x, z) + 1.02;
+  const rad = glaceNovaR();
+  const gy = highest(x, z) + STEP_UP;
+  fx.push({ type: "nova", x: x, y: gy, z: z, age: 0, life: 1.05, n: 12, r0: 0.2, r1: rad, sx: 0.16, sy: 0.46, sz: 0.16, r: 0.55, g: 0.82, b: 1.00, glow: 0.45, fallAt: 0.55, expand: 0.35, yOff: 0.08 });
+  fx.push({ type: "nova", x: x, y: gy, z: z, age: 0, life: 0.85, delay: 0.10, n: 10, r0: 0.5, r1: rad * 1.08, sx: 0.14, sy: 0.32, sz: 0.14, r: 0.70, g: 0.88, b: 1.00, glow: 0.32, fallAt: 0.50, expand: 0.28, yOff: 0.08 });
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2;
-    const rad = 0.4 + (i % 2) * 0.22;
-    fx.push({ type: "gnd", x: x + Math.cos(a) * rad, y: gy, z: z + Math.sin(a) * rad, age: 0, life: 1.3, s: 0.28, r: 0.70, g: 0.88, b: 1.00, glow: 0.25 });
-  }
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    fx.push({ type: "gnd", x: x + Math.cos(a) * 1.8, y: gy, z: z + Math.sin(a) * 1.8, age: 0, life: 0.6, delay: 0.10, s: 0.16, r: 0.70, g: 0.88, b: 1.00, glow: 0.15 });
+    const rr = 0.35 + (i % 2) * 0.18;
+    fx.push({ type: "gnd", x: x + Math.cos(a) * rr, y: gy, z: z + Math.sin(a) * rr, age: 0, life: 1.3, s: 0.28, r: 0.70, g: 0.88, b: 1.00, glow: 0.25 });
   }
 }
 function applyGlaceQImpact(x, y, z) {
   const rnk = qRank();
   if (rnk < 1) return;
-  slowFoesAround(x, z, glaceNovaR(), 1.5);
+  const rad = glaceNovaR();
+  for (let i = 0; i < mobs.length; i++) {
+    const m = mobs[i];
+    if (!isFoe(m)) continue;
+    if (Math.hypot(m.x - x, m.z - z) > rad) continue;
+    const wasSlow = (m.slow || 0) > 0;
+    m.slow = Math.max(m.slow || 0, 1.5);
+    if (rnk >= 10) m.para = Math.max(m.para || 0, 1.0);
+    else if (rnk >= 2 && wasSlow) m.para = Math.max(m.para || 0, 0.7);
+  }
   if (rnk >= 5) iceZones.push({ x: x, z: z, r: 2.2, life: 3, age: 0 });
 }
 function launchPendingShot(s) {
@@ -1638,6 +1694,7 @@ function updateHazards(dt) {
         const len = Math.hypot(dx, dz) || 1;
         hurtMob(m, p.dmg, dx / len, dz / len, 1.2);
       }
+      ignitePuddle(p);
     }
     if (p.age > p.life) puddles.splice(i, 1);
   }
@@ -1678,12 +1735,12 @@ function cast(kind, slot) {
       const x = ox + d.x * t, y = oy + d.y * t, z = oz + d.z * t;
       const dist = Math.hypot(x - ox, y - oy, z - oz);
       if (dist >= 26) break;
-      if (x < -4 || x > W + 4 || z < -4 || z > D + 4 || y < -6 || y > 48) break;
+      if (x < -4 || x > WW + 4 || z < -4 || z > DW + 4 || y < -6 || y > 48) break;
       if (t > 1.2) {
-        const bx = x | 0, by = y | 0, bz = z | 0;
+        const bx = vox(x), by = vox(y), bz = vox(z);
         const bb = getB(bx, by, bz);
         if (bb === WOOD || bb === LEAF) { treeHit = [bx, by, bz]; hx = x; hy = y; hz = z; break; }
-        if (isSolid(x, y, z)) { hx = x; hy = y; hz = z; break; }
+        if (isSolid(bx, by, bz)) { hx = x; hy = y; hz = z; break; }
       }
       for (let i = 0; i < mobs.length; i++) {
         const m = mobs[i];
@@ -1715,7 +1772,7 @@ function cast(kind, slot) {
     }
     boltFlash = q ? 0.10 : 0.07;
     shake = Math.max(shake, 0.28);
-    if (treeHit) damageTree(treeHit[0], treeHit[1], treeHit[2], foudreDmgAt(treeHit[0] + 0.5, treeHit[1] + 0.5, treeHit[2] + 0.5));
+    if (treeHit) damageTree(treeHit[0], treeHit[1], treeHit[2], foudreDmgAt(wCenter(treeHit[0]), wCenter(treeHit[1]), wCenter(treeHit[2])));
   } else if (kind === "arcane") {
     beep(640, 0.07, 0.05, "triangle");
     const q = isQCast(kind, slot);
@@ -1728,19 +1785,26 @@ function cast(kind, slot) {
         life: 2.4, age: 0, target: tgt, trail: 0
       });
     } else {
-      const n = arcaneQCount();
+      const extras = arcaneQCount();
       const acq = qRank() >= 3 ? 36 : 28;
-      const offs = yawSpread(n, 9);
-      for (let i = 0; i < n; i++) {
+      const spd = 11;
+      const tgt = nearestHostileAt(ox, oy, oz, acq, true);
+      shots.push({
+        kind, x: ox, y: oy, z: oz,
+        vx: fwd.x * spd, vy: 0.35, vz: fwd.z * spd,
+        life: 2.4, age: 0, target: tgt, trail: 0,
+        q: true, acq: acq, dmgMul: 1, spd: spd
+      });
+      const offs = yawSpread(extras, 18);
+      for (let i = 0; i < extras; i++) {
         const shot = {
           kind, x: ox, y: oy, z: oz,
           vx: 0, vy: 0.35, vz: 0,
           life: 2.4, age: 0, target: null, trail: 0,
-          q: true, acq: acq, dmgMul: i === 0 ? 1 : 0.55,
-          spd: 11, yawOff: offs[i], delay: i * 0.07, pending: true
+          q: true, acq: acq, dmgMul: 0.55,
+          spd: spd, yawOff: offs[i], delay: (i + 1) * 0.07, pending: true
         };
         shots.push(shot);
-        if (shot.delay <= 0) launchPendingShot(shot);
       }
     }
   } else if (kind === "necro") {
@@ -1750,7 +1814,7 @@ function cast(kind, slot) {
       const sz = player.z + fwd.z * 1.2;
       let nAlly = 0;
       for (let i = 0; i < mobs.length; i++) if (!mobs[i].dead && mobs[i].kind === "serviteur") nAlly++;
-      const nSp = (qRank() >= 8 && nAlly < totalMinionCap()) ? 2 : 1;
+      const nSp = (qRank() >= 8 && (totalMinionCap() - nAlly) >= 2) ? 2 : 1;
       if (nSp === 2) {
         spawnNecroVfx(sx, sz);
         spawnServiteur(sx, sz, 0.50);
@@ -1772,8 +1836,8 @@ function cast(kind, slot) {
     beep(kind === "feu" ? 240 : 500, 0.07, 0.05, "square");
     const q = isQCast(kind, slot);
     const n = q ? (kind === "feu" ? feuQCount() : glaceQCount()) : 1;
-    const spread = q && n >= 3 ? 12 : 8;
-    const offs = q ? yawSpread(n, spread) : [0];
+    const spread = q && qRank() >= 8 ? 12 : 8;
+    const offs = yawSpread(n, spread);
     for (let i = 0; i < n; i++) {
       const yaw = player.face + offs[i];
       const fxv = Math.sin(yaw), fzv = Math.cos(yaw);
@@ -1816,7 +1880,7 @@ function damageTree(sx, sy, sz, dmg) {
   if (!key) return;
   if (treeHp[key] == null) treeHp[key] = TREE_MAX_HP;
   treeHp[key] -= dmg;
-  burst(sx + 0.5, sy + 0.5, sz + 0.5, 0.45, 0.28, 0.12, 5, 2.8);
+  burst(wCenter(sx), wCenter(sy), wCenter(sz), 0.45, 0.28, 0.12, 5, 2.8);
   beep(260, 0.06, 0.035, "triangle");
   if (treeHp[key] <= 0) {
     delete treeHp[key];
@@ -1840,7 +1904,8 @@ function harvestTree(sx, sy, sz) {
     if (b !== WOOD && b !== LEAF) continue;
     if (b === WOOD) woods++; else leaves++;
     setB(x, y, z, AIR);
-    burst(x + 0.5, y + 0.5, z + 0.5, b === WOOD ? 0.45 : 0.2, b === WOOD ? 0.28 : 0.85, b === WOOD ? 0.12 : 0.3, 3, 2.4);
+    delete burning[burnKey(x, y, z)];
+    burst(wCenter(x), wCenter(y), wCenter(z), b === WOOD ? 0.45 : 0.2, b === WOOD ? 0.28 : 0.85, b === WOOD ? 0.12 : 0.3, 3, 2.4);
     for (let i = 0; i < 6; i++) {
       const n = nbr[i];
       const nx = x + n[0], ny = y + n[1], nz = z + n[2];
@@ -1849,13 +1914,133 @@ function harvestTree(sx, sy, sz) {
   }
   if (!woods && !leaves) return;
   meshDirty = true;
-  const gy = highest(sx, sz) + 1.05;
+  const gy = highest(sx * INV_VX, sz * INV_VX) + INV_VX + 0.05;
   const nDrop = 1 + ((Math.random() * 2) | 0);
   for (let i = 0; i < nDrop; i++) {
-    spawnPickup("bois", sx + 0.5 + (i ? 0.35 : -0.15), gy, sz + 0.5 + (i ? -0.2 : 0.12));
+    spawnPickup("bois", wCenter(sx) + (i ? 0.35 : -0.15), gy, wCenter(sz) + (i ? -0.2 : 0.12));
   }
   toast("Bois");
   beep(320, 0.09, 0.05, "triangle");
+}
+
+const BURN_NBR = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+const BURN_CAP = 10;
+function burnKey(x, y, z) { return (x | 0) + "," + (y | 0) + "," + (z | 0); }
+function burnCount() {
+  let n = 0;
+  for (const k in burning) n++;
+  return n;
+}
+function igniteBlock(x, y, z, hops) {
+  hops = hops || 0;
+  if (hops > 2) return false;
+  x = x | 0; y = y | 0; z = z | 0;
+  const b = getB(x, y, z);
+  if (b !== WOOD && b !== LEAF) return false;
+  const k = burnKey(x, y, z);
+  if (burning[k]) return false;
+  if (burnCount() >= BURN_CAP) return false;
+  const wood = b === WOOD;
+  burning[k] = {
+    x: x, y: y, z: z, kind: b, hops: hops,
+    hp: wood ? 160 : 120,
+    tickDmg: wood ? 16 : 20,
+    ttl: wood ? 5 : 3,
+    nextTick: 0.5,
+    age: 0
+  };
+  return true;
+}
+function igniteRadius(wx, wy, wz, r, hops) {
+  hops = hops || 0;
+  const x0 = vox(wx - r), x1 = vox(wx + r);
+  const y0 = vox(wy - r), y1 = vox(wy + r);
+  const z0 = vox(wz - r), z1 = vox(wz + r);
+  for (let y = y0; y <= y1; y++)
+    for (let z = z0; z <= z1; z++)
+      for (let x = x0; x <= x1; x++) {
+        const cx = wCenter(x), cy = wCenter(y), cz = wCenter(z);
+        if (Math.hypot(cx - wx, cy - wy, cz - wz) <= r + 0.28) igniteBlock(x, y, z, hops);
+      }
+}
+function ignitePuddle(p) {
+  const gy = p.y != null ? p.y : highest(p.x, p.z) + STEP_UP;
+  igniteRadius(p.x, gy + 0.35, p.z, p.r, 0);
+}
+function finishBurned(br) {
+  const x = br.x, y = br.y, z = br.z, kind = br.kind;
+  delete burning[burnKey(x, y, z)];
+  if (getB(x, y, z) === AIR) return;
+  setB(x, y, z, AIR);
+  meshDirty = true;
+  burst(wCenter(x), wCenter(y), wCenter(z), 1.00, 0.38, 0.08, 5, 2.6);
+  if (kind !== WOOD) return;
+  let seed = null;
+  for (let i = 0; i < 6; i++) {
+    const n = BURN_NBR[i];
+    const b = getB(x + n[0], y + n[1], z + n[2]);
+    if (b === WOOD || b === LEAF) { seed = [x + n[0], y + n[1], z + n[2]]; break; }
+  }
+  if (seed) {
+    if (!treeKey(seed[0], seed[1], seed[2])) harvestTree(seed[0], seed[1], seed[2]);
+  }
+}
+function updateBurning(dt) {
+  const keysB = Object.keys(burning);
+  let nearFire = false;
+  for (let i = 0; i < keysB.length; i++) {
+    const br = burning[keysB[i]];
+    if (!br) continue;
+    const cur = getB(br.x, br.y, br.z);
+    if (cur !== WOOD && cur !== LEAF) { delete burning[keysB[i]]; continue; }
+    br.age += dt;
+    br.nextTick -= dt;
+    const wx = wCenter(br.x), wy = wCenter(br.y), wz = wCenter(br.z);
+    if (Math.random() < dt * 9) {
+      parts.push({
+        x: wx + (Math.random() - 0.5) * 0.18, y: wy + 0.08, z: wz + (Math.random() - 0.5) * 0.18,
+        vx: (Math.random() - 0.5) * 0.35, vy: 1.15, vz: (Math.random() - 0.5) * 0.35,
+        r: 1, g: 0.40, b: 0.08, r1: 0.18, g1: 0.06, b1: 0.02,
+        life: 0.32 + Math.random() * 0.2, age: 0, s: 0.07 + Math.random() * 0.05,
+        style: "emberg", ground: wy - 0.12
+      });
+    }
+    if (Math.hypot(player.x - wx, (player.y + 0.7) - wy, player.z - wz) < 1.15) nearFire = true;
+    for (let p = 0; p < pickups.length; p++) {
+      const pk = pickups[p];
+      if (pk.kind !== "bois" || pk.burn != null) continue;
+      if (Math.hypot(pk.x - wx, pk.z - wz) < 1.2 && Math.abs(pk.y - wy) < 1.5) pk.burn = 2.8;
+    }
+    if (br.nextTick <= 0) {
+      br.nextTick += 0.5;
+      br.hp -= br.tickDmg;
+      if (br.hops < 2) {
+        for (let n = 0; n < 6; n++) {
+          const d = BURN_NBR[n];
+          igniteBlock(br.x + d[0], br.y + d[1], br.z + d[2], br.hops + 1);
+        }
+      }
+      if (br.hp <= 0 || br.age >= br.ttl) finishBurned(br);
+    }
+  }
+  if (nearFire && mode === "play" && player.hp > 0) {
+    player.hp -= 6 * dt;
+    if (player.hp <= 0) die();
+  }
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    const pk = pickups[i];
+    if (pk.burn == null) continue;
+    pk.burn -= dt;
+    if (Math.random() < dt * 8) {
+      parts.push({
+        x: pk.x, y: pk.y + 0.18, z: pk.z,
+        vx: (Math.random() - 0.5) * 0.2, vy: 1.05, vz: (Math.random() - 0.5) * 0.2,
+        r: 1, g: 0.35, b: 0.06, r1: 0.2, g1: 0.06, b1: 0.02,
+        life: 0.28, age: 0, s: 0.09, style: "emberg", ground: pk.y
+      });
+    }
+    if (pk.burn <= 0) pickups.splice(i, 1);
+  }
 }
 
 function punch() {
@@ -1874,9 +2059,9 @@ function punch() {
         return;
       }
     }
-    const x = Math.floor(px);
-    const y = Math.floor(py);
-    const z = Math.floor(pz);
+    const x = vox(px);
+    const y = vox(py);
+    const z = vox(pz);
     const b = getB(x, y, z);
     if (b === WOOD || b === LEAF) {
       damageTree(x, y, z, punchDmg());
@@ -1956,7 +2141,7 @@ function updateMobs(dt) {
         const ang = player.face + Math.PI;
         m.x = player.x + Math.sin(ang) * 1.5;
         m.z = player.z + Math.cos(ang) * 1.5;
-        m.y = highest(m.x, m.z) + 1.05;
+        m.y = highest(m.x, m.z) + INV_VX + 0.05;
         m.vx = 0; m.vz = 0;
       }
       if (tgt) {
@@ -2072,7 +2257,7 @@ function impactFeu(x, y, z, q) {
   }
   fx.push({ type: "boom", x: x, y: y, z: z, age: 0, life: 0.28 });
   fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.08, s: 0.9, r: 1, g: 0.92, b: 0.45, glow: 1 });
-  const gy = highest(x, z) + 1.02;
+  const gy = highest(x, z) + STEP_UP;
   const nEm = 10 + ((Math.random() * 3) | 0);
   for (let i = 0; i < nEm; i++) {
     const a = Math.random() * Math.PI * 2;
@@ -2087,8 +2272,8 @@ function impactFeu(x, y, z, q) {
   }
 }
 function impactGlace(x, y, z, q) {
-  if (q) { impactGlaceQ(x, y, z); return; }
-  const gy = highest(x, z) + 1.02;
+  if (q && qRank() >= 1) { impactGlaceQ(x, y, z); return; }
+  const gy = highest(x, z) + STEP_UP;
   fx.push({ type: "nova", x: x, y: gy, z: z, age: 0, life: 1.15 });
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2 + Math.random() * 0.3;
@@ -2111,7 +2296,7 @@ function impactArcane(x, y, z) {
   }
 }
 function impactNecro(x, y, z) {
-  const gy = highest(x, z) + 1.02;
+  const gy = highest(x, z) + STEP_UP;
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2;
     fx.push({
@@ -2166,12 +2351,13 @@ function updateShots(dt) {
     const hb = s.kind === "arcane" ? 0.72 : s.kind === "necro" ? 1.05 : 1.45;
     const hbY = s.kind === "arcane" ? 0.8 : 1.25;
     if (s.age > 0.12) {
-      const bx = s.x | 0, by = s.y | 0, bz = s.z | 0;
+      const bx = vox(s.x), by = vox(s.y), bz = vox(s.z);
       const bb = getB(bx, by, bz);
       if (bb === WOOD || bb === LEAF) {
-        damageTree(bx, by, bz, Math.round(shotDmg(s.kind) * (s.dmgMul != null ? s.dmgMul : 1)));
+        if (s.kind === "feu") igniteBlock(bx, by, bz, 0);
+        else damageTree(bx, by, bz, Math.round(shotDmg(s.kind) * (s.dmgMul != null ? s.dmgMul : 1)));
         dead = true;
-      } else if (isSolid(s.x, s.y, s.z)) dead = true;
+      } else if (isSolid(bx, by, bz)) dead = true;
     }
     for (let j = 0; j < mobs.length; j++) {
       const m = mobs[j];
@@ -2597,11 +2783,19 @@ function render() {
 
   bindInterleaved(cubeBuf);
   const bob = Math.sin(player.bob) * 0.05;
+  const tFire = performance.now() * 0.012;
+  for (const k in burning) {
+    const br = burning[k];
+    const fl = 0.82 + 0.18 * Math.sin(tFire + br.x * 1.7 + br.z);
+    const s0 = INV_VX * (0.92 + 0.10 * fl);
+    drawCube(wCenter(br.x), wCenter(br.y), wCenter(br.z), s0, s0, s0, 0, 1.00, 0.36 * fl, 0.07, 0.48 * fl);
+  }
   drawMage(player.x, player.y, player.z, player.face, bob, player.flash);
   for (const pk of pickups) {
     const by = pk.y + 0.16 + Math.sin(pk.bob) * 0.09;
     if (pk.kind === "bois") {
-      drawCube(pk.x, by, pk.z, 0.3, 0.22, 0.3, pk.bob * 0.25, 0.5, 0.3, 0.12, 0.04);
+      if (pk.burn != null) drawCube(pk.x, by, pk.z, 0.3, 0.22, 0.3, pk.bob * 0.25, 1.00, 0.32, 0.06, 0.40);
+      else drawCube(pk.x, by, pk.z, 0.3, 0.22, 0.3, pk.bob * 0.25, 0.5, 0.3, 0.12, 0.04);
     } else {
       drawCube(pk.x, by, pk.z, 0.26, 0.2, 0.26, pk.bob * 0.35, 0.86, 0.34, 0.2, 0.08);
     }
@@ -2624,6 +2818,16 @@ function render() {
   }
   for (const b of bolts) drawLightning(b);
   for (const f of fx) drawFx(f);
+  for (const p of puddles) {
+    const k = Math.max(0, 1 - p.age / Math.max(0.001, p.life));
+    const gy = p.y != null ? p.y : highest(p.x, p.z) + STEP_UP;
+    drawCube(p.x, gy, p.z, p.r * 1.55, 0.06, p.r * 1.55, 0, 1.00, 0.28, 0.06, 0.32 * k);
+  }
+  for (const iz of iceZones) {
+    const k = Math.max(0, 1 - iz.age / Math.max(0.001, iz.life));
+    const gy = highest(iz.x, iz.z) + STEP_UP;
+    drawCube(iz.x, gy, iz.z, iz.r * 1.7, 0.05, iz.r * 1.7, 0, 0.55, 0.88, 1.00, 0.22 * k);
+  }
   for (const stn of stains) {
     const k = 1 - stn.age / stn.life;
     drawCube(stn.x, stn.y, stn.z, stn.s * (0.7 + 0.3 * k), 0.06, stn.s * (0.7 + 0.3 * k), 0, 0.55, 0.82, 1, 0.22 * k);
@@ -2664,7 +2868,7 @@ function updateCamera(dt) {
     tz = player.z + Math.cos(ang) * 12;
   }
   for (let i = 0; i < 6; i++) {
-    if (!isSolid(tx, ty, tz)) break;
+    if (!isSolid(vox(tx), vox(ty), vox(tz))) break;
     dist *= 0.75;
     tx = player.x - backX * dist;
     ty = player.y + 2.1;
@@ -2755,6 +2959,7 @@ function update(dt) {
     for (let i = pickups.length - 1; i >= 0; i--) {
       const pk = pickups[i];
       const dx = player.x - pk.x, dz = player.z - pk.z;
+      if (pk.burn != null) continue;
       if (dx * dx + dz * dz > 1.21) continue;
       if (Math.abs(player.y - pk.y) > 1.5) continue;
       if (pk.kind === "bois") { player.bois++; toast("+1 bois"); }
@@ -2763,6 +2968,7 @@ function update(dt) {
       pickups.splice(i, 1);
     }
     updateHazards(dt);
+    updateBurning(dt);
     updateMobs(dt);
     updateShots(dt);
     updateHUD();
