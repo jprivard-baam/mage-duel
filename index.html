@@ -598,11 +598,11 @@ const SKEL_HP = 160, SKEL_ATK = 50, SKEL_SPD = 2.75, SKEL_ARM = 0.04;
 const CERF_HP = 80, CERF_ATK = 0, CERF_FLEE = 4.2, CERF_ARM = 0, CERF_FOOD = 55;
 const HOSTILE = { wolf: 1, slime: 1, zombie: 1, squelette: 1 };
 const ROBE = {
-  feu:    { terre: [0.72, 0.28, 0.12], terre2: [0.52, 0.16, 0.08], cuir: [0.28, 0.10, 0.06] },
-  glace:  { terre: [0.42, 0.55, 0.62], terre2: [0.28, 0.38, 0.48], cuir: [0.18, 0.24, 0.32] },
-  foudre: { terre: [0.22, 0.34, 0.62], terre2: [0.14, 0.22, 0.48], cuir: [0.10, 0.14, 0.28] },
-  arcane: { terre: [0.58, 0.22, 0.55], terre2: [0.42, 0.12, 0.40], cuir: [0.22, 0.08, 0.22] },
-  necro:  { terre: [0.28, 0.48, 0.22], terre2: [0.18, 0.32, 0.14], cuir: [0.12, 0.18, 0.10] }
+  feu:    { terre: [0.95, 0.22, 0.06], terre2: [0.72, 0.10, 0.04], cuir: [0.34, 0.08, 0.04] },
+  glace:  { terre: [0.28, 0.78, 0.98], terre2: [0.12, 0.48, 0.78], cuir: [0.08, 0.22, 0.40] },
+  foudre: { terre: [0.18, 0.38, 0.98], terre2: [0.08, 0.20, 0.72], cuir: [0.06, 0.10, 0.32] },
+  arcane: { terre: [0.82, 0.18, 0.95], terre2: [0.56, 0.08, 0.68], cuir: [0.28, 0.06, 0.32] },
+  necro:  { terre: [0.22, 0.72, 0.18], terre2: [0.10, 0.42, 0.10], cuir: [0.08, 0.18, 0.08] }
 };
 const ROBE_FALLBACK = { terre: [0.62, 0.36, 0.18], terre2: [0.52, 0.28, 0.14], cuir: [0.32, 0.16, 0.08] };
 const canvas = document.getElementById("c");
@@ -746,12 +746,12 @@ function genWorld() {
 }
 
 const COL = {
-  herbeA: [0.36, 0.72, 0.28], herbeB: [0.30, 0.64, 0.24], herbeC: [0.42, 0.78, 0.30],
-  terreA: [0.55, 0.38, 0.20], terreB: [0.48, 0.32, 0.16],
-  terreBot: [0.42, 0.28, 0.14],
-  rocheA: [0.55, 0.57, 0.62], rocheB: [0.46, 0.48, 0.52], rocheC: [0.62, 0.63, 0.66],
-  boisA: [0.42, 0.26, 0.12], boisB: [0.32, 0.18, 0.08], boisC: [0.50, 0.32, 0.16],
-  feuilleA: [0.22, 0.72, 0.32], feuilleB: [0.14, 0.52, 0.22], feuilleC: [0.32, 0.78, 0.28]
+  herbeA: [0.28, 0.84, 0.22], herbeB: [0.20, 0.74, 0.16], herbeC: [0.40, 0.92, 0.28],
+  terreA: [0.78, 0.44, 0.14], terreB: [0.66, 0.34, 0.10],
+  terreBot: [0.50, 0.26, 0.08],
+  rocheA: [0.62, 0.66, 0.78], rocheB: [0.50, 0.54, 0.64], rocheC: [0.76, 0.80, 0.88],
+  boisA: [0.56, 0.28, 0.08], boisB: [0.40, 0.18, 0.05], boisC: [0.68, 0.38, 0.12],
+  feuilleA: [0.16, 0.82, 0.26], feuilleB: [0.08, 0.56, 0.16], feuilleC: [0.34, 0.92, 0.20]
 };
 const FACES = [
   [0, 1, 0, [[0,1,0],[1,1,0],[1,1,1],[0,1,1]]],
@@ -789,8 +789,8 @@ function buildWorldMesh() {
   const pos = [], nrm = [], col = [];
   function addFace(x, y, z, nx, ny, nz, verts, t) {
     const c = faceColor(t, ny, x, y, z, nx, nz);
-    const j = hash(x * 1.7 + nx, z * 2.3 + y) * 0.08 - 0.04;
-    const shade = ny > 0.5 ? 1 : ny < -0.5 ? 0.55 : 0.78;
+    const j = 0;
+    const shade = ny > 0.5 ? 1 : ny < -0.5 ? 0.50 : 0.78;
     const r = Math.min(1, Math.max(0, c[0] * shade + j));
     const g = Math.min(1, Math.max(0, c[1] * shade + j * 0.7));
     const b = Math.min(1, Math.max(0, c[2] * shade + j * 0.4));
@@ -3327,14 +3327,14 @@ function skyColors() {
   const dusk = Math.max(0, 1 - Math.abs(sunY) * 3);
   let r, g, b;
   if (sunY > 0) {
-    r = 0.45 + sunY * 0.2 + dusk * 0.4;
-    g = 0.62 + sunY * 0.18 + dusk * 0.1;
-    b = 0.92 - dusk * 0.45;
+    r = 0.38 + sunY * 0.12 + dusk * 0.55;
+    g = 0.72 + sunY * 0.10 + dusk * 0.04;
+    b = 1.00 - dusk * 0.28;
   } else {
     const n = -sunY;
-    r = 0.07 + (1 - n) * 0.2;
-    g = 0.05 + (1 - n) * 0.12;
-    b = 0.14 + (1 - n) * 0.2;
+    r = 0.28 + (1 - n) * 0.16;
+    g = 0.08 + (1 - n) * 0.06;
+    b = 0.48 + (1 - n) * 0.10;
   }
   const amb = sunY > 0 ? 0.38 + sunY * 0.22 : 0.16;
   const sunDx = Math.cos(phase * Math.PI * 2), sunDy = Math.max(0.15, sunY * 0.7 + 0.35), sunDz = 0.35;
