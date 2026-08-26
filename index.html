@@ -3404,14 +3404,24 @@ function drawSlime(m) {
 
 function drawFireShot(s) {
   const age = s.age || 0;
-  const k = s.q ? 1.25 : 1;
-  const flick = (s.q ? 0.10 : 0.08) * Math.sin(age * 36);
-  const heart = (s.q ? 0.62 : 0.50) + flick;
-  drawCube(s.x, s.y, s.z, 0.62 * k, 0.62 * k, 0.62 * k, 0, 1.00, 0.35, 0.12, 0.55);
-  drawCube(s.x, s.y, s.z, 0.40 * k, 0.40 * k, 0.40 * k, 0, 1.00, 0.55, 0.16, 0.70);
-  drawCube(s.x, s.y, s.z, heart, heart, heart, 0, 1.00, 0.82, 0.18, 0.90);
+  const cell = s.q ? 0.19 : 0.15;
+  const flick = 0.08 * Math.sin(age * 36);
+  for (let ix = -1; ix <= 1; ix++) {
+    for (let iy = -1; iy <= 1; iy++) {
+      for (let iz = -1; iz <= 1; iz++) {
+        const d2 = ix * ix + iy * iy + iz * iz;
+        if (d2 > 2) continue;
+        let r, g, b, glow;
+        if (d2 === 0) { r = 1.00; g = 0.88; b = 0.28; glow = s.q ? 1.00 : 0.95; }
+        else if (d2 === 1) { r = 1.00; g = 0.50; b = 0.10; glow = 0.75; }
+        else { r = 1.00; g = 0.30; b = 0.06; glow = 0.55; }
+        const sz = cell + flick * 0.04;
+        drawCube(s.x + ix * cell, s.y + iy * cell, s.z + iz * cell, sz, sz, sz, 0, r, g, b, glow);
+      }
+    }
+  }
   const lh = (0.32 + 0.10 * Math.sin(age * 28)) * (s.q ? 1.2 : 1);
-  drawCube(s.x, s.y + 0.22, s.z, 0.22, lh, 0.22, 0, 1.00, 0.32, 0.08, 0.70);
+  drawCube(s.x, s.y + (s.q ? 0.26 : 0.22), s.z, 0.22, lh, 0.22, 0, 1.00, 0.32, 0.08, 0.70);
   const nOrb = s.q ? 4 : 2;
   for (let i = 0; i < nOrb; i++) {
     const ang = age * 14 + i * Math.PI * 2 / nOrb;
