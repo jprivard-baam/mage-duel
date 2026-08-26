@@ -115,6 +115,56 @@ html, body {
   text-align: center;
   line-height: 1.6;
 }
+.btn-play:disabled {
+  opacity: .38;
+  cursor: not-allowed;
+  animation: none;
+  filter: grayscale(.4);
+  box-shadow: 0 0 0 1px #5a4410, 4px 4px 0 #2a1e08, inset 0 1px 0 rgba(255,255,255,.25);
+}
+.class-pick {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 auto 22px;
+}
+.cls-btn {
+  appearance: none;
+  border: 2px solid rgba(255,255,255,.22);
+  background: rgba(8,4,16,.62);
+  color: var(--cream);
+  font-family: var(--font-d);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  width: 88px;
+  min-height: 92px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 0 rgba(0,0,0,.35);
+}
+.cls-btn .cls-dot {
+  width: 18px; height: 18px; border-radius: 50%;
+}
+.cls-btn[data-cls="feu"] .cls-dot { background: var(--fire); box-shadow: 0 0 12px var(--fire); }
+.cls-btn[data-cls="glace"] .cls-dot { background: var(--ice); box-shadow: 0 0 12px var(--ice); }
+.cls-btn[data-cls="foudre"] .cls-dot { background: var(--bolt); box-shadow: 0 0 12px var(--bolt); }
+.cls-btn.on {
+  border-color: var(--gold);
+  color: #fff6d4;
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 1px var(--gold), 0 6px 0 #3a2a08, 0 0 22px rgba(212,175,55,.45);
+}
+.cls-btn[data-cls="feu"].on { background: radial-gradient(circle at 35% 25%, rgba(255,90,31,.45), rgba(8,4,16,.75)); }
+.cls-btn[data-cls="glace"].on { background: radial-gradient(circle at 35% 25%, rgba(90,212,255,.4), rgba(8,4,16,.75)); }
+.cls-btn[data-cls="foudre"].on { background: radial-gradient(circle at 35% 25%, rgba(192,132,252,.42), rgba(8,4,16,.75)); }
+.cls-btn:active { transform: scale(.96); }
 
 #hud {
   position: absolute;
@@ -214,9 +264,14 @@ html, body {
 }
 .abtn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.35); }
 .abtn.off { opacity: .38; filter: grayscale(.4); }
-#btn-feu { background: radial-gradient(circle at 35% 30%, #ffb087, var(--fire) 55%, #9a1c00); }
-#btn-glace { background: radial-gradient(circle at 35% 30%, #d9f7ff, var(--ice) 55%, #0e7490); }
-#btn-foudre { background: radial-gradient(circle at 35% 30%, #f3e8ff, var(--bolt) 55%, #6b21a8); }
+#btn-sort {
+  width: 84px; height: 84px;
+  font-size: 13px;
+  letter-spacing: .12em;
+}
+#btn-sort.feu { background: radial-gradient(circle at 35% 30%, #ffb087, var(--fire) 55%, #9a1c00); }
+#btn-sort.glace { background: radial-gradient(circle at 35% 30%, #d9f7ff, var(--ice) 55%, #0e7490); }
+#btn-sort.foudre { background: radial-gradient(circle at 35% 30%, #f3e8ff, var(--bolt) 55%, #6b21a8); }
 #btn-saut {
   width: 72px; height: 72px;
   background: radial-gradient(circle at 35% 30%, #fff, #e5e7eb 50%, #6b7280);
@@ -290,6 +345,9 @@ html, body {
   #joy-base { width: 110px; height: 110px; }
   .abtn { width: 52px; height: 52px; font-size: 10px; }
   #btn-saut, #btn-frap { width: 60px; height: 60px; }
+  #btn-sort { width: 68px; height: 68px; font-size: 11px; }
+  .class-pick { margin-bottom: 14px; }
+  .cls-btn { width: 76px; min-height: 78px; font-size: 11px; }
   #hotbar { bottom: calc(12px + var(--safe-b)); }
   .slot { width: 50px; height: 54px; }
   .home-hero h1 { font-size: clamp(32px, 7vw, 48px); }
@@ -304,8 +362,13 @@ html, body {
     <h1>Cubemancy</h1>
     <div class="gold-rule"></div>
     <div class="sub">Survive. Cast. Cube.</div>
-    <button class="btn btn-play" id="btn-play" type="button">Jouer</button>
-    <p class="home-hint">Joystick pour marcher · glisser pour regarder<br>Saut · Frapper · Feu · Glace · Foudre</p>
+    <div class="class-pick" id="class-pick">
+      <button type="button" class="cls-btn" data-cls="feu" id="cls-feu"><span class="cls-dot"></span>Feu</button>
+      <button type="button" class="cls-btn" data-cls="glace" id="cls-glace"><span class="cls-dot"></span>Glace</button>
+      <button type="button" class="cls-btn" data-cls="foudre" id="cls-foudre"><span class="cls-dot"></span>Foudre</button>
+    </div>
+    <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
+    <p class="home-hint">Choisis une classe · E pour le sort (desktop)<br>iPhone : bouton Sort · Saut · Frapper</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -327,11 +390,7 @@ html, body {
     <div id="joy-base"><div id="joy-knob"></div></div>
   </div>
   <div id="actions">
-    <div class="spells">
-      <button class="abtn" id="btn-feu" type="button">Feu</button>
-      <button class="abtn" id="btn-glace" type="button">Glace</button>
-      <button class="abtn" id="btn-foudre" type="button">Foudre</button>
-    </div>
+    <button class="abtn" id="btn-sort" type="button">Sort</button>
     <div class="spells">
       <button class="abtn" id="btn-frap" type="button">Frapper</button>
       <button class="abtn" id="btn-saut" type="button">Saut</button>
@@ -680,13 +739,13 @@ let spawnedNight = false;
 let shake = 0;
 let meshDirty = false;
 let eatCD = 0, spellCD = 0, punchCD = 0;
-let lastSpell = "feu";
+let lastSpell = null;
 const player = {
   x: 48, y: 8, z: 50, vx: 0, vy: 0, vz: 0,
   yaw: 0.35, pitch: 0.22, face: 0.35,
   hp: MAX_HP, hunger: 100, mana: 100,
   grounded: false, flash: 0, inv: 0, bob: 0,
-  bois: 0
+  bois: 0, cls: null
 };
 const PW = 0.26, PH = 1.48;
 const mobs = [];
@@ -1175,7 +1234,8 @@ function drawMage(x, y, z, face, bob, flash) {
   drawCube(x, y + 1.08 + bob, z, 0.42, 0.42, 0.42, face, 0.95 + f, 0.78, 0.62, f * 0.3);
   drawCube(x, y + 1.38 + bob, z, 0.5, 0.22, 0.5, face, 0.22, 0.1, 0.4, 0);
   drawCube(x, y + 1.58 + bob, z, 0.22, 0.28, 0.22, face, 0.22, 0.1, 0.4, 0);
-  const gem = lastSpell === "feu" ? [1, 0.35, 0.1] : lastSpell === "glace" ? [0.4, 0.9, 1] : [0.8, 0.5, 1];
+  const gemKind = player.cls || lastSpell;
+  const gem = gemKind === "feu" ? [1, 0.35, 0.1] : gemKind === "glace" ? [0.4, 0.9, 1] : gemKind === "foudre" ? [0.8, 0.5, 1] : [0.85, 0.72, 0.28];
   const sx = x + Math.cos(face) * 0.42, sz = z - Math.sin(face) * 0.42;
   drawCube(sx, y + 0.7 + bob, sz, 0.1, 1.05, 0.1, face, 0.35, 0.2, 0.1, 0);
   drawCube(sx, y + 1.28 + bob, sz, 0.2, 0.2, 0.2, face, gem[0], gem[1], gem[2], 0.35);
@@ -1294,10 +1354,10 @@ function updateHUD() {
   hunI.style.transform = "scaleX(" + Math.max(0, player.hunger / 100) + ")";
   manI.style.transform = "scaleX(" + Math.max(0, player.mana / 100) + ")";
   clockEl.textContent = isNight() ? "☾" : "☀";
-  const canF = player.mana >= 26, canG = player.mana >= 22, canL = player.mana >= 32;
-  $("btn-feu").classList.toggle("off", !canF);
-  $("btn-glace").classList.toggle("off", !canG);
-  $("btn-foudre").classList.toggle("off", !canL);
+  const kind = player.cls;
+  const cost = kind === "feu" ? 26 : kind === "glace" ? 22 : kind === "foudre" ? 32 : 26;
+  const sortBtn = $("btn-sort");
+  if (sortBtn) sortBtn.classList.toggle("off", !kind || player.mana < cost);
   const bn = $("bois-n"); if (bn) bn.textContent = String(player.bois | 0);
   if (toastT > 0) {
     toastT -= 0.016;
@@ -1389,9 +1449,7 @@ window.addEventListener("keydown", (e) => {
   keys[e.code] = true;
   if (e.code === "Space") { e.preventDefault(); jump(); }
   if (e.code === "KeyF") { e.preventDefault(); punch(); }
-  if (e.code === "Digit1") cast("feu");
-  if (e.code === "Digit2") cast("glace");
-  if (e.code === "Digit3") cast("foudre");
+  if (e.code === "KeyE") { e.preventDefault(); if (player.cls) cast(player.cls); }
 }, { passive: false });
 window.addEventListener("keyup", (e) => { keys[e.code] = false; });
 
@@ -1464,7 +1522,36 @@ window.addEventListener("mousemove", (e) => {
 });
 window.addEventListener("mouseup", onUp);
 
+function applyClassUI() {
+  lastSpell = player.cls || lastSpell;
+  const sort = $("btn-sort");
+  if (sort) {
+    sort.classList.remove("feu", "glace", "foudre");
+    if (player.cls) sort.classList.add(player.cls);
+  }
+  const pick = document.querySelectorAll(".cls-btn");
+  for (let i = 0; i < pick.length; i++) pick[i].classList.toggle("on", pick[i].dataset.cls === player.cls);
+  const play = $("btn-play");
+  if (play) play.disabled = !player.cls;
+}
+
+function pickClass(cls) {
+  if (cls !== "feu" && cls !== "glace" && cls !== "foudre") return;
+  player.cls = cls;
+  lastSpell = cls;
+  applyClassUI();
+  beep(cls === "feu" ? 240 : cls === "glace" ? 500 : 880, 0.07, 0.04, "triangle");
+}
+
+const classPick = $("class-pick");
+if (classPick) classPick.addEventListener("click", (e) => {
+  const b = e.target.closest && e.target.closest(".cls-btn");
+  if (b) pickClass(b.dataset.cls);
+});
+
 $("btn-play").addEventListener("click", () => {
+  if (!player.cls) return;
+  applyClassUI();
   beep(330, 0.08, 0.04, "triangle");
   homeEl.classList.add("hidden");
   playUI.classList.remove("hidden");
@@ -1473,15 +1560,14 @@ $("btn-play").addEventListener("click", () => {
 });
 $("btn-retry").addEventListener("click", () => {
   resetPlay();
+  applyClassUI();
   mode = "play";
   homeEl.classList.add("hidden");
   playUI.classList.remove("hidden");
 });
 $("btn-saut").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); jump(); });
 $("btn-frap").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); punch(); });
-$("btn-feu").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); cast("feu"); });
-$("btn-glace").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); cast("glace"); });
-$("btn-foudre").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); cast("foudre"); });
+$("btn-sort").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (player.cls) cast(player.cls); });
 
 window.addEventListener("resize", resize);
 window.addEventListener("orientationchange", () => setTimeout(resize, 80));
@@ -1495,6 +1581,8 @@ try {
   spawnPlayer();
   camX = player.x + 8; camY = player.y + 5; camZ = player.z + 9;
   if (/[?&]play\b/.test(location.search)) {
+    if (!player.cls) pickClass("feu");
+    applyClassUI();
     homeEl.classList.add("hidden");
     playUI.classList.remove("hidden");
     mode = "play";
