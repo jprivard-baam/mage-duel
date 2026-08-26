@@ -701,45 +701,45 @@ function genWorld() {
       setB(x, top + i, z + 1, WOOD);
       setB(x + 1, top + i, z + 1, WOOD);
     }
+    const cheb = (ox, oz) => Math.max(Math.abs(ox - 0.5), Math.abs(oz - 0.5));
+    const corner = (ox, oz, r) => Math.abs(ox - 0.5) >= r && Math.abs(oz - 0.5) >= r;
     if (oak) {
-      for (const frac of [0.55, 0.75]) {
+      for (const frac of [0.50, 0.72]) {
         const i = Math.floor(th * frac);
         const dir = (hash(x + i, z + frac * 10) * 4) | 0;
         const d = [[1, 0], [-1, 0], [0, 1], [0, -1]][dir];
         const bx = x + (d[0] === 1 ? 2 : d[0] === -1 ? -1 : 0);
         const bz = z + (d[1] === 1 ? 2 : d[1] === -1 ? -1 : 0);
-        for (let step = 0; step < 2; step++) {
+        for (let step = 0; step < 3; step++) {
           const px = bx + d[0] * step, pz = bz + d[1] * step;
           if (inB(px, top + i, pz)) setB(px, top + i, pz, WOOD);
         }
       }
       const ly = top + th;
-      for (let ox = -4; ox <= 5; ox++) for (let oz = -4; oz <= 5; oz++) {
-        const dist = Math.hypot(ox - 0.5, oz - 0.5);
-        const manhattan = Math.abs(ox) + Math.abs(oz);
+      for (let ox = -3; ox <= 4; ox++) for (let oz = -3; oz <= 4; oz++) {
         const trunk = ox >= 0 && ox <= 1 && oz >= 0 && oz <= 1;
-        if (dist <= 1.7 && !trunk) plantLeaf(x + ox, ly - 1, z + oz);
-        if (dist <= 3.2 && manhattan <= 5) plantLeaf(x + ox, ly, z + oz);
-        if (dist <= 2.4) plantLeaf(x + ox, ly + 1, z + oz);
-        if (dist <= 1.5) plantLeaf(x + ox, ly + 2, z + oz);
-        if (dist <= 0.9) plantLeaf(x + ox, ly + 3, z + oz);
+        if (cheb(ox, oz) <= 2 && !trunk) plantLeaf(x + ox, ly - 1, z + oz);
+        if (cheb(ox, oz) <= 3 && !corner(ox, oz, 3)) plantLeaf(x + ox, ly, z + oz);
+        if (cheb(ox, oz) <= 2) plantLeaf(x + ox, ly + 1, z + oz);
+        if (cheb(ox, oz) <= 2 && !corner(ox, oz, 2)) plantLeaf(x + ox, ly + 2, z + oz);
+        if (cheb(ox, oz) <= 1) plantLeaf(x + ox, ly + 3, z + oz);
       }
     } else {
       const ly = top + th;
-      for (let ox = -4; ox <= 5; ox++) for (let oz = -4; oz <= 5; oz++) {
-        const dist = Math.hypot(ox - 0.5, oz - 0.5);
-        const manhattan = Math.abs(ox) + Math.abs(oz);
-        if (dist <= 2.6 && manhattan <= 4) plantLeaf(x + ox, ly - 2, z + oz);
-        if (dist <= 2.0) plantLeaf(x + ox, ly - 1, z + oz);
-        if (dist <= 1.4) plantLeaf(x + ox, ly, z + oz);
-        if (dist <= 0.9) plantLeaf(x + ox, ly + 1, z + oz);
+      for (let ox = -3; ox <= 4; ox++) for (let oz = -3; oz <= 4; oz++) {
+        if (cheb(ox, oz) <= 3 && !corner(ox, oz, 3)) plantLeaf(x + ox, ly - 4, z + oz);
+        if (cheb(ox, oz) <= 3) plantLeaf(x + ox, ly - 3, z + oz);
+        if (cheb(ox, oz) <= 2 && !corner(ox, oz, 2)) plantLeaf(x + ox, ly - 2, z + oz);
+        if (cheb(ox, oz) <= 2) plantLeaf(x + ox, ly - 1, z + oz);
+        if (cheb(ox, oz) <= 1) plantLeaf(x + ox, ly, z + oz);
       }
-      plantLeaf(x, ly + 2, z);
-      plantLeaf(x + 1, ly + 2, z);
-      plantLeaf(x, ly + 2, z + 1);
-      plantLeaf(x + 1, ly + 2, z + 1);
-      if (hash(x, z + 1) < 0.5) plantLeaf(x, ly + 3, z + 1);
-      else plantLeaf(x + 1, ly + 3, z);
+      plantLeaf(x, ly + 1, z);
+      plantLeaf(x + 1, ly + 1, z);
+      plantLeaf(x, ly + 1, z + 1);
+      plantLeaf(x + 1, ly + 1, z + 1);
+      const tip = (hash(x, z + 1) * 4) | 0;
+      const tdx = tip & 1, tdz = (tip >> 1) & 1;
+      plantLeaf(x + tdx, ly + 2, z + tdz);
     }
     trees.push([x, z]);
   }
