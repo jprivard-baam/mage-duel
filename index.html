@@ -603,6 +603,8 @@ html, body {
 (function () {
 "use strict";
 
+const DEBUG = true; // playtest: dmg/regen joueur ×5. Virer cette ligne + les if (DEBUG).
+
 const VX = 2; // voxels per old world-unit
 const W = 192 * VX, H = 16 * VX, D = 192 * VX;
 const WW = 192, DW = 192;
@@ -1518,7 +1520,9 @@ function shotDmg(kind) {
     const u = player.qUnlockL || player.level;
     lvlK = 1 + 0.035 * Math.max(0, (player.level || 1) - u);
   }
-  return Math.round(base * lvlK * (1 + bonus));
+  let n = Math.round(base * lvlK * (1 + bonus));
+  if (DEBUG) n *= 5;
+  return n;
 }
 function foudreMult(dist) {
   if (dist >= 26) return 0;
@@ -1534,7 +1538,9 @@ function foudreDmgAt(x, y, z) {
   return Math.round(shotDmg("foudre") * foudreMult(dist));
 }
 function punchDmg() {
-  return DMG_PUNCH + (player.punchBonus || 0);
+  let n = DMG_PUNCH + (player.punchBonus || 0);
+  if (DEBUG) n *= 5;
+  return n;
 }
 function rhu(x) { return Math.floor(x + 0.5); }
 function boostMul() {
@@ -4207,7 +4213,7 @@ function update(dt) {
   const night = isNight();
   if (mode === "play") {
     gameTime += dt;
-    player.mana = Math.min(player.maxMana || 100, player.mana + (5 + (player.regBonus || 0)) * dt);
+    player.mana = Math.min(player.maxMana || 100, player.mana + (5 + (player.regBonus || 0)) * (DEBUG ? 5 : 1) * dt);
     player.hunger = Math.max(0, player.hunger - 0.48 * (player.hungerMul || 1) * dt);
     if (player.hunger <= 0) player.hp -= 7 * dt;
     if (player.burn > 0) {
