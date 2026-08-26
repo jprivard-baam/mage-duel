@@ -311,6 +311,10 @@ html, body {
   border-radius: 3px;
   box-shadow: 1px 1px 0 #2a1808, inset 0 1px 0 rgba(255,220,160,.35);
 }
+.slot .ico.ico-viande {
+  background: linear-gradient(180deg, #e07a5a, #8b2e1a);
+  box-shadow: 1px 1px 0 #3a1008, inset 0 1px 0 rgba(255,200,160,.4);
+}
 .slot .lab {
   font-size: 8px;
   letter-spacing: .16em;
@@ -385,6 +389,11 @@ html, body {
       <div class="lab">Bois</div>
       <div class="cnt" id="bois-n">0</div>
     </div>
+    <div class="slot" id="slot-viande">
+      <div class="ico ico-viande"></div>
+      <div class="lab">Viande</div>
+      <div class="cnt" id="viande-n">0</div>
+    </div>
   </div>
   <div id="joy-wrap">
     <div id="joy-base"><div id="joy-knob"></div></div>
@@ -412,6 +421,10 @@ const MAX_HP = 1000;
 const TREE_MAX_HP = 100;
 const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 35;
 const WOLF_HP = 220, WOLF_ATK = 55, SLIME_HP = 150, SLIME_ATK = 35;
+const CERF_HP = 80, CERF_FLEE = 4.2, CERF_FOOD = 55;
+const ZOMBIE_HP = 280, ZOMBIE_ATK = 48, ZOMBIE_SPD = 1.7;
+const SKEL_HP = 160, SKEL_ATK = 50, SKEL_SPD = 2.6;
+const HOSTILE = { wolf: 1, slime: 1, zombie: 1, squelette: 1 };
 const canvas = document.getElementById("c");
 const $ = (id) => document.getElementById(id);
 const homeEl = $("home"), playUI = $("play-ui"), deathEl = $("death");
@@ -737,6 +750,7 @@ let gameTime = 18;
 let lastNight = false;
 let spawnedNight = false;
 let shake = 0;
+let boltFlash = 0;
 let meshDirty = false;
 let eatCD = 0, spellCD = 0, punchCD = 0;
 let lastSpell = null;
@@ -745,12 +759,13 @@ const player = {
   yaw: 0.35, pitch: 0.22, face: 0.35,
   hp: MAX_HP, hunger: 100, mana: 100,
   grounded: false, flash: 0, inv: 0, bob: 0,
-  bois: 0, cls: null
+  bois: 0, viande: 0, cls: null
 };
 const PW = 0.26, PH = 1.48;
 const mobs = [];
 const shots = [];
 const bolts = [];
+const stains = [];
 const treeHp = Object.create(null);
 const parts = [];
 const keys = Object.create(null);
@@ -783,7 +798,7 @@ function spawnPlayer() {
   player.hp = MAX_HP; player.hunger = 100; player.mana = 100;
   player.yaw = 0.2; player.pitch = 0.18; player.face = 0.2;
   player.flash = 0; player.inv = 0; player.grounded = true;
-  player.bois = 0;
+  player.bois = 0; player.viande = 0;
 }
 function collides(x, y, z, w, h) {
   const x0 = Math.floor(x - w), x1 = Math.floor(x + w);
@@ -829,17 +844,33 @@ function faceFwd() {
   return { x: Math.sin(player.face), z: Math.cos(player.face) };
 }
 
-function burst(x, y, z, r, g, b, n, spd) {
+function burst(x, y, z, r, g, b, n, spd, extra) {
+  extra = extra || {};
+  const style = extra.style || "puff";
+  const lifeMul = extra.life || 1;
+  const baseS = extra.s || 0;
   for (let i = 0; i < n; i++) {
+    let vy;
+    if (style === "smoke") vy = 0.5 + Math.random() * 1.4;
+    else if (style === "spark") vy = (Math.random() - 0.2) * spd;
+    else if (style === "stain") vy = 0;
+    else vy = Math.random() * spd * 0.7;
     parts.push({
-      x, y, z,
-      vx: (Math.random() - 0.5) * spd,
-      vy: Math.random() * spd * 0.7,
-      vz: (Math.random() - 0.5) * spd,
-      r, g, b, life: 0.35 + Math.random() * 0.35, age: 0,
-      s: 0.08 + Math.random() * 0.1
+      x: x + (style === "stain" ? (Math.random() - 0.5) * 0.7 : 0),
+      y: y + (style === "stain" ? -0.08 : 0),
+      z: z + (style === "stain" ? (Math.random() - 0.5) * 0.7 : 0),
+      vx: style === "stain" ? (Math.random() - 0.5) * 0.15 : (Math.random() - 0.5) * spd,
+      vy, vz: style === "stain" ? (Math.random() - 0.5) * 0.15 : (Math.random() - 0.5) * spd,
+      r, g, b,
+      life: (style === "stain" ? 0.7 + Math.random() * 0.35 : 0.35 + Math.random() * 0.35) * lifeMul,
+      age: 0,
+      s: baseS || (style === "smoke" ? 0.14 + Math.random() * 0.12 : style === "spark" ? 0.05 + Math.random() * 0.06 : 0.08 + Math.random() * 0.1),
+      style
     });
   }
+}
+function addStain(x, y, z, s0) {
+  stains.push({ x, y: y - 0.02, z, life: 0.72, age: 0, s: s0 || 1.15 });
 }
 
 let actx = null;
@@ -874,6 +905,16 @@ function hurtPlayer(dmg, kx, kz) {
   beep(140, 0.12, 0.07, "sawtooth");
   if (player.hp <= 0) die();
 }
+function killMob(m) {
+  if (m.dead) return;
+  m.dead = true;
+  if (m.kind === "chevreuil") {
+    player.hunger = Math.min(100, player.hunger + CERF_FOOD);
+    player.viande = (player.viande || 0) + 1;
+    toast("Chevreuil");
+    beep(520, 0.1, 0.05, "triangle");
+  }
+}
 function hurtMob(m, dmg, kx, kz, kb) {
   m.hp -= dmg;
   m.flash = 0.16;
@@ -882,7 +923,7 @@ function hurtMob(m, dmg, kx, kz, kb) {
   beep(420, 0.08, 0.05, "square");
   if (m.hp <= 0) {
     burst(m.x, m.y + 0.4, m.z, 0.3, 0.8, 0.2, 14, 6);
-    m.dead = true;
+    killMob(m);
   }
 }
 
@@ -898,11 +939,14 @@ function resetPlay() {
   buildWorldMesh();
   spawnPlayer();
   for (const k of Object.keys(treeHp)) delete treeHp[k];
-  mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0;
+  mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0; stains.length = 0;
+  boltFlash = 0;
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
-  player.bois = 0;
+  player.bois = 0; player.viande = 0;
   deathEl.classList.add("hidden");
   const bn = $("bois-n"); if (bn) bn.textContent = "0";
+  const vn = $("viande-n"); if (vn) vn.textContent = "0";
+  spawnWildlife();
 }
 
 function isNight() {
@@ -911,28 +955,64 @@ function isNight() {
   return sunY < 0.08;
 }
 
-function spawnMobs() {
-  const n = 4 + (Math.random() * 5) | 0;
-  let made = 0, tries = 0;
-  while (made < n && tries < 80) {
+function mobHp(kind) {
+  if (kind === "wolf") return WOLF_HP;
+  if (kind === "slime") return SLIME_HP;
+  if (kind === "zombie") return ZOMBIE_HP;
+  if (kind === "squelette") return SKEL_HP;
+  return CERF_HP;
+}
+function pushMob(kind, minR, maxR, minDist) {
+  let tries = 0;
+  while (tries < 40) {
     tries++;
     const ang = Math.random() * Math.PI * 2;
-    const rad = 18 + Math.random() * 16;
+    const rad = minR + Math.random() * (maxR - minR);
     const x = 48 + Math.cos(ang) * rad;
     const z = 48 + Math.sin(ang) * rad;
-    if (x < 2 || z < 2 || x > W - 3 || z > D - 3) continue;
-    if (Math.hypot(x - player.x, z - player.z) < 9) continue;
-    const y = highest(x, z) + 1.05;
-    if (y < 1.5 || y > 12) continue;
-    const kind = Math.random() < 0.55 ? "slime" : "wolf";
-    const mhp = kind === "wolf" ? WOLF_HP : SLIME_HP;
+    if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue;
+    if (Math.hypot(x - player.x, z - player.z) < minDist) continue;
+    const gy = highest(x, z);
+    const top = getB(x | 0, gy, z | 0);
+    if (top === WOOD || top === LEAF) continue;
+    const y = gy + 1.05;
+    if (y < 1.5 || y > 11) continue;
+    const mhp = mobHp(kind);
     mobs.push({
       kind, x, y, z, vx: 0, vy: 0, vz: 0,
       hp: mhp, maxHp: mhp,
       yaw: ang + Math.PI, flash: 0, slow: 0, para: 0, burn: 0, atk: 0,
-      hop: Math.random() * 8, dead: false
+      hop: Math.random() * 8, wander: Math.random() * 2, wAng: ang,
+      grazing: false, dead: false
     });
-    made++;
+    return true;
+  }
+  return false;
+}
+function spawnWildlife() {
+  for (let i = 0; i < 4; i++) pushMob("chevreuil", 12, 30, 10);
+  pushMob("wolf", 22, 34, 20);
+}
+function spawnMobs() {
+  const n = 4 + (Math.random() * 5) | 0;
+  const order = ["wolf", "slime", "zombie", "squelette"];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const t = order[i]; order[i] = order[j]; order[j] = t;
+  }
+  let made = 0, tries = 0;
+  while (made < n && tries < 80) {
+    tries++;
+    const kind = made < 4 ? order[made] : order[(Math.random() * 4) | 0];
+    if (pushMob(kind, 16, 34, 9)) made++;
+  }
+}
+function clearHostiles() {
+  for (let i = mobs.length - 1; i >= 0; i--) {
+    const m = mobs[i];
+    if (!HOSTILE[m.kind]) continue;
+    burst(m.x, m.y + 0.4, m.z, 1, 0.9, 0.5, 6, 3);
+    mobs.splice(i, 1);
   }
 }
 
@@ -992,8 +1072,24 @@ function cast(kind) {
       if (hit) break;
       hx = x; hy = y; hz = z;
     }
-    bolts.push({ x0: ox, y0: oy, z0: oz, x1: hx, y1: hy, z1: hz, life: 0.38 });
-    burst(hx, hy, hz, 0.85, 0.55, 1, 10, 6);
+    const bdx = hx - ox, bdy = hy - oy, bdz = hz - oz;
+    const forks = [];
+    const nFork = 2 + ((Math.random() * 3) | 0);
+    for (let fi = 0; fi < nFork; fi++) {
+      const ft = 0.2 + Math.random() * 0.58;
+      const sx = ox + bdx * ft, sy = oy + bdy * ft, sz = oz + bdz * ft;
+      forks.push({
+        x0: sx, y0: sy, z0: sz,
+        x1: sx + (Math.random() - 0.5) * 4.4,
+        y1: sy + (Math.random() - 0.35) * 2.4,
+        z1: sz + (Math.random() - 0.5) * 4.4
+      });
+    }
+    bolts.push({ x0: ox, y0: oy, z0: oz, x1: hx, y1: hy, z1: hz, life: 0.4, seed: (Math.random() * 997) | 0, forks });
+    boltFlash = 0.2;
+    shake = Math.max(shake, 0.34);
+    burst(hx, hy, hz, 1, 0.92, 1, 16, 8, { style: "spark" });
+    burst(hx, hy, hz, 0.72, 0.48, 1, 6, 3.2, { style: "ember" });
     if (hit) { hurtMob(hit, DMG_FOUDRE, d.x, d.z, 7); hit.para = 2; }
     if (treeHit) damageTree(treeHit[0], treeHit[1], treeHit[2], DMG_FOUDRE);
   } else {
@@ -1131,38 +1227,111 @@ function updateMobs(dt) {
       if (Math.random() < dt * 10) burst(m.x, m.y + 0.45, m.z, 1, 0.38, 0.06, 2, 2.2);
       if (m.hp <= 0) {
         burst(m.x, m.y + 0.4, m.z, 1, 0.35, 0.08, 14, 6);
-        m.dead = true;
+        killMob(m);
         continue;
       }
     }
     const dx = player.x - m.x, dz = player.z - m.z;
     const dist = Math.hypot(dx, dz) || 1;
-    m.yaw = Math.atan2(dx, dz);
     let spMul = 1;
     if (m.para > 0) spMul = 0.25;
     else if (m.slow > 0) spMul = 0.45;
-    const sp = (m.kind === "wolf" ? 3.4 : 2.15) * spMul;
+
+    if (m.kind === "chevreuil") {
+      if (dist < 10) {
+        m.yaw = Math.atan2(-dx, -dz);
+        const sp = CERF_FLEE * spMul;
+        m.vx = (-dx / dist) * sp;
+        m.vz = (-dz / dist) * sp;
+        m.grazing = false;
+      } else {
+        m.wander = (m.wander || 0) + dt;
+        if (m.wander > (m.grazing ? 2.1 : 2.6)) {
+          m.wander = 0;
+          m.grazing = !m.grazing && Math.random() < 0.5;
+          if (!m.grazing) m.wAng = Math.random() * Math.PI * 2;
+        }
+        if (m.grazing) {
+          m.vx = 0; m.vz = 0;
+        } else {
+          const wa = m.wAng || m.yaw;
+          m.yaw = wa;
+          const wsp = 1.15 * spMul;
+          m.vx = Math.sin(wa) * wsp;
+          m.vz = Math.cos(wa) * wsp;
+        }
+      }
+      physics(m, 0.28, 1.1, dt);
+      continue;
+    }
+
+    m.yaw = Math.atan2(dx, dz);
+    const sp = (m.kind === "wolf" ? 3.4 : m.kind === "zombie" ? ZOMBIE_SPD : m.kind === "squelette" ? SKEL_SPD : 2.15) * spMul;
     m.vx = (dx / dist) * sp;
     m.vz = (dz / dist) * sp;
     if (m.kind === "slime" && m.grounded && m.hop > 0.9) {
       m.vy = 5.2 * (m.para > 0 ? 0.25 : 1); m.hop = 0; m.grounded = false;
     }
-    physics(m, m.kind === "wolf" ? 0.38 : 0.42, m.kind === "wolf" ? 0.85 : 0.7, dt);
-    if (dist < 1.25 && m.atk <= 0 && mode === "play") {
+    const pw = m.kind === "wolf" ? 0.45 : m.kind === "zombie" ? 0.48 : m.kind === "squelette" ? 0.32 : 0.42;
+    const ph = m.kind === "wolf" ? 0.9 : m.kind === "zombie" ? 1.55 : m.kind === "squelette" ? 1.6 : 0.7;
+    physics(m, pw, ph, dt);
+    const reach = m.kind === "zombie" || m.kind === "squelette" ? 1.4 : 1.25;
+    if (dist < reach && m.atk <= 0 && mode === "play") {
       m.atk = 0.9;
       const k = 5.5;
-      hurtPlayer(m.kind === "wolf" ? WOLF_ATK : SLIME_ATK, -(dx / dist) * k, -(dz / dist) * k);
+      const dmg = m.kind === "wolf" ? WOLF_ATK : m.kind === "zombie" ? ZOMBIE_ATK : m.kind === "squelette" ? SKEL_ATK : SLIME_ATK;
+      hurtPlayer(dmg, -(dx / dist) * k, -(dz / dist) * k);
     }
   }
   for (let i = mobs.length - 1; i >= 0; i--) if (mobs[i].dead) mobs.splice(i, 1);
 }
 
+function emitShotTrail(s) {
+  s.trail = (s.trail || 0);
+  if (s.kind === "feu") {
+    parts.push({
+      x: s.x + (Math.random() - 0.5) * 0.18, y: s.y + (Math.random() - 0.5) * 0.12, z: s.z + (Math.random() - 0.5) * 0.18,
+      vx: (Math.random() - 0.5) * 1.1, vy: 0.7 + Math.random() * 1.5, vz: (Math.random() - 0.5) * 1.1,
+      r: 1, g: 0.35 + Math.random() * 0.4, b: 0.04, life: 0.28 + Math.random() * 0.18, age: 0,
+      s: 0.05 + Math.random() * 0.06, style: "ember"
+    });
+    if (Math.random() < 0.45) {
+      parts.push({
+        x: s.x, y: s.y + 0.08, z: s.z,
+        vx: (Math.random() - 0.5) * 0.4, vy: 0.8 + Math.random() * 0.7, vz: (Math.random() - 0.5) * 0.4,
+        r: 0.22, g: 0.2, b: 0.18, life: 0.5 + Math.random() * 0.25, age: 0,
+        s: 0.16 + Math.random() * 0.1, style: "smoke"
+      });
+    }
+  } else if (s.kind === "glace") {
+    parts.push({
+      x: s.x + (Math.random() - 0.5) * 0.12, y: s.y, z: s.z + (Math.random() - 0.5) * 0.12,
+      vx: (Math.random() - 0.5) * 0.5, vy: -0.15 + Math.random() * 0.25, vz: (Math.random() - 0.5) * 0.5,
+      r: 0.7, g: 0.92, b: 1, life: 0.32 + Math.random() * 0.18, age: 0,
+      s: 0.06 + Math.random() * 0.05, style: "frost"
+    });
+  }
+}
+function impactFeu(x, y, z) {
+  burst(x, y, z, 1, 0.85, 0.25, 16, 8, { style: "spark" });
+  burst(x, y, z, 1, 0.32, 0.05, 10, 4.2, { style: "ember" });
+  burst(x, y, z, 0.24, 0.2, 0.18, 6, 1.1, { style: "smoke" });
+}
+function impactGlace(x, y, z) {
+  burst(x, y, z, 0.75, 0.95, 1, 14, 6.5, { style: "shard" });
+  burst(x, y, z, 0.55, 0.85, 1, 8, 2.2, { style: "frost" });
+  burst(x, y, z, 0.65, 0.88, 1, 6, 0.4, { style: "stain" });
+  addStain(x, y, z, 1.25);
+  addStain(x + (Math.random() - 0.5) * 0.5, y, z + (Math.random() - 0.5) * 0.5, 0.7);
+}
 function updateShots(dt) {
   for (let i = shots.length - 1; i >= 0; i--) {
     const s = shots[i];
     s.life -= dt; s.age = (s.age || 0) + dt;
     s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
     if (s.kind === "glace") s.vy -= 1.6 * dt;
+    s.trail = (s.trail || 0) + dt;
+    if (s.trail > 0.028) { s.trail = 0; emitShotTrail(s); }
     let dead = s.life <= 0 || s.y < -2;
     if (s.age > 0.14) {
       const bx = s.x | 0, by = s.y | 0, bz = s.z | 0;
@@ -1186,8 +1355,8 @@ function updateShots(dt) {
       }
     }
     if (dead) {
-      if (s.kind === "feu") burst(s.x, s.y, s.z, 1, 0.35, 0.08, 12, 5);
-      else burst(s.x, s.y, s.z, 0.45, 0.85, 1, 10, 4);
+      if (s.kind === "feu") impactFeu(s.x, s.y, s.z);
+      else impactGlace(s.x, s.y, s.z);
       shots.splice(i, 1);
     }
   }
@@ -1195,9 +1364,22 @@ function updateShots(dt) {
     bolts[i].life -= dt;
     if (bolts[i].life <= 0) bolts.splice(i, 1);
   }
+  if (boltFlash > 0) boltFlash = Math.max(0, boltFlash - dt);
+  for (let i = stains.length - 1; i >= 0; i--) {
+    stains[i].age += dt;
+    if (stains[i].age > stains[i].life) stains.splice(i, 1);
+  }
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i];
-    p.age += dt; p.vy -= 10 * dt;
+    p.age += dt;
+    const st = p.style || "puff";
+    if (st === "smoke") { p.vy += 3.2 * dt; p.vx *= 0.96; p.vz *= 0.96; }
+    else if (st === "ember") p.vy -= 5 * dt;
+    else if (st === "spark") p.vy -= 2.2 * dt;
+    else if (st === "frost") p.vy -= 3.5 * dt;
+    else if (st === "shard") p.vy -= 9 * dt;
+    else if (st === "stain") { p.vx *= 0.4; p.vz *= 0.4; p.vy = 0; }
+    else p.vy -= 10 * dt;
     p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
     if (p.age > p.life) parts.splice(i, 1);
   }
@@ -1241,17 +1423,99 @@ function drawMage(x, y, z, face, bob, flash) {
   drawCube(sx, y + 1.28 + bob, sz, 0.2, 0.2, 0.2, face, gem[0], gem[1], gem[2], 0.35);
 }
 
-function drawWolf(m) {
+function mobTint(m, r, g, b) {
   const f = m.flash > 0 ? 1 : 0;
-  let r = 0.28 + f, g = 0.22 + f, b = 0.2 + f;
-  if (m.burn > 0) { r = 1; g = 0.38 + f * 0.3; b = 0.06; }
-  else if (m.para > 0) { r = 0.85 + f * 0.1; g = 0.75; b = 0.2 + f; }
-  else if (m.slow > 0) { r = 0.35; g = 0.45; b = 0.7; }
-  drawCube(m.x, m.y + 0.38, m.z, 1.05, 0.52, 0.48, m.yaw, r, g, b, f * 0.5);
-  const hx = m.x + Math.sin(m.yaw) * 0.48, hz = m.z + Math.cos(m.yaw) * 0.48;
-  drawCube(hx, m.y + 0.55, hz, 0.4, 0.36, 0.36, m.yaw, r * 1.1, g * 1.1, b * 1.1, f * 0.5);
-  drawCube(hx - Math.cos(m.yaw) * 0.12, m.y + 0.82, hz + Math.sin(m.yaw) * 0.12, 0.12, 0.2, 0.1, m.yaw, r, g, b, 0);
-  drawCube(hx + Math.cos(m.yaw) * 0.12, m.y + 0.82, hz - Math.sin(m.yaw) * 0.12, 0.12, 0.2, 0.1, m.yaw, r, g, b, 0);
+  if (m.burn > 0) return { r: 1, g: 0.38 + f * 0.3, b: 0.06, f, glow: 0.35 + f * 0.3 };
+  if (m.para > 0) return { r: 0.85 + f * 0.1, g: 0.75, b: 0.2 + f, f, glow: f * 0.5 };
+  if (m.slow > 0) return { r: 0.35, g: 0.45, b: 0.7, f, glow: f * 0.35 };
+  return { r: r + f, g: g + f, b: b + f, f, glow: f * 0.5 };
+}
+function drawWolf(m) {
+  const t = mobTint(m, 0.46, 0.36, 0.26);
+  const r = t.r, g = t.g, b = t.b, glow = t.glow, yaw = m.yaw;
+  const s = Math.sin(yaw), c = Math.cos(yaw);
+  const br = r * 0.68, bg = g * 0.65, bb = b * 0.62;
+  const lr = Math.min(1, r * 1.22 + 0.06), lg = Math.min(1, g * 1.18 + 0.05), lb = Math.min(1, b * 1.05 + 0.04);
+  drawCube(m.x, m.y + 0.52, m.z, 0.44, 0.42, 1.18, yaw, r, g, b, glow);
+  drawCube(m.x, m.y + 0.74, m.z, 0.36, 0.14, 1.02, yaw, br, bg, bb, glow);
+  drawCube(m.x, m.y + 0.34, m.z, 0.38, 0.14, 0.98, yaw, lr, lg, lb, 0);
+  const legR = r * 0.52, legG = g * 0.48, legB = b * 0.45;
+  const legs = [[0.15, 0.4], [-0.15, 0.4], [0.15, -0.4], [-0.15, -0.4]];
+  for (let i = 0; i < 4; i++) {
+    const L = legs[i];
+    const lx = m.x + s * L[1] + c * L[0];
+    const lz = m.z + c * L[1] - s * L[0];
+    drawCube(lx, m.y + 0.18, lz, 0.11, 0.36, 0.12, yaw, legR, legG, legB, 0);
+  }
+  const hx = m.x + s * 0.62, hz = m.z + c * 0.62;
+  drawCube(hx, m.y + 0.68, hz, 0.36, 0.32, 0.34, yaw, r * 1.08, g * 1.06, b * 1.04, glow);
+  const mx = m.x + s * 0.9, mz = m.z + c * 0.9;
+  drawCube(mx, m.y + 0.58, mz, 0.2, 0.16, 0.3, yaw, lr, lg * 0.95, lb, glow);
+  const nx = m.x + s * 1.06, nz = m.z + c * 1.06;
+  drawCube(nx, m.y + 0.58, nz, 0.1, 0.1, 0.1, yaw, 0.12, 0.1, 0.09, 0);
+  drawCube(hx - c * 0.13, m.y + 0.94, hz + s * 0.13, 0.1, 0.24, 0.1, yaw, br, bg, bb, 0);
+  drawCube(hx + c * 0.13, m.y + 0.94, hz - s * 0.13, 0.1, 0.24, 0.1, yaw, br, bg, bb, 0);
+  const tx = m.x - s * 0.72, tz = m.z - c * 0.72;
+  drawCube(tx, m.y + 0.64, tz, 0.1, 0.12, 0.34, yaw, br, bg, bb, 0);
+}
+function drawDeer(m) {
+  const t = mobTint(m, 0.62, 0.42, 0.22);
+  const r = t.r, g = t.g, b = t.b, glow = t.glow, yaw = m.yaw;
+  const s = Math.sin(yaw), c = Math.cos(yaw);
+  const paleR = Math.min(1, r * 1.2 + 0.18), paleG = Math.min(1, g * 1.25 + 0.22), paleB = Math.min(1, b * 1.3 + 0.2);
+  const antR = 0.42 + t.f * 0.4, antG = 0.3 + t.f * 0.4, antB = 0.16 + t.f * 0.4;
+  drawCube(m.x, m.y + 0.72, m.z, 0.32, 0.34, 0.78, yaw, r, g, b, glow);
+  const rx = m.x - s * 0.38, rz = m.z - c * 0.38;
+  drawCube(rx, m.y + 0.72, rz, 0.3, 0.32, 0.22, yaw, paleR, paleG, paleB, glow);
+  const legR = r * 0.62, legG = g * 0.58, legB = b * 0.5;
+  const legs = [[0.11, 0.26], [-0.11, 0.26], [0.11, -0.26], [-0.11, -0.26]];
+  for (let i = 0; i < 4; i++) {
+    const L = legs[i];
+    const lx = m.x + s * L[1] + c * L[0];
+    const lz = m.z + c * L[1] - s * L[0];
+    drawCube(lx, m.y + 0.32, lz, 0.08, 0.64, 0.08, yaw, legR, legG, legB, 0);
+  }
+  const hx = m.x + s * 0.48, hz = m.z + c * 0.48;
+  drawCube(hx, m.y + 0.92, hz, 0.18, 0.22, 0.18, yaw, r * 1.05, g * 1.02, b, glow);
+  const nx = m.x + s * 0.64, nz = m.z + c * 0.64;
+  drawCube(nx, m.y + 0.88, nz, 0.14, 0.14, 0.22, yaw, r * 1.08, g * 1.04, b * 1.02, glow);
+  drawCube(hx - c * 0.08, m.y + 1.16, hz + s * 0.08, 0.06, 0.22, 0.06, yaw, antR, antG, antB, 0);
+  drawCube(hx - c * 0.16, m.y + 1.3, hz + s * 0.16, 0.06, 0.14, 0.06, yaw, antR, antG, antB, 0);
+  drawCube(hx + c * 0.08, m.y + 1.16, hz - s * 0.08, 0.06, 0.22, 0.06, yaw, antR, antG, antB, 0);
+  drawCube(hx + c * 0.16, m.y + 1.3, hz - s * 0.16, 0.06, 0.14, 0.06, yaw, antR, antG, antB, 0);
+}
+function drawZombie(m) {
+  const t = mobTint(m, 0.36, 0.46, 0.28);
+  const r = t.r, g = t.g, b = t.b, glow = t.glow, yaw = m.yaw;
+  const s = Math.sin(yaw), c = Math.cos(yaw);
+  const clothR = 0.14 + t.f, clothG = 0.16 + t.f, clothB = 0.18 + t.f;
+  const pantR = 0.16 + t.f, pantG = 0.14 + t.f, pantB = 0.12 + t.f;
+  const swing = Math.sin(m.hop * 2.4) * 0.05;
+  drawCube(m.x, m.y + 0.32, m.z, 0.28, 0.62, 0.24, yaw, pantR, pantG, pantB, 0);
+  const bx = m.x + s * 0.08, bz = m.z + c * 0.08;
+  drawCube(bx, m.y + 0.92, bz, 0.46, 0.58, 0.32, yaw, clothR, clothG, clothB, glow);
+  const hx = m.x + s * 0.16, hz = m.z + c * 0.16;
+  drawCube(hx, m.y + 1.38, hz, 0.34, 0.34, 0.34, yaw, r, g, b, glow);
+  drawCube(m.x + c * 0.34, m.y + 0.52 + swing, m.z - s * 0.34, 0.14, 0.72, 0.14, yaw, r, g, b, 0);
+  drawCube(m.x - c * 0.34, m.y + 0.48 - swing, m.z + s * 0.34, 0.14, 0.76, 0.14, yaw, r, g, b, 0);
+}
+function drawSkeleton(m) {
+  const t = mobTint(m, 0.9, 0.86, 0.7);
+  const r = t.r, g = t.g, b = t.b, glow = t.glow, yaw = m.yaw;
+  const s = Math.sin(yaw), c = Math.cos(yaw);
+  const swing = Math.sin(m.hop * 3.1) * 0.04;
+  drawCube(m.x + c * 0.1, m.y + 0.32, m.z - s * 0.1, 0.1, 0.64, 0.1, yaw, r, g, b, 0);
+  drawCube(m.x - c * 0.1, m.y + 0.32, m.z + s * 0.1, 0.1, 0.64, 0.1, yaw, r, g, b, 0);
+  drawCube(m.x, m.y + 0.68, m.z, 0.28, 0.12, 0.18, yaw, r * 0.92, g * 0.92, b * 0.88, glow);
+  drawCube(m.x, m.y + 0.88, m.z, 0.36, 0.08, 0.22, yaw, r, g, b, glow);
+  drawCube(m.x, m.y + 1.0, m.z, 0.32, 0.08, 0.2, yaw, r * 0.9, g * 0.9, b * 0.86, glow);
+  drawCube(m.x, m.y + 1.12, m.z, 0.3, 0.08, 0.18, yaw, r, g, b, glow);
+  drawCube(m.x, m.y + 1.42, m.z, 0.32, 0.32, 0.32, yaw, r * 1.05, g * 1.02, b * 0.95, glow);
+  drawCube(m.x, m.y + 1.52, m.z, 0.12, 0.08, 0.08, yaw, 0.12 + t.f, 0.1, 0.1, 0);
+  drawCube(m.x - c * 0.28, m.y + 0.95, m.z + s * 0.28, 0.1, 0.1, 0.42, yaw, r, g, b, 0);
+  const hx = m.x + c * 0.36, hz = m.z - s * 0.36;
+  drawCube(hx, m.y + 0.88 + swing, hz, 0.1, 0.1, 0.1, yaw, r, g, b, 0);
+  drawCube(hx + s * 0.28, m.y + 0.92 + swing, hz + c * 0.28, 0.08, 0.1, 0.7, yaw, 0.55 + t.f * 0.3, 0.55 + t.f * 0.3, 0.58, 0.04);
 }
 function drawSlime(m) {
   const f = m.flash > 0 ? 1 : 0;
@@ -1264,14 +1528,59 @@ function drawSlime(m) {
     r, g, b, glow);
 }
 
+function drawFireShot(s) {
+  const flick = 0.72 + Math.sin(s.age * 32 + s.x * 4) * 0.28;
+  const flick2 = 0.7 + Math.sin(s.age * 41 + s.z * 5) * 0.3;
+  const yaw = Math.atan2(s.vx, s.vz);
+  drawCube(s.x, s.y + 0.06, s.z, 0.42 * flick, 0.5 * flick2, 0.36, yaw, 1, 0.28, 0.04, 0.55);
+  drawCube(s.x, s.y + 0.02, s.z, 0.28 * flick2, 0.34, 0.26, yaw, 1, 0.55, 0.1, 0.75);
+  drawCube(s.x, s.y + 0.08 * flick, s.z, 0.16, 0.22 * flick, 0.16, yaw, 1, 0.92, 0.55, 0.95);
+  drawCube(s.x + Math.cos(s.age * 14) * 0.12, s.y + 0.16 * flick, s.z + Math.sin(s.age * 14) * 0.12, 0.1, 0.18 * flick2, 0.1, yaw, 1, 0.4, 0.05, 0.5);
+}
+function drawIceShot(s) {
+  const yaw = Math.atan2(s.vx, s.vz);
+  const len = Math.hypot(s.vx, s.vz) || 1;
+  drawCube(s.x, s.y, s.z, 0.14, 0.14, 0.78, yaw, 0.7, 0.92, 1, 0.72);
+  drawCube(s.x, s.y, s.z, 0.28, 0.08, 0.42, yaw, 0.45, 0.82, 1, 0.4);
+  drawCube(s.x, s.y + 0.02, s.z, 0.08, 0.22, 0.32, yaw, 0.85, 0.97, 1, 0.55);
+  const tx = s.x + (s.vx / len) * 0.42, tz = s.z + (s.vz / len) * 0.42;
+  drawCube(tx, s.y, tz, 0.1, 0.1, 0.2, yaw, 1, 1, 1, 0.9);
+}
+function drawBoltLine(x0, y0, z0, x1, y1, z1, thick, seed, lifeK) {
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+  const len = Math.hypot(dx, dy, dz) || 1;
+  const steps = Math.max(5, (len / 0.3) | 0);
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const jx = (hash(i + seed, 3) - 0.5) * 0.62;
+    const jy = (hash(i + seed, 5) - 0.5) * 0.28;
+    const jz = (hash(i + seed, 8) - 0.5) * 0.62;
+    const x = x0 + dx * t + jx, y = y0 + dy * t + jy, z = z0 + dz * t + jz;
+    const pulse = 0.65 + 0.35 * Math.sin(i * 2.3 + seed);
+    drawCube(x, y, z, thick * 1.7, thick * 1.7, thick * 1.7, 0, 0.7, 0.42, 1, 0.5 * pulse * lifeK);
+    drawCube(x, y, z, thick * 0.72, thick * 0.72, thick * 0.72, 0, 1, 0.96, 1, 0.92 * lifeK);
+  }
+}
+function drawLightning(b) {
+  const lifeK = Math.max(0.25, b.life / 0.4);
+  drawBoltLine(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, 0.16, b.seed || 1, lifeK);
+  const forks = b.forks || [];
+  for (let i = 0; i < forks.length; i++) {
+    const f = forks[i];
+    drawBoltLine(f.x0, f.y0, f.z0, f.x1, f.y1, f.z1, 0.09, (b.seed || 1) + 17 + i * 9, lifeK * 0.85);
+  }
+  drawCube(b.x0, b.y0, b.z0, 0.28, 0.28, 0.28, 0, 1, 0.95, 1, 0.85 * lifeK);
+  drawCube(b.x1, b.y1, b.z1, 0.42 + 0.35 * lifeK, 0.42 + 0.35 * lifeK, 0.42 + 0.35 * lifeK, 0, 1, 1, 1, 0.95 * lifeK);
+}
 function render() {
   const sky = skyColors();
-  gl.clearColor(sky.fog[0], sky.fog[1], sky.fog[2], 1);
+  const flashK = boltFlash > 0 ? Math.min(1, boltFlash * 5.5) : 0;
+  gl.clearColor(sky.fog[0] * (1 - flashK) + flashK, sky.fog[1] * (1 - flashK) + flashK, sky.fog[2] * (1 - flashK) + flashK, 1);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.useProgram(prog);
   gl.uniform3fv(uSun, sky.sun);
-  gl.uniform3fv(uAmb, sky.amb);
-  gl.uniform3fv(uFog, sky.fog);
+  gl.uniform3f(uAmb, sky.amb[0] + flashK * 0.85, sky.amb[1] + flashK * 0.85, sky.amb[2] + flashK * 0.95);
+  gl.uniform3f(uFog, sky.fog[0] * (1 - flashK) + flashK, sky.fog[1] * (1 - flashK) + flashK, sky.fog[2] * (1 - flashK) + flashK);
   gl.uniform3f(uCam, camX, camY, camZ);
   gl.uniform1f(uFogN, 28);
   gl.uniform1f(uFogF, 118);
@@ -1290,25 +1599,33 @@ function render() {
   drawMage(player.x, player.y, player.z, player.face, bob, player.flash);
   for (const m of mobs) {
     if (m.dead) continue;
-    if (m.kind === "wolf") drawWolf(m); else drawSlime(m);
+    if (m.kind === "wolf") drawWolf(m);
+    else if (m.kind === "chevreuil") drawDeer(m);
+    else if (m.kind === "zombie") drawZombie(m);
+    else if (m.kind === "squelette") drawSkeleton(m);
+    else drawSlime(m);
   }
   for (const s of shots) {
-    if (s.kind === "feu") drawCube(s.x, s.y, s.z, 0.55, 0.55, 0.55, 0, 1, 0.38, 0.08, 0.7);
-    else drawCube(s.x, s.y, s.z, 0.5, 0.5, 0.5, 0, 0.45, 0.92, 1, 0.65);
+    if (s.kind === "feu") drawFireShot(s);
+    else drawIceShot(s);
   }
-  for (const b of bolts) {
-    const dx = b.x1 - b.x0, dy = b.y1 - b.y0, dz = b.z1 - b.z0;
-    const len = Math.hypot(dx, dy, dz) || 1;
-    const steps = Math.max(4, (len / 0.45) | 0);
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const jx = (hash(i, 3) - 0.5) * 0.35, jz = (hash(i, 8) - 0.5) * 0.35;
-      drawCube(b.x0 + dx * t + jx, b.y0 + dy * t, b.z0 + dz * t + jz, 0.12, 0.12, 0.12, 0, 0.85, 0.55, 1, 0.7);
-    }
+  for (const b of bolts) drawLightning(b);
+  for (const stn of stains) {
+    const k = 1 - stn.age / stn.life;
+    drawCube(stn.x, stn.y, stn.z, stn.s * (0.7 + 0.3 * k), 0.06, stn.s * (0.7 + 0.3 * k), 0, 0.55, 0.82, 1, 0.22 * k);
   }
   for (const p of parts) {
-    const k = 1 - p.age / p.life;
-    drawCube(p.x, p.y, p.z, p.s * k, p.s * k, p.s * k, 0, p.r, p.g, p.b, 0.2);
+    const k = Math.max(0, 1 - p.age / p.life);
+    const st = p.style || "puff";
+    let glow = 0.2, sx = p.s * k, sy = p.s * k, sz = p.s * k, yaw = 0;
+    if (st === "ember" || st === "spark") glow = 0.62 * k;
+    else if (st === "smoke") { glow = 0; sx = p.s * (0.7 + 0.8 * (1 - k)); sy = sx; sz = sx; }
+    else if (st === "frost") glow = 0.4 * k;
+    else if (st === "shard") {
+      glow = 0.5 * k; yaw = Math.atan2(p.vx, p.vz);
+      sx = p.s * 0.45 * k; sy = p.s * 0.45 * k; sz = p.s * 2.4 * k;
+    } else if (st === "stain") { glow = 0.18 * k; sy = p.s * 0.15 * k; sx = p.s * 1.4 * k; sz = sx; }
+    drawCube(p.x, p.y, p.z, sx, sy, sz, yaw, p.r, p.g, p.b, glow);
   }
 }
 
@@ -1359,6 +1676,7 @@ function updateHUD() {
   const sortBtn = $("btn-sort");
   if (sortBtn) sortBtn.classList.toggle("off", !kind || player.mana < cost);
   const bn = $("bois-n"); if (bn) bn.textContent = String(player.bois | 0);
+  const vn = $("viande-n"); if (vn) vn.textContent = String(player.viande | 0);
   if (toastT > 0) {
     toastT -= 0.016;
     if (toastT <= 0) toastEl.classList.remove("show");
@@ -1382,10 +1700,10 @@ function update(dt) {
     if (meshDirty) { buildWorldMesh(); meshDirty = false; }
 
     if (night && !spawnedNight) { spawnMobs(); spawnedNight = true; toast("La nuit tombe"); beep(80, 0.3, 0.06, "sine"); }
-    if (!night && spawnedNight) { spawnedNight = false; toast("Le jour se lève"); }
-    if (!night && mobs.length && (gameTime / CYCLE) % 1 < 0.1) {
-      for (const m of mobs) burst(m.x, m.y + 0.4, m.z, 1, 0.9, 0.5, 6, 3);
-      mobs.length = 0;
+    if (!night && spawnedNight) {
+      spawnedNight = false;
+      toast("Le jour se lève");
+      clearHostiles();
     }
 
     let mx = 0, mz = 0;
@@ -1579,6 +1897,7 @@ try {
   genWorld();
   buildWorldMesh();
   spawnPlayer();
+  spawnWildlife();
   camX = player.x + 8; camY = player.y + 5; camZ = player.z + 9;
   if (/[?&]play\b/.test(location.search)) {
     if (!player.cls) pickClass("feu");
