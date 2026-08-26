@@ -1229,8 +1229,13 @@ function boostMul() {
 function staffGemPos() {
   const face = player.face;
   const rx = Math.cos(face), rz = -Math.sin(face);
+  const fx = Math.sin(face), fz = Math.cos(face);
   const bob = Math.sin(player.bob) * 0.05;
-  return { x: player.x + rx * 0.42, y: player.y + 1.28 + bob, z: player.z + rz * 0.42 };
+  return {
+    x: player.x + rx * 0.44 + fx * 0.24,
+    y: player.y + 1.34 + bob,
+    z: player.z + rz * 0.44 + fz * 0.24
+  };
 }
 function isAlly(m) { return m && m.kind === "serviteur"; }
 function nearestHostileAt(x, y, z, maxDist, preferFront) {
@@ -1238,7 +1243,8 @@ function nearestHostileAt(x, y, z, maxDist, preferFront) {
   let best = null, bestScore = Infinity;
   for (let i = 0; i < mobs.length; i++) {
     const m = mobs[i];
-    if (m.dead || !HOSTILE[m.kind]) continue;
+    if (m.dead || m.kind === "serviteur") continue;
+    if (!(HOSTILE[m.kind] || m.kind === "chevreuil")) continue;
     const dx = m.x - x, dy = (m.y + 0.5) - y, dz = m.z - z;
     const dist = Math.hypot(dx, dy, dz);
     if (dist > maxDist) continue;
@@ -1828,7 +1834,7 @@ function impactNecro(x, y, z) {
 }
 function steerArcane(s, dt) {
   let tgt = s.target;
-  if (!tgt || tgt.dead || !HOSTILE[tgt.kind]) {
+  if (!tgt || tgt.dead || tgt.kind === "serviteur" || !(HOSTILE[tgt.kind] || tgt.kind === "chevreuil")) {
     tgt = nearestHostileAt(s.x, s.y, s.z, 28, false);
     s.target = tgt;
   }
@@ -1973,32 +1979,40 @@ function skyColors() {
 
 function drawMage(x, y, z, face, bob, flash) {
   const f = flash > 0 ? 1 : 0;
-  const robeR = 0.42 + f, robeG = 0.18 + f, robeB = 0.62 + f;
-  const skinR = 0.95 + f, skinG = 0.78, skinB = 0.62;
-  const hatR = 0.22, hatG = 0.1, hatB = 0.4;
+  const terreR = 0.62 + f, terreG = 0.36 + f, terreB = 0.18 + f;
+  const t2R = 0.52 + f, t2G = 0.28 + f, t2B = 0.14 + f;
+  const cuirR = 0.32, cuirG = 0.16, cuirB = 0.08;
+  const peauR = 0.92 + f, peauG = 0.72, peauB = 0.52;
+  const gemKind = player.cls;
+  const gem = gemKind === "feu" ? [1, 0.35, 0.1]
+    : gemKind === "glace" ? [0.4, 0.9, 1]
+    : gemKind === "foudre" ? [0.40, 0.65, 1.00]
+    : gemKind === "arcane" ? [0.88, 0.34, 0.99]
+    : gemKind === "necro" ? [0.22, 0.92, 0.42]
+    : [0.85, 0.72, 0.28];
   const rx = Math.cos(face), rz = -Math.sin(face);
   const fx = Math.sin(face), fz = Math.cos(face);
   const swing = Math.sin(player.bob) * 0.07;
-  drawCube(x + rx * 0.13, y + 0.09 + bob, z + rz * 0.13, 0.16, 0.14, 0.2, face, 0.2, 0.1, 0.07, 0);
-  drawCube(x - rx * 0.13, y + 0.09 + bob, z - rz * 0.13, 0.16, 0.14, 0.2, face, 0.2, 0.1, 0.07, 0);
-  drawCube(x, y + 0.34 + bob, z, 0.58, 0.4, 0.4, face, robeR, robeG, robeB, f * 0.4);
-  drawCube(x, y + 0.74 + bob, z, 0.5, 0.42, 0.36, face, robeR, robeG, robeB, f * 0.4);
-  drawCube(x, y + 1.1 + bob, z, 0.4, 0.4, 0.4, face, skinR, skinG, skinB, f * 0.3);
-  drawCube(x, y + 1.36 + bob, z, 0.52, 0.16, 0.52, face, hatR, hatG, hatB, 0);
-  drawCube(x, y + 1.52 + bob, z, 0.28, 0.22, 0.28, face, hatR, hatG, hatB, 0);
-  drawCube(x, y + 1.72 + bob, z, 0.16, 0.22, 0.16, face, 0.18, 0.08, 0.34, 0);
-  const lx = x - rx * 0.4, lz = z - rz * 0.4;
-  drawCube(lx, y + 0.78 + bob + swing, lz, 0.16, 0.28, 0.16, face, robeR, robeG, robeB, f * 0.2);
-  drawCube(lx, y + 0.48 + bob + swing, lz, 0.14, 0.28, 0.14, face, skinR, skinG, skinB, f * 0.2);
-  const rax = x + rx * 0.36 + fx * 0.1, raz = z + rz * 0.36 + fz * 0.1;
-  drawCube(rax, y + 0.78 + bob - swing * 0.45, raz, 0.16, 0.26, 0.16, face, robeR, robeG, robeB, f * 0.2);
-  const rhx = x + rx * 0.42 + fx * 0.16, rhz = z + rz * 0.42 + fz * 0.16;
-  drawCube(rhx, y + 0.54 + bob - swing * 0.45, rhz, 0.14, 0.16, 0.14, face, skinR, skinG, skinB, f * 0.2);
-  const gemKind = player.cls;
-  const gem = gemKind === "feu" ? [1, 0.35, 0.1] : gemKind === "glace" ? [0.4, 0.9, 1] : gemKind === "foudre" ? [0.40, 0.65, 1.00] : gemKind === "arcane" ? [0.88, 0.34, 0.99] : gemKind === "necro" ? [0.22, 0.92, 0.42] : [0.85, 0.72, 0.28];
-  const sx = x + rx * 0.42, sz = z + rz * 0.42;
-  drawCube(sx, y + 0.7 + bob, sz, 0.1, 1.05, 0.1, face, 0.35, 0.2, 0.1, 0);
-  drawCube(sx, y + 1.28 + bob, sz, 0.2, 0.2, 0.2, face, gem[0], gem[1], gem[2], 0.35);
+  const yy = y + bob;
+  drawCube(x - rx * 0.14, yy + 0.10, z - rz * 0.14, 0.18, 0.18, 0.22, face, 0.22, 0.12, 0.07, 0);
+  drawCube(x + rx * 0.14, yy + 0.10, z + rz * 0.14, 0.18, 0.18, 0.22, face, 0.22, 0.12, 0.07, 0);
+  drawCube(x, yy + 0.38, z, 0.66, 0.44, 0.42, face, terreR, terreG, terreB, f * 0.25);
+  drawCube(x, yy + 0.58, z, 0.68, 0.10, 0.44, face, 0.83, 0.68, 0.22, 0);
+  drawCube(x, yy + 0.80, z, 0.56, 0.40, 0.38, face, t2R, t2G, t2B, f * 0.25);
+  drawCube(x - fx * 0.10, yy + 0.88, z - fz * 0.10, 0.64, 0.50, 0.20, face, cuirR, cuirG, cuirB, 0);
+  drawCube(x + fx * 0.06, yy + 1.10, z + fz * 0.06, 0.36, 0.36, 0.36, face, peauR, peauG, peauB, f * 0.25);
+  drawCube(x + fx * 0.02, yy + 1.30, z + fz * 0.02, 0.60, 0.14, 0.52, face, cuirR, cuirG, cuirB, 0);
+  drawCube(x, yy + 1.42, z, 0.24, 0.14, 0.24, face, cuirR, cuirG, cuirB, 0);
+  drawCube(x + fx * 0.30, yy + 1.30, z + fz * 0.30, 0.10, 0.10, 0.10, face, gem[0], gem[1], gem[2], 0.45);
+  drawCube(x - rx * 0.42, yy + 0.80 + swing, z - rz * 0.42, 0.18, 0.30, 0.18, face, 0.52, 0.28, 0.14, 0);
+  drawCube(x - rx * 0.44, yy + 0.48 + swing, z - rz * 0.44, 0.16, 0.28, 0.16, face, peauR, peauG, peauB, 0);
+  drawCube(x + rx * 0.38 + fx * 0.12, yy + 0.82 - swing * 0.3, z + rz * 0.38 + fz * 0.12, 0.18, 0.28, 0.18, face, 0.52, 0.28, 0.14, 0);
+  drawCube(x + rx * 0.42 + fx * 0.22, yy + 0.56 - swing * 0.3, z + rz * 0.42 + fz * 0.22, 0.16, 0.16, 0.16, face, peauR, peauG, peauB, 0);
+  const sx = x + rx * 0.44 + fx * 0.24;
+  const sz = z + rz * 0.44 + fz * 0.24;
+  drawCube(sx, yy + 0.74, sz, 0.09, 1.14, 0.09, face, 0.42, 0.26, 0.12, 0);
+  drawCube(sx, yy + 1.20, sz, 0.14, 0.08, 0.14, face, 0.32, 0.18, 0.08, 0);
+  drawCube(sx, yy + 1.34, sz, 0.24, 0.24, 0.24, face, gem[0], gem[1], gem[2], 0.55);
 }
 
 function mobTint(m, r, g, b) {
