@@ -128,7 +128,8 @@ func raycast_tree(origin: Vector3, dir: Vector3, max_dist: float) -> Vector3i:
 				if dist > max_dist or dist < 0.05:
 					continue
 				var align := to.normalized().dot(dir)
-				if align < 0.25:
+				var close := dist <= 1.85
+				if not close and align < 0.12:
 					continue
 				if dist < best_d:
 					best_d = dist
