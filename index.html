@@ -1659,16 +1659,21 @@ function npcCastE(m, tx, ty, tz, tgt) {
     return;
   }
   const spd = cls === "feu" ? 17 : cls === "arcane" ? 11 : cls === "necro" ? 12 : 14;
-  let ux = dx / len, uy = dy / len, uz = dz / len;
-  if (cls === "feu" || cls === "glace") {
-    const d = clampBallDir({ x: ux, y: uy, z: uz });
+  let ux, uy, uz;
+  if (cls === "feu") {
+    const xz = Math.hypot(dx, dz) || 1;
+    ux = dx / xz; uy = 0; uz = dz / xz;
+  } else if (cls === "glace") {
+    const d = clampBallDir({ x: dx / len, y: dy / len, z: dz / len });
     ux = d.x; uy = d.y; uz = d.z;
+  } else {
+    ux = dx / len; uy = dy / len; uz = dz / len;
   }
   const shot = {
     kind: cls, npc: true, tgt: tgt, q: false,
     x: gem.x, y: gem.y, z: gem.z,
     vx: ux * spd, vy: uy * spd, vz: uz * spd,
-    life: cls === "arcane" ? 2.4 : 1.7, age: 0, trail: 0, dmg: 32
+    life: cls === "arcane" ? 2.4 : cls === "feu" ? 2.2 : 1.7, age: 0, trail: 0, dmg: 32
   };
   if (cls === "arcane") {
     if (tgt === "player") shot.target = player;
@@ -2379,15 +2384,27 @@ function cast(kind, slot) {
     const n = q ? (kind === "feu" ? feuQCount() : glaceQCount()) : 1;
     const spread = q && qRank() >= 8 ? 12 : 8;
     const offs = yawSpread(n, spread);
-    const aim = clampBallDir({ x: look.x, y: look.y, z: look.z });
-    const xz = Math.hypot(aim.x, aim.z);
-    for (let i = 0; i < n; i++) {
-      const yaw = Math.atan2(aim.x, aim.z) + offs[i];
-      shots.push({
-        kind, x: ox, y: oy, z: oz,
-        vx: Math.sin(yaw) * xz * spd, vy: aim.y * spd, vz: Math.cos(yaw) * xz * spd,
-        life: 1.7, age: 0, trail: 0, q: q
-      });
+    if (kind === "feu") {
+      const xz = Math.hypot(look.x, look.z) || 1;
+      for (let i = 0; i < n; i++) {
+        const yaw = Math.atan2(look.x, look.z) + offs[i];
+        shots.push({
+          kind, x: ox, y: oy, z: oz,
+          vx: Math.sin(yaw) * 17, vy: 0, vz: Math.cos(yaw) * 17,
+          life: 2.2, age: 0, trail: 0, q: q
+        });
+      }
+    } else {
+      const aim = clampBallDir({ x: look.x, y: look.y, z: look.z });
+      const xz = Math.hypot(aim.x, aim.z);
+      for (let i = 0; i < n; i++) {
+        const yaw = Math.atan2(aim.x, aim.z) + offs[i];
+        shots.push({
+          kind, x: ox, y: oy, z: oz,
+          vx: Math.sin(yaw) * xz * spd, vy: aim.y * spd, vz: Math.cos(yaw) * xz * spd,
+          life: 1.7, age: 0, trail: 0, q: q
+        });
+      }
     }
   }
 }
@@ -3096,8 +3113,9 @@ function updateShots(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
     if (s.kind === "glace") s.vy -= 2.4 * dt;
     else if (s.kind === "feu") {
-      const dist = Math.hypot(s.x - s.originX, s.y - s.originY, s.z - s.originZ);
-      if (dist >= 10 || s.age >= 0.60) s.vy -= 6.0 * dt;
+      const dist = Math.hypot(s.x - s.originX, s.z - s.originZ);
+      if (dist < 20) s.vy = 0;
+      else s.vy -= 5.0 * dt;
     }
     s.trail = (s.trail || 0) + dt;
     const tint = s.kind === "feu" ? 0.010 : s.kind === "glace" ? 0.022 : s.kind === "arcane" ? 0.020 : s.kind === "necro" ? 0.030 : 0.05;
