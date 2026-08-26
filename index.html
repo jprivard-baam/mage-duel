@@ -1840,7 +1840,7 @@ function drawMage(x, y, z, face, bob, flash) {
   drawCube(rax, y + 0.78 + bob - swing * 0.45, raz, 0.16, 0.26, 0.16, face, robeR, robeG, robeB, f * 0.2);
   const rhx = x + rx * 0.42 + fx * 0.16, rhz = z + rz * 0.42 + fz * 0.16;
   drawCube(rhx, y + 0.54 + bob - swing * 0.45, rhz, 0.14, 0.16, 0.14, face, skinR, skinG, skinB, f * 0.2);
-  const gemKind = player.cls || lastSpell;
+  const gemKind = player.cls;
   const gem = gemKind === "feu" ? [1, 0.35, 0.1] : gemKind === "glace" ? [0.4, 0.9, 1] : gemKind === "foudre" ? [0.40, 0.65, 1.00] : gemKind === "arcane" ? [0.88, 0.34, 0.99] : gemKind === "necro" ? [0.22, 0.92, 0.42] : [0.85, 0.72, 0.28];
   const sx = x + rx * 0.42, sz = z + rz * 0.42;
   drawCube(sx, y + 0.7 + bob, sz, 0.1, 1.05, 0.1, face, 0.35, 0.2, 0.1, 0);
@@ -2218,7 +2218,7 @@ function update(dt) {
     let mx = 0, mz = 0;
     if (keys.KeyW || keys.KeyZ || keys.ArrowUp) mz += 1;
     if (keys.KeyS || keys.ArrowDown) mz -= 1;
-    if (keys.KeyA || keys.KeyQ || keys.ArrowLeft) mx += 1;
+    if (keys.KeyA || keys.ArrowLeft) mx += 1;
     if (keys.KeyD || keys.ArrowRight) mx -= 1;
     mx -= joy.dx;
     mz += -joy.dy;
@@ -2288,7 +2288,7 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "Space") { e.preventDefault(); jump(); }
   if (e.code === "KeyF") { e.preventDefault(); punch(); }
   if (e.code === "KeyE") { e.preventDefault(); if (player.cls) cast(player.cls, 1); }
-  if (e.code === "KeyR") { e.preventDefault(); if (player.cls2) cast(player.cls2, 2); }
+  if (e.code === "KeyR" || e.code === "KeyQ") { e.preventDefault(); if (player.cls2) cast(player.cls2, 2); }
 }, { passive: false });
 window.addEventListener("keyup", (e) => { keys[e.code] = false; });
 
