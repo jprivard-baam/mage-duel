@@ -531,7 +531,7 @@ html, body {
     </div>
     <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
     <p class="home-hint">Choisis une classe · E pour le sort<br>Force secondaire au level up</p>
-    <p class="home-hint" id="build-id">b.spell</p>
+    <p class="home-hint" id="build-id">b.cone</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -1825,6 +1825,7 @@ function npcCastE(m, tx, ty, tz, tgt) {
     vx: ux * spd, vy: uy * spd, vz: uz * spd,
     life: cls === "arcane" ? 5.0 : cls === "feu" ? 2.4 : 1.7, age: 0, trail: 0, dmg: 32
   };
+  if (cls === "feu") stampDir0(shot);
   if (tgt === "player") shot.target = player;
   else if (tgt && tgt.kind !== "serviteur") shot.target = tgt;
   shots.push(shot);
@@ -2429,6 +2430,7 @@ function launchPendingShot(s) {
   s.vx = fxv * spd;
   s.vy = s.kind === "arcane" ? 0 : s.vy;
   s.vz = fzv * spd;
+  if (s.kind === "feu") { s.vy = 0; stampDir0(s); }
   s.pending = false;
   s.age = 0;
   if (s.q && s.kind === "arcane") {
@@ -2601,11 +2603,13 @@ function cast(kind, slot) {
       const xz = Math.hypot(look.x, look.z) || 1;
       for (let i = 0; i < n; i++) {
         const yaw = Math.atan2(look.x, look.z) + offs[i];
-        shots.push({
+        const shot = {
           kind, x: ox, y: oy, z: oz,
           vx: Math.sin(yaw) * 17, vy: 0, vz: Math.cos(yaw) * 17,
           life: 2.4, age: 0, trail: 0, q: q
-        });
+        };
+        stampDir0(shot);
+        shots.push(shot);
       }
     } else {
       const aim = clampBallDir({ x: look.x, y: look.y, z: look.z });
@@ -3290,6 +3294,12 @@ function shotTgtValid(s, m) {
   if (!s.npc && isAlly(m)) return false;
   return true;
 }
+function stampDir0(s) {
+  const n = Math.hypot(s.vx, s.vy, s.vz) || 1;
+  s.dir0x = s.vx / n;
+  s.dir0y = s.vy / n;
+  s.dir0z = s.vz / n;
+}
 function steerBall(s) {
   let tgt = shotTgtValid(s, s.target) ? s.target : null;
   if (!tgt) {
@@ -3304,6 +3314,24 @@ function steerBall(s) {
   s.vx += (dx - s.vx) * 0.28;
   s.vy += (dy - s.vy) * 0.28;
   s.vz += (dz - s.vz) * 0.28;
+  if (s.kind === "feu" && s.dir0x != null) {
+    const speed = Math.hypot(s.vx, s.vy, s.vz) || 1;
+    const vn = Math.hypot(s.vx, s.vy, s.vz) || 1;
+    const vx = s.vx / vn, vy = s.vy / vn, vz = s.vz / vn;
+    const d0x = s.dir0x, d0y = s.dir0y, d0z = s.dir0z;
+    let dot = vx * d0x + vy * d0y + vz * d0z;
+    if (dot > 1) dot = 1; else if (dot < -1) dot = -1;
+    const maxA = 0.0524;
+    if (Math.acos(dot) > maxA) {
+      let px = vx - d0x * dot, py = vy - d0y * dot, pz = vz - d0z * dot;
+      const pl = Math.hypot(px, py, pz) || 1;
+      px /= pl; py /= pl; pz /= pl;
+      const c = Math.cos(maxA), si = Math.sin(maxA);
+      s.vx = (d0x * c + px * si) * speed;
+      s.vy = (d0y * c + py * si) * speed;
+      s.vz = (d0z * c + pz * si) * speed;
+    }
+  }
   return tgt;
 }
 function ballHitTgt(s, m) {
