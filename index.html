@@ -4251,8 +4251,9 @@ function update(dt) {
     if (keys.KeyS || keys.ArrowDown) mz -= 1;
     if (keys.KeyA || keys.ArrowLeft) mx += 1;
     if (keys.KeyD || keys.ArrowRight) mx -= 1;
-    mx -= joy.dx;
-    mz += -joy.dy;
+    const jv = joyMove();
+    mx -= jv.dx;
+    mz += -jv.dy;
     const ml = Math.hypot(mx, mz);
     if (ml > 1) { mx /= ml; mz /= ml; }
     const sp = 4.5 * (1 + (player.spdBonus || 0)) * (player.para > 0 ? 0.25 : player.slow > 0 ? 0.45 : 1);
@@ -4263,8 +4264,7 @@ function update(dt) {
     if (lock) {
       player.face = player.yaw;
     } else {
-      const jlen = Math.hypot(joy.dx, joy.dy);
-      if (jlen > 0.15) player.face = lerpAng(player.face, Math.atan2(player.vx, player.vz), 10 * dt);
+      if (jv.mag > 0.12) player.face = lerpAng(player.face, Math.atan2(player.vx, player.vz), 10 * dt);
       player.yaw = lerpAng(player.yaw, player.face, 6 * dt);
     }
     if (ml > 0.12) {
@@ -4323,6 +4323,14 @@ function joyPos(cx, cy) {
   const l = Math.hypot(dx, dy);
   if (l > 1) { dx /= l; dy /= l; }
   return { dx, dy };
+}
+function joyMove() {
+  let dx = joy.dx || 0, dy = joy.dy || 0;
+  const mag = Math.hypot(dx, dy);
+  if (mag < 0.18) return { dx: 0, dy: 0, mag: 0 };
+  let t = (mag - 0.18) / 0.82;
+  t = Math.pow(t, 1.8);
+  return { dx: dx / mag * t, dy: dy / mag * t, mag: t };
 }
 function setKnob() {
   knob.style.transform = "translate(" + (joy.dx * 34) + "px," + (joy.dy * 34) + "px)";
