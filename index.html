@@ -1806,7 +1806,7 @@ function useBois() {
   beep(110, 0.08, 0.03, "sine");
 }
 function eatViande() {
-  if (mode !== "play") return;
+  if (mode !== "play" || isDraftOpen()) return;
   if (eatCD > 0) return;
   if ((player.viande | 0) < 1) return;
   if (player.hunger >= 100) return;
