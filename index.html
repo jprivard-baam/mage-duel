@@ -2588,6 +2588,7 @@ function draftAtCap(id) {
   return false;
 }
 function secKinds() {
+  if (player.cls2) return [];
   const all = ["feu", "glace", "foudre", "arcane", "necro"];
   const out = [];
   for (let i = 0; i < all.length; i++) if (all[i] !== player.cls) out.push(all[i]);
@@ -2624,8 +2625,11 @@ function weightTable(L, unlocked) {
     else if (L <= 9) { wE = 26; wSec = 8; wPv = 20; wMa = 16; wSp = 8; wAr = 6; wRg = 6; wPu = 6; }
     else { wE = 22; wSec = 12; wPv = 16; wMa = 12; wSp = 6; wAr = 6; wRg = 6; wPu = 6; }
     add("UP_E", wE);
-    const sk = secKinds();
-    for (let i = 0; i < sk.length; i++) add("SEC_" + sk[i], wSec, sk[i]);
+    const sk = player.cls2 ? [] : secKinds();
+    for (let i = 0; i < sk.length; i++) {
+      if (sk[i] === player.cls || sk[i] === player.cls2) continue;
+      add("SEC_" + sk[i], wSec, sk[i]);
+    }
     add("PV", wPv); add("MANA", wMa); add("SPD", wSp); add("ARM", wAr); add("REG", wRg); add("PUNCH", wPu); add("FAIM", L <= 4 ? 12 : L <= 9 ? 10 : 8);
   } else {
     add("UP_E", 26); add("UP_Q", 22);
@@ -2710,12 +2714,14 @@ function renderDraft() {
 function applyDraft(c) {
   const m = boostMul();
   if (c.id === "UP_E") { player.priRank++; player.priBonus = (player.priBonus || 0) + 0.10 * m; }
-  else if (c.id === "UP_Q") { player.secRank++; player.secBonus = (player.secBonus || 0) + 0.10 * m; }
+  else if (c.id === "UP_Q") { if (player.cls2) { player.secRank++; player.secBonus = (player.secBonus || 0) + 0.10 * m; } }
   else if (isSecId(c.id) && c.kind && c.kind !== player.cls) {
-    player.cls2 = c.kind;
-    player.secRank = 0;
-    player.secBonus = 0;
-    player.qUnlockL = player.draftL || player.level;
+    if (!player.cls2) {
+      player.cls2 = c.kind;
+      player.secRank = 0;
+      player.secBonus = 0;
+      player.qUnlockL = player.draftL || player.level;
+    }
   } else if (c.id === "PV") {
     player.pvRank++;
     const add = rhu(50 * m);
