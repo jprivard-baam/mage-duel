@@ -4327,9 +4327,9 @@ function joyPos(cx, cy) {
 function joyMove() {
   let dx = joy.dx || 0, dy = joy.dy || 0;
   const mag = Math.hypot(dx, dy);
-  if (mag < 0.18) return { dx: 0, dy: 0, mag: 0 };
-  let t = (mag - 0.18) / 0.82;
-  t = Math.pow(t, 1.8);
+  if (mag < 0.30) return { dx: 0, dy: 0, mag: 0 };
+  let t = (mag - 0.30) / 0.70;
+  t = Math.pow(t, 2.5);
   return { dx: dx / mag * t, dy: dy / mag * t, mag: t };
 }
 function setKnob() {
