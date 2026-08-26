@@ -531,7 +531,7 @@ html, body {
     </div>
     <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
     <p class="home-hint">Choisis une classe · E pour le sort<br>Force secondaire au level up</p>
-    <p class="home-hint" id="build-id">b.camlock</p>
+    <p class="home-hint" id="build-id">b.camfix</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -4143,7 +4143,7 @@ function render() {
 }
 
 function updateCamera(dt) {
-  const fy = player.face;
+  const fy = player.yaw;
   const backX = Math.sin(fy), backZ = Math.cos(fy);
   let dist = 8;
   let tx = player.x - backX * dist;
@@ -4259,7 +4259,11 @@ function update(dt) {
     const s = Math.sin(player.yaw), c = Math.cos(player.yaw);
     player.vx = (s * mz + c * mx) * sp;
     player.vz = (c * mz - s * mx) * sp;
-    player.face = player.yaw;
+    if (document.pointerLockElement === canvas) {
+      player.face = player.yaw;
+    } else if (ml > 0.12) {
+      player.face = lerpAng(player.face, Math.atan2(player.vx, player.vz), 10 * dt);
+    }
     if (ml > 0.12) {
       player.bob += dt * 10;
     }
@@ -4391,7 +4395,7 @@ function onDown(e) {
     joy.id = id;
     const p = joyPos(x, y);
     joy.dx = p.dx; joy.dy = p.dy; setKnob();
-  } else if (lookT.id == null) {
+  } else if (!left && lookT.id == null && id !== joy.id) {
     lookT.id = id; lookT.lx = x; lookT.ly = y;
   }
 }
@@ -4407,7 +4411,6 @@ function onMove(e) {
     } else if (id === lookT.id) {
       player.yaw -= (t.clientX - lookT.lx) * 0.0055;
       player.pitch = Math.max(-0.5, Math.min(1.05, player.pitch + (t.clientY - lookT.ly) * 0.0055));
-      player.face = player.yaw;
       lookT.lx = t.clientX; lookT.ly = t.clientY;
     }
   }
