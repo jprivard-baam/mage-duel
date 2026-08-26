@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#07040e">
 <meta name="format-detection" content="telephone=no">
-<title>Mage Duel — Survie en cubes</title>
+<title>Cubemancy</title>
 <style>
 :root {
   --gold: #d4af37;
@@ -223,6 +223,52 @@ html, body {
   color: #1a1004;
   font-size: 12px;
 }
+#btn-frap {
+  width: 72px; height: 72px;
+  background: radial-gradient(circle at 35% 30%, #e8c090, #8b5a2b 55%, #4a2c12);
+  color: #fff8e8;
+  font-size: 11px;
+  letter-spacing: .06em;
+}
+#hotbar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(22px + var(--safe-b));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 2;
+}
+.slot {
+  width: 58px; height: 62px;
+  background: rgba(8,4,16,.62);
+  border: 2px solid rgba(212,175,55,.5);
+  border-radius: 8px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px;
+  box-shadow: 0 4px 0 rgba(0,0,0,.3), 0 0 12px rgba(0,0,0,.2);
+}
+.slot .ico {
+  width: 22px; height: 22px;
+  background: linear-gradient(180deg, #8b5a2b, #4a2c12);
+  border-radius: 3px;
+  box-shadow: 1px 1px 0 #2a1808, inset 0 1px 0 rgba(255,220,160,.35);
+}
+.slot .lab {
+  font-size: 8px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: #c4b5fd;
+}
+.slot .cnt {
+  font-family: var(--font-d);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold-l);
+  line-height: 1;
+}
 
 #death {
   position: fixed; inset: 0; z-index: 5;
@@ -243,7 +289,9 @@ html, body {
   #joy-wrap { width: 110px; height: 110px; bottom: calc(12px + var(--safe-b)); }
   #joy-base { width: 110px; height: 110px; }
   .abtn { width: 52px; height: 52px; font-size: 10px; }
-  #btn-saut { width: 60px; height: 60px; }
+  #btn-saut, #btn-frap { width: 60px; height: 60px; }
+  #hotbar { bottom: calc(12px + var(--safe-b)); }
+  .slot { width: 50px; height: 54px; }
   .home-hero h1 { font-size: clamp(32px, 7vw, 48px); }
   #home { justify-content: center; padding-bottom: calc(16px + var(--safe-b)); }
 }
@@ -253,11 +301,11 @@ html, body {
 <canvas id="c"></canvas>
 <div id="home">
   <div class="home-hero">
-    <h1>Mage Duel</h1>
+    <h1>Cubemancy</h1>
     <div class="gold-rule"></div>
     <div class="sub">Survie en cubes</div>
     <button class="btn btn-play" id="btn-play" type="button">Jouer</button>
-    <p class="home-hint">Joystick pour marcher · glisser pour regarder<br>Saut · Feu · Glace · Foudre</p>
+    <p class="home-hint">Joystick pour marcher · glisser pour regarder<br>Saut · Frapper · Feu · Glace · Foudre</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -268,6 +316,13 @@ html, body {
     <div id="clock">☀</div>
   </div>
   <div id="toast"></div>
+  <div id="hotbar">
+    <div class="slot" id="slot-bois">
+      <div class="ico"></div>
+      <div class="lab">Bois</div>
+      <div class="cnt" id="bois-n">0</div>
+    </div>
+  </div>
   <div id="joy-wrap">
     <div id="joy-base"><div id="joy-knob"></div></div>
   </div>
@@ -277,7 +332,10 @@ html, body {
       <button class="abtn" id="btn-glace" type="button">Glace</button>
       <button class="abtn" id="btn-foudre" type="button">Foudre</button>
     </div>
-    <button class="abtn" id="btn-saut" type="button">Saut</button>
+    <div class="spells">
+      <button class="abtn" id="btn-frap" type="button">Frapper</button>
+      <button class="abtn" id="btn-saut" type="button">Saut</button>
+    </div>
   </div>
 </div>
 <div id="death" class="hidden">
@@ -288,7 +346,7 @@ html, body {
 (function () {
 "use strict";
 
-const W = 48, H = 16, D = 48;
+const W = 96, H = 16, D = 96;
 const AIR = 0, DIRT = 1, ROCK = 2, WOOD = 3, LEAF = 4;
 const CYCLE = 120;
 const canvas = document.getElementById("c");
@@ -336,16 +394,16 @@ function fbm(x, z) {
 
 function genWorld() {
   blocks.fill(0);
-  const cx = 23.5, cz = 23.5;
+  const cx = 47.5, cz = 47.5;
   for (let z = 0; z < D; z++) {
     for (let x = 0; x < W; x++) {
       const dx = x - cx, dz = z - cz;
       const dist = Math.hypot(dx, dz);
-      const fall = dist > 22 ? 0 : dist > 16 ? (22 - dist) / 6 : 1;
+      const fall = dist > 44 ? 0 : dist > 32 ? (44 - dist) / 12 : 1;
       if (fall <= 0) continue;
-      const n = fbm(x * 0.09, z * 0.09);
-      const hill = Math.exp(-((x - 29) * (x - 29) + (z - 17) * (z - 17)) / 38);
-      const knoll = Math.exp(-((x - 14) * (x - 14) + (z - 31) * (z - 31)) / 22);
+      const n = fbm(x * 0.045, z * 0.045);
+      const hill = Math.exp(-((x - 58) * (x - 58) + (z - 34) * (z - 34)) / 152);
+      const knoll = Math.exp(-((x - 28) * (x - 28) + (z - 62) * (z - 62)) / 88);
       let h = 2 + fall * (3.2 + n * 4.2 + hill * 6.5 + knoll * 3.2);
       h = Math.max(1, Math.min(H - 2, Math.floor(h)));
       const rocky = hill > 0.45 || (n > 0.62 && h >= 7);
@@ -359,15 +417,15 @@ function genWorld() {
   }
   const trees = [];
   let tries = 0;
-  while (trees.length < 12 && tries < 180) {
+  while (trees.length < 22 && tries < 400) {
     tries++;
-    const x = 6 + (hash(tries, 9) * (W - 12)) | 0;
-    const z = 6 + (hash(tries, 21) * (D - 12)) | 0;
+    const x = 12 + (hash(tries, 9) * (W - 24)) | 0;
+    const z = 12 + (hash(tries, 21) * (D - 24)) | 0;
     let top = -1;
     for (let y = H - 1; y >= 0; y--) if (getB(x, y, z) === DIRT) { top = y; break; }
     if (top < 2 || top > 9) continue;
     let ok = true;
-    for (const t of trees) if (Math.hypot(t[0] - x, t[1] - z) < 4.2) ok = false;
+    for (const t of trees) if (Math.hypot(t[0] - x, t[1] - z) < 6) ok = false;
     if (!ok) continue;
     const th = 3 + (hash(x, z) * 2) | 0;
     for (let i = 1; i <= th; i++) setB(x, top + i, z, WOOD);
@@ -608,7 +666,7 @@ function resize() {
   canvas.style.width = w + "px";
   canvas.style.height = h + "px";
   gl.viewport(0, 0, canvas.width, canvas.height);
-  perspective(proj, 1.05, canvas.width / canvas.height, 0.12, 90);
+  perspective(proj, 1.05, canvas.width / canvas.height, 0.12, 140);
 }
 
 let mode = "home";
@@ -617,15 +675,16 @@ let lastNight = false;
 let spawnedNight = false;
 let shake = 0;
 let meshDirty = false;
-let eatCD = 0, spellCD = 0;
+let eatCD = 0, spellCD = 0, punchCD = 0;
 let lastSpell = "feu";
 const player = {
-  x: 24, y: 8, z: 26, vx: 0, vy: 0, vz: 0,
+  x: 48, y: 8, z: 50, vx: 0, vy: 0, vz: 0,
   yaw: 0.35, pitch: 0.22, face: 0.35,
   hp: 100, hunger: 100, mana: 100,
-  grounded: false, flash: 0, inv: 0, bob: 0
+  grounded: false, flash: 0, inv: 0, bob: 0,
+  bois: 0
 };
-const PW = 0.34, PH = 1.58;
+const PW = 0.26, PH = 1.48;
 const mobs = [];
 const shots = [];
 const bolts = [];
@@ -633,7 +692,7 @@ const parts = [];
 const keys = Object.create(null);
 const joy = { id: null, dx: 0, dy: 0 };
 const lookT = { id: null, lx: 0, ly: 0 };
-let camX = 24, camY = 12, camZ = 36;
+let camX = 48, camY = 12, camZ = 62;
 let wasNight = false;
 let toastT = 0;
 
@@ -644,10 +703,10 @@ function highest(x, z) {
   return 0;
 }
 function spawnPlayer() {
-  let bx = 24, bz = 28;
-  for (let t = 0; t < 60; t++) {
-    const x = 16 + (t % 12);
-    const z = 22 + ((t / 12) | 0);
+  let bx = 48, bz = 50;
+  for (let t = 0; t < 80; t++) {
+    const x = 40 + (t % 16);
+    const z = 44 + ((t / 16) | 0);
     let y = -1;
     for (let yy = H - 1; yy >= 0; yy--) if (solidOf(getB(x, yy, z))) { y = yy; break; }
     if (y >= 2 && getB(x, y, z) === DIRT && getB(x, y + 1, z) === AIR) { bx = x; bz = z; break; }
@@ -660,6 +719,7 @@ function spawnPlayer() {
   player.hp = 100; player.hunger = 100; player.mana = 100;
   player.yaw = 0.2; player.pitch = 0.18; player.face = 0.2;
   player.flash = 0; player.inv = 0; player.grounded = true;
+  player.bois = 0;
 }
 function collides(x, y, z, w, h) {
   const x0 = Math.floor(x - w), x1 = Math.floor(x + w);
@@ -693,12 +753,16 @@ function physics(p, w, h, dt) {
 }
 
 function lookDir() {
+  const yaw = player.face;
   const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
   return {
-    x: Math.sin(player.yaw) * cp,
+    x: Math.sin(yaw) * cp,
     y: -sp,
-    z: Math.cos(player.yaw) * cp
+    z: Math.cos(yaw) * cp
   };
+}
+function faceFwd() {
+  return { x: Math.sin(player.face), z: Math.cos(player.face) };
 }
 
 function burst(x, y, z, r, g, b, n, spd) {
@@ -771,7 +835,9 @@ function resetPlay() {
   spawnPlayer();
   mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0;
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
+  player.bois = 0;
   deathEl.classList.add("hidden");
+  const bn = $("bois-n"); if (bn) bn.textContent = "0";
 }
 
 function isNight() {
@@ -786,9 +852,9 @@ function spawnMobs() {
   while (made < n && tries < 80) {
     tries++;
     const ang = Math.random() * Math.PI * 2;
-    const rad = 12 + Math.random() * 8;
-    const x = 24 + Math.cos(ang) * rad;
-    const z = 24 + Math.sin(ang) * rad;
+    const rad = 18 + Math.random() * 16;
+    const x = 48 + Math.cos(ang) * rad;
+    const z = 48 + Math.sin(ang) * rad;
     if (x < 2 || z < 2 || x > W - 3 || z > D - 3) continue;
     if (Math.hypot(x - player.x, z - player.z) < 9) continue;
     const y = highest(x, z) + 1.05;
@@ -834,9 +900,10 @@ function cast(kind) {
   spellCD = kind === "foudre" ? 0.5 : 0.32;
   lastSpell = kind;
   const d = lookDir();
-  const ox = player.x + d.x * 0.55;
+  const fwd = faceFwd();
+  const ox = player.x + fwd.x * 0.7;
   const oy = player.y + 1.12;
-  const oz = player.z + d.z * 0.55;
+  const oz = player.z + fwd.z * 0.7;
   if (kind === "foudre") {
     beep(880, 0.1, 0.06, "sawtooth");
     let hx = ox + d.x * 16, hy = oy + d.y * 16, hz = oz + d.z * 16, hit = null;
@@ -1003,8 +1070,8 @@ function render() {
   gl.uniform3fv(uAmb, sky.amb);
   gl.uniform3fv(uFog, sky.fog);
   gl.uniform3f(uCam, camX, camY, camZ);
-  gl.uniform1f(uFogN, 18);
-  gl.uniform1f(uFogF, 52);
+  gl.uniform1f(uFogN, 28);
+  gl.uniform1f(uFogF, 118);
 
   bindInterleaved(worldBuf);
   gl.uniformMatrix4fv(uModel, false, ident);
@@ -1043,17 +1110,17 @@ function render() {
 }
 
 function updateCamera(dt) {
-  let dist = 5.6;
+  let dist = 8;
   const d = lookDir();
   let tx = player.x - d.x * dist;
-  let ty = player.y + 1.55 - d.y * dist;
+  let ty = player.y + 1.7 - d.y * dist;
   let tz = player.z - d.z * dist;
   if (mode === "home") {
     const t = performance.now() / 1000;
     const ang = t * 0.42;
-    tx = player.x + Math.sin(ang) * 8.2;
-    ty = player.y + 3.4;
-    tz = player.z + Math.cos(ang) * 8.2;
+    tx = player.x + Math.sin(ang) * 12;
+    ty = player.y + 4.2;
+    tz = player.z + Math.cos(ang) * 12;
   }
   for (let i = 0; i < 6; i++) {
     if (!isSolid(tx, ty, tz)) break;
@@ -1087,6 +1154,7 @@ function updateHUD() {
   $("btn-feu").classList.toggle("off", !canF);
   $("btn-glace").classList.toggle("off", !canG);
   $("btn-foudre").classList.toggle("off", !canL);
+  const bn = $("bois-n"); if (bn) bn.textContent = String(player.bois | 0);
   if (toastT > 0) {
     toastT -= 0.016;
     if (toastT <= 0) toastEl.classList.remove("show");
@@ -1105,6 +1173,7 @@ function update(dt) {
     player.flash = Math.max(0, player.flash - dt);
     player.inv = Math.max(0, player.inv - dt);
     spellCD = Math.max(0, spellCD - dt);
+    punchCD = Math.max(0, punchCD - dt);
     tryEat(dt);
     if (meshDirty) { buildWorldMesh(); meshDirty = false; }
 
@@ -1118,9 +1187,9 @@ function update(dt) {
     let mx = 0, mz = 0;
     if (keys.KeyW || keys.KeyZ || keys.ArrowUp) mz += 1;
     if (keys.KeyS || keys.ArrowDown) mz -= 1;
-    if (keys.KeyA || keys.KeyQ || keys.ArrowLeft) mx -= 1;
-    if (keys.KeyD || keys.ArrowRight) mx += 1;
-    mx += joy.dx;
+    if (keys.KeyA || keys.KeyQ || keys.ArrowLeft) mx += 1;
+    if (keys.KeyD || keys.ArrowRight) mx -= 1;
+    mx -= joy.dx;
     mz += -joy.dy;
     const ml = Math.hypot(mx, mz);
     if (ml > 1) { mx /= ml; mz /= ml; }
@@ -1128,13 +1197,8 @@ function update(dt) {
     const s = Math.sin(player.yaw), c = Math.cos(player.yaw);
     player.vx = (s * mz + c * mx) * sp;
     player.vz = (c * mz - s * mx) * sp;
+    player.face = player.yaw;
     if (ml > 0.12) {
-      player.face += Math.atan2(player.vx, player.vz) ? 0 : 0;
-      const want = Math.atan2(player.vx, player.vz);
-      let df = want - player.face;
-      while (df > Math.PI) df -= Math.PI * 2;
-      while (df < -Math.PI) df += Math.PI * 2;
-      player.face += df * Math.min(1, 10 * dt);
       player.bob += dt * 10;
     }
     physics(player, PW, PH, dt);
@@ -1192,7 +1256,7 @@ canvas.addEventListener("click", () => {
 document.addEventListener("mousemove", (e) => {
   if (mode !== "play") return;
   if (document.pointerLockElement === canvas) {
-    player.yaw += e.movementX * 0.0024;
+    player.yaw -= e.movementX * 0.0024;
     player.pitch = Math.max(-0.5, Math.min(1.05, player.pitch + e.movementY * 0.002));
   }
 });
@@ -1222,7 +1286,7 @@ function onMove(e) {
       const p = joyPos(t.clientX, t.clientY);
       joy.dx = p.dx; joy.dy = p.dy; setKnob();
     } else if (id === lookT.id) {
-      player.yaw += (t.clientX - lookT.lx) * 0.007;
+      player.yaw -= (t.clientX - lookT.lx) * 0.007;
       player.pitch = Math.max(-0.5, Math.min(1.05, player.pitch + (t.clientY - lookT.ly) * 0.0055));
       lookT.lx = t.clientX; lookT.ly = t.clientY;
     }
