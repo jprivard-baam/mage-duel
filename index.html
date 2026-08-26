@@ -17,7 +17,9 @@
   --cream: #f5e6c8;
   --fire: #ff5a1f;
   --ice: #5ad4ff;
-  --bolt: #c084fc;
+  --bolt: #4ea3ff;
+  --arcane: #e056fd;
+  --necro: #38eb6b;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
@@ -125,8 +127,10 @@ html, body {
 .class-pick {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin: 0 auto 22px;
+  gap: 6px;
+  margin: 0 auto 10px;
+  flex-wrap: nowrap;
+  max-width: 100%;
 }
 .cls-btn {
   appearance: none;
@@ -134,12 +138,14 @@ html, body {
   background: rgba(8,4,16,.62);
   color: var(--cream);
   font-family: var(--font-d);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: .16em;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  width: 88px;
-  min-height: 92px;
+  width: 58px;
+  min-height: 70px;
+  flex: 0 0 auto;
+  padding: 6px 2px;
   border-radius: 12px;
   cursor: pointer;
   display: flex;
@@ -155,6 +161,8 @@ html, body {
 .cls-btn[data-cls="feu"] .cls-dot { background: var(--fire); box-shadow: 0 0 12px var(--fire); }
 .cls-btn[data-cls="glace"] .cls-dot { background: var(--ice); box-shadow: 0 0 12px var(--ice); }
 .cls-btn[data-cls="foudre"] .cls-dot { background: var(--bolt); box-shadow: 0 0 12px var(--bolt); }
+.cls-btn[data-cls="arcane"] .cls-dot { background: var(--arcane); box-shadow: 0 0 12px var(--arcane); }
+.cls-btn[data-cls="necro"] .cls-dot { background: var(--necro); box-shadow: 0 0 12px var(--necro); }
 .cls-btn.on {
   border-color: var(--gold);
   color: #fff6d4;
@@ -163,9 +171,20 @@ html, body {
 }
 .cls-btn[data-cls="feu"].on { background: radial-gradient(circle at 35% 25%, rgba(255,90,31,.45), rgba(8,4,16,.75)); }
 .cls-btn[data-cls="glace"].on { background: radial-gradient(circle at 35% 25%, rgba(90,212,255,.4), rgba(8,4,16,.75)); }
-.cls-btn[data-cls="foudre"].on { background: radial-gradient(circle at 35% 25%, rgba(192,132,252,.42), rgba(8,4,16,.75)); }
+.cls-btn[data-cls="foudre"].on { background: radial-gradient(circle at 35% 25%, rgba(78,163,255,.42), rgba(8,4,16,.75)); }
+.cls-btn[data-cls="arcane"].on { background: radial-gradient(circle at 35% 25%, rgba(224,86,253,.48), rgba(8,4,16,.75)); }
+.cls-btn[data-cls="necro"].on { background: radial-gradient(circle at 35% 25%, rgba(56,235,107,.42), rgba(8,4,16,.75)); }
 .cls-btn:active { transform: scale(.96); }
 
+.pick-lab {
+  font-family: var(--font-d);
+  font-size: 10px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: #9b8bb8;
+  text-align: center;
+  margin: 4px 0 6px;
+}
 #hud {
   position: absolute;
   top: calc(8px + var(--safe-t));
@@ -295,9 +314,12 @@ html, body {
   font-size: 13px;
   letter-spacing: .12em;
 }
-#btn-sort.feu { background: radial-gradient(circle at 35% 30%, #ffb087, var(--fire) 55%, #9a1c00); }
-#btn-sort.glace { background: radial-gradient(circle at 35% 30%, #d9f7ff, var(--ice) 55%, #0e7490); }
-#btn-sort.foudre { background: radial-gradient(circle at 35% 30%, #f3e8ff, var(--bolt) 55%, #6b21a8); }
+#btn-sort.feu, #btn-sort2.feu { background: radial-gradient(circle at 35% 30%, #ffb087, var(--fire) 55%, #9a1c00); }
+#btn-sort.glace, #btn-sort2.glace { background: radial-gradient(circle at 35% 30%, #d9f7ff, var(--ice) 55%, #0e7490); }
+#btn-sort.foudre, #btn-sort2.foudre { background: radial-gradient(circle at 35% 30%, #dbeafe, #4ea3ff 55%, #1e40af); }
+#btn-sort.arcane, #btn-sort2.arcane { background: radial-gradient(circle at 35% 30%, #f5d0fe, #e056fd 55%, #86198f); }
+#btn-sort.necro, #btn-sort2.necro { background: radial-gradient(circle at 35% 30%, #bbf7d0, #38eb6b 55%, #166534); }
+#btn-sort2 { width: 62px; height: 62px; font-size: 9px; letter-spacing: .06em; }
 #btn-saut {
   width: 72px; height: 72px;
   background: radial-gradient(circle at 35% 30%, #fff, #e5e7eb 50%, #6b7280);
@@ -376,8 +398,11 @@ html, body {
   .abtn { width: 52px; height: 52px; font-size: 10px; }
   #btn-saut, #btn-frap { width: 60px; height: 60px; }
   #btn-sort { width: 68px; height: 68px; font-size: 11px; }
-  .class-pick { margin-bottom: 14px; }
-  .cls-btn { width: 76px; min-height: 78px; font-size: 11px; }
+  .class-pick { margin-bottom: 6px; gap: 4px; }
+  .cls-btn { width: 46px; min-height: 50px; font-size: 8px; letter-spacing: .04em; gap: 4px; padding: 4px 1px; }
+  .cls-btn .cls-dot { width: 10px; height: 10px; }
+  .pick-lab { font-size: 9px; margin: 2px 0 4px; letter-spacing: .16em; }
+  #btn-sort2 { width: 48px; height: 48px; font-size: 8px; }
   #hotbar { bottom: calc(12px + var(--safe-b)); }
   .slot { width: 50px; height: 54px; }
   .home-hero h1 { font-size: clamp(32px, 7vw, 48px); }
@@ -392,13 +417,24 @@ html, body {
     <h1>Cubemancy</h1>
     <div class="gold-rule"></div>
     <div class="sub">Survive. Cast. Cube.</div>
+    <div class="pick-lab">Force principale</div>
     <div class="class-pick" id="class-pick">
-      <button type="button" class="cls-btn" data-cls="feu" id="cls-feu"><span class="cls-dot"></span>Feu</button>
-      <button type="button" class="cls-btn" data-cls="glace" id="cls-glace"><span class="cls-dot"></span>Glace</button>
-      <button type="button" class="cls-btn" data-cls="foudre" id="cls-foudre"><span class="cls-dot"></span>Foudre</button>
+      <button type="button" class="cls-btn" data-cls="feu" data-slot="1"><span class="cls-dot"></span>Feu</button>
+      <button type="button" class="cls-btn" data-cls="glace" data-slot="1"><span class="cls-dot"></span>Glace</button>
+      <button type="button" class="cls-btn" data-cls="foudre" data-slot="1"><span class="cls-dot"></span>Foudre</button>
+      <button type="button" class="cls-btn" data-cls="arcane" data-slot="1"><span class="cls-dot"></span>Arcane</button>
+      <button type="button" class="cls-btn" data-cls="necro" data-slot="1"><span class="cls-dot"></span>Nécro</button>
+    </div>
+    <div class="pick-lab">Force secondaire</div>
+    <div class="class-pick" id="class-pick2">
+      <button type="button" class="cls-btn" data-cls="feu" data-slot="2"><span class="cls-dot"></span>Feu</button>
+      <button type="button" class="cls-btn" data-cls="glace" data-slot="2"><span class="cls-dot"></span>Glace</button>
+      <button type="button" class="cls-btn" data-cls="foudre" data-slot="2"><span class="cls-dot"></span>Foudre</button>
+      <button type="button" class="cls-btn" data-cls="arcane" data-slot="2"><span class="cls-dot"></span>Arcane</button>
+      <button type="button" class="cls-btn" data-cls="necro" data-slot="2"><span class="cls-dot"></span>Nécro</button>
     </div>
     <button class="btn btn-play" id="btn-play" type="button" disabled>Jouer</button>
-    <p class="home-hint">Choisis une classe · E pour le sort (desktop)<br>iPhone : bouton Sort · Saut · Frapper</p>
+    <p class="home-hint">Choisis 2 forces distinctes · E principal · R secondaire<br>iPhone : 2 sorts · Saut · Frapper</p>
   </div>
 </div>
 <div id="play-ui" class="ui hidden">
@@ -429,7 +465,10 @@ html, body {
     <div id="joy-base"><div id="joy-knob"></div></div>
   </div>
   <div id="actions">
-    <button class="abtn" id="btn-sort" type="button">Sort</button>
+    <div class="spells">
+      <button class="abtn" id="btn-sort2" type="button">—</button>
+      <button class="abtn" id="btn-sort" type="button">Sort</button>
+    </div>
     <div class="spells">
       <button class="abtn" id="btn-frap" type="button">Frapper</button>
       <button class="abtn" id="btn-saut" type="button">Saut</button>
@@ -449,7 +488,8 @@ const AIR = 0, DIRT = 1, ROCK = 2, WOOD = 3, LEAF = 4;
 const CYCLE = 120;
 const MAX_HP = 1000;
 const TREE_MAX_HP = 100;
-const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 35;
+const DMG_PUNCH = 25, DMG_FEU = 40, DMG_GLACE = 28, DMG_FOUDRE = 35, DMG_ARCANE = 30, DMG_NECRO = 22;
+const SERV_HP = 90, SERV_ATK = 22, SERV_SPD = 2.0, SERV_ARM = 0.10, SERV_LIFE = 40;
 const SLIME_HP = 150, SLIME_ATK = 35, SLIME_SPD = 1.9, SLIME_ARM = 0.05;
 const WOLF_HP = 220, WOLF_ATK = 55, WOLF_SPD = 3.6, WOLF_ARM = 0.20;
 const ZOMBIE_HP = 280, ZOMBIE_ATK = 48, ZOMBIE_SPD = 1.35, ZOMBIE_ARM = 0.45;
@@ -784,7 +824,7 @@ let spawnedNight = false;
 let shake = 0;
 let boltFlash = 0;
 let meshDirty = false;
-let eatCD = 0, spellCD = 0, punchCD = 0;
+let eatCD = 0, spellCD = 0, spellCD2 = 0, punchCD = 0;
 let lastSpell = null;
 const MAX_LVL = 100;
 function xpToNext(level) {
@@ -818,13 +858,14 @@ const player = {
   yaw: 0.35, pitch: 0.22, face: 0.35,
   hp: MAX_HP, hunger: 100, mana: 100,
   grounded: false, flash: 0, inv: 0, bob: 0,
-  bois: 0, viande: 0, cls: null, level: 1, xp: 0
+  bois: 0, viande: 0, cls: null, cls2: null, level: 1, xp: 0
 };
 const PW = 0.26, PH = 1.48;
 const mobs = [];
 const shots = [];
 const bolts = [];
 const stains = [];
+const fx = [];
 const pickups = [];
 const treeHp = Object.create(null);
 const parts = [];
@@ -1005,7 +1046,7 @@ function resetPlay() {
   buildWorldMesh();
   spawnPlayer();
   for (const k of Object.keys(treeHp)) delete treeHp[k];
-  mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0; stains.length = 0; pickups.length = 0;
+  mobs.length = 0; shots.length = 0; bolts.length = 0; parts.length = 0; stains.length = 0; fx.length = 0; pickups.length = 0;
   boltFlash = 0;
   gameTime = 18; spawnedNight = false; lastNight = false; shake = 0;
   player.bois = 0; player.viande = 0;
@@ -1026,6 +1067,7 @@ function mobHp(kind) {
   if (kind === "slime") return SLIME_HP;
   if (kind === "zombie") return ZOMBIE_HP;
   if (kind === "squelette") return SKEL_HP;
+  if (kind === "serviteur") return SERV_HP;
   return CERF_HP;
 }
 function mobSpd(kind) {
@@ -1033,6 +1075,7 @@ function mobSpd(kind) {
   if (kind === "slime") return SLIME_SPD;
   if (kind === "zombie") return ZOMBIE_SPD;
   if (kind === "squelette") return SKEL_SPD;
+  if (kind === "serviteur") return SERV_SPD;
   return CERF_FLEE;
 }
 function mobAtk(kind) {
@@ -1040,6 +1083,7 @@ function mobAtk(kind) {
   if (kind === "slime") return SLIME_ATK;
   if (kind === "zombie") return ZOMBIE_ATK;
   if (kind === "squelette") return SKEL_ATK;
+  if (kind === "serviteur") return SERV_ATK;
   return CERF_ATK;
 }
 function mobArm(kind) {
@@ -1047,7 +1091,102 @@ function mobArm(kind) {
   if (kind === "slime") return SLIME_ARM;
   if (kind === "zombie") return ZOMBIE_ARM;
   if (kind === "squelette") return SKEL_ARM;
+  if (kind === "serviteur") return SERV_ARM;
   return CERF_ARM;
+}
+function spellCost(kind) {
+  if (kind === "feu") return 26;
+  if (kind === "glace") return 22;
+  if (kind === "foudre") return 32;
+  if (kind === "arcane") return 20;
+  if (kind === "necro") return 24;
+  return 26;
+}
+function spellCdFor(kind) {
+  if (kind === "foudre") return 0.5;
+  if (kind === "arcane") return 0.28;
+  if (kind === "necro") return 0.55;
+  return 0.32;
+}
+function spellLabel(kind) {
+  if (kind === "feu") return "Feu";
+  if (kind === "glace") return "Glace";
+  if (kind === "foudre") return "Foudre";
+  if (kind === "arcane") return "Missile";
+  if (kind === "necro") return "Invocation";
+  return "Sort";
+}
+function shotDmg(kind) {
+  if (kind === "feu") return DMG_FEU;
+  if (kind === "glace") return DMG_GLACE;
+  if (kind === "arcane") return DMG_ARCANE;
+  if (kind === "necro") return DMG_NECRO;
+  return DMG_PUNCH;
+}
+function staffGemPos() {
+  const face = player.face;
+  const rx = Math.cos(face), rz = -Math.sin(face);
+  const bob = Math.sin(player.bob) * 0.05;
+  return { x: player.x + rx * 0.42, y: player.y + 1.28 + bob, z: player.z + rz * 0.42 };
+}
+function isAlly(m) { return m && m.kind === "serviteur"; }
+function nearestHostileAt(x, y, z, maxDist, preferFront) {
+  const fwd = faceFwd();
+  let best = null, bestScore = Infinity;
+  for (let i = 0; i < mobs.length; i++) {
+    const m = mobs[i];
+    if (m.dead || !HOSTILE[m.kind]) continue;
+    const dx = m.x - x, dy = (m.y + 0.5) - y, dz = m.z - z;
+    const dist = Math.hypot(dx, dy, dz);
+    if (dist > maxDist) continue;
+    let score = dist;
+    if (preferFront) {
+      const hor = Math.hypot(dx, dz) || 1;
+      const dot = (dx / hor) * fwd.x + (dz / hor) * fwd.z;
+      if (dot > 0.12) score *= 0.45;
+      else if (dot < 0) score *= 1.55;
+    }
+    if (score < bestScore) { bestScore = score; best = m; }
+  }
+  return best;
+}
+function minionCap() {
+  if (player.level >= 50) return 3;
+  if (player.level >= 20) return 2;
+  return 1;
+}
+function killServiteur(m) {
+  if (!m || m.dead) return;
+  m.dead = true;
+  burst(m.x, m.y + 0.5, m.z, 0.62, 0.78, 0.52, 5, 4.2, { style: "shard" });
+  burst(m.x, m.y + 0.45, m.z, 0.22, 0.92, 0.42, 3, 3.2, { style: "spark" });
+}
+function spawnServiteur(x, z) {
+  const allies = [];
+  for (let i = 0; i < mobs.length; i++) {
+    const m = mobs[i];
+    if (!m.dead && m.kind === "serviteur") allies.push(m);
+  }
+  const cap = minionCap();
+  while (allies.length >= cap) {
+    const old = allies.shift();
+    killServiteur(old);
+  }
+  const nAlive = allies.length;
+  const off = nAlive ? ((nAlive % 2 ? 1 : -1) * 0.4) : 0;
+  const ang = player.face + Math.PI * 0.5;
+  const sx = x + Math.cos(ang) * off;
+  const sz = z + Math.sin(ang) * off;
+  const gy = highest(sx, sz) + 1.05;
+  mobs.push({
+    kind: "serviteur", x: sx, y: gy, z: sz, vx: 0, vy: 0, vz: 0,
+    hp: SERV_HP, maxHp: SERV_HP,
+    yaw: player.face, flash: 0, slow: 0, para: 0, burn: 0, atk: 0,
+    hop: Math.random() * 6.28, wander: 0, wAng: player.face,
+    grazing: false, dead: false, ally: true, ttl: SERV_LIFE, rise: 0.35
+  });
+  toast("Mort-vivant");
+  beep(160, 0.12, 0.05, "sawtooth");
 }
 function pushMob(kind, minR, maxR, minDist) {
   let tries = 0;
@@ -1133,20 +1272,51 @@ function tryEat(dt) {
       }
 }
 
-function cast(kind) {
-  if (mode !== "play" || spellCD > 0) return;
-  const cost = kind === "feu" ? 26 : kind === "glace" ? 22 : 32;
+function pushBolt(x0, y0, z0, x1, y1, z1, delay, hit) {
+  bolts.push({
+    x0, y0, z0, x1, y1, z1,
+    delay: delay || 0,
+    life: 0.14,
+    after: 0.16,
+    flash: 0.07,
+    seed: (Math.random() * 997) | 0,
+    hit: hit || null,
+    applied: false
+  });
+}
+function hopNext(from, exclude) {
+  let best = null, bestD = 5;
+  for (let i = 0; i < mobs.length; i++) {
+    const m = mobs[i];
+    if (m.dead || !HOSTILE[m.kind] || m === from) continue;
+    let skip = false;
+    for (let k = 0; k < exclude.length; k++) if (exclude[k] === m) skip = true;
+    if (skip) continue;
+    const d = Math.hypot(m.x - from.x, m.y - from.y, m.z - from.z);
+    if (d < bestD) { bestD = d; best = m; }
+  }
+  return best;
+}
+function cast(kind, slot) {
+  if (mode !== "play") return;
+  slot = slot === 2 ? 2 : 1;
+  if (slot === 2) { if (spellCD2 > 0) return; }
+  else if (spellCD > 0) return;
+  const cost = spellCost(kind);
   if (player.mana < cost) { beep(110, 0.08, 0.03, "sine"); return; }
   player.mana -= cost;
-  spellCD = kind === "foudre" ? 0.5 : 0.32;
+  const cd = spellCdFor(kind);
+  if (slot === 2) spellCD2 = cd; else spellCD = cd;
   lastSpell = kind;
   const fwd = faceFwd();
-  const d = { x: fwd.x, y: 0.04, z: fwd.z };
+  const look = lookDir();
+  const d = { x: look.x, y: look.y, z: look.z };
   const ox = player.x + fwd.x * 1.45;
   const oy = player.y + 1.28;
   const oz = player.z + fwd.z * 1.45;
   if (kind === "foudre") {
     beep(880, 0.1, 0.06, "sawtooth");
+    const gem = staffGemPos();
     let hx = ox + d.x * 22, hy = oy + d.y * 22, hz = oz + d.z * 22, hit = null;
     let treeHit = null;
     for (let t = 0.4; t < 22; t += 0.18) {
@@ -1159,41 +1329,54 @@ function cast(kind) {
       }
       for (let i = 0; i < mobs.length; i++) {
         const m = mobs[i];
-        if (m.dead) continue;
+        if (m.dead || isAlly(m)) continue;
         if (Math.abs(m.x - x) < 1.35 && Math.abs(m.y + 0.5 - y) < 1.2 && Math.abs(m.z - z) < 1.35) {
-          hit = m; hx = m.x; hy = m.y + 0.5; hz = m.z; break;
+          hit = m; hx = m.x; hy = m.y + 0.55; hz = m.z; break;
         }
       }
       if (hit) break;
       hx = x; hy = y; hz = z;
     }
-    const bdx = hx - ox, bdy = hy - oy, bdz = hz - oz;
-    const forks = [];
-    const nFork = 2 + ((Math.random() * 3) | 0);
-    for (let fi = 0; fi < nFork; fi++) {
-      const ft = 0.2 + Math.random() * 0.58;
-      const sx = ox + bdx * ft, sy = oy + bdy * ft, sz = oz + bdz * ft;
-      forks.push({
-        x0: sx, y0: sy, z0: sz,
-        x1: sx + (Math.random() - 0.5) * 4.4,
-        y1: sy + (Math.random() - 0.35) * 2.4,
-        z1: sz + (Math.random() - 0.5) * 4.4
-      });
+    pushBolt(gem.x, gem.y, gem.z, hx, hy, hz, 0, hit);
+    const chain = [];
+    if (hit && HOSTILE[hit.kind]) {
+      chain.push(hit);
+      let cur = hit;
+      for (let n = 1; n < 3; n++) {
+        const nxt = hopNext(cur, chain);
+        if (!nxt) break;
+        chain.push(nxt);
+        pushBolt(cur.x, cur.y + 0.55, cur.z, nxt.x, nxt.y + 0.55, nxt.z, n * 0.05, nxt);
+        cur = nxt;
+      }
     }
-    bolts.push({ x0: ox, y0: oy, z0: oz, x1: hx, y1: hy, z1: hz, life: 0.4, seed: (Math.random() * 997) | 0, forks });
-    boltFlash = 0.2;
-    shake = Math.max(shake, 0.34);
-    burst(hx, hy, hz, 1, 0.92, 1, 16, 8, { style: "spark" });
-    burst(hx, hy, hz, 0.72, 0.48, 1, 6, 3.2, { style: "ember" });
-    if (hit) { hurtMob(hit, DMG_FOUDRE, d.x, d.z, 7); hit.para = 2; }
+    boltFlash = 0.07;
+    shake = Math.max(shake, 0.28);
     if (treeHit) damageTree(treeHit[0], treeHit[1], treeHit[2], DMG_FOUDRE);
+  } else if (kind === "arcane") {
+    beep(640, 0.07, 0.05, "triangle");
+    const tgt = nearestHostileAt(ox, oy, oz, 28, true);
+    const spd = 11;
+    shots.push({
+      kind, x: ox, y: oy, z: oz,
+      vx: fwd.x * spd, vy: 0.35, vz: fwd.z * spd,
+      life: 2.4, age: 0, target: tgt, trail: 0
+    });
+  } else if (kind === "necro") {
+    beep(180, 0.09, 0.05, "sawtooth");
+    const spd = 12;
+    shots.push({
+      kind, x: ox, y: oy, z: oz,
+      vx: fwd.x * spd, vy: 0.45, vz: fwd.z * spd,
+      life: 1.8, age: 0, trail: 0
+    });
   } else {
-    const spd = kind === "feu" ? 18 : 14;
+    const spd = kind === "feu" ? 17 : 14;
     beep(kind === "feu" ? 240 : 500, 0.07, 0.05, "square");
     shots.push({
       kind, x: ox, y: oy, z: oz,
-      vx: d.x * spd, vy: 0.8, vz: d.z * spd,
-      life: 1.7, age: 0
+      vx: fwd.x * spd, vy: kind === "glace" ? 0.8 : 0.55, vz: fwd.z * spd,
+      life: 1.7, age: 0, trail: 0
     });
   }
 }
@@ -1279,7 +1462,7 @@ function punch() {
     const px = ox + d.x * t, py = oy + d.y * t, pz = oz + d.z * t;
     for (let i = 0; i < mobs.length; i++) {
       const m = mobs[i];
-      if (m.dead) continue;
+      if (m.dead || isAlly(m)) continue;
       if (Math.abs(m.x - px) < 1.2 && Math.abs(m.y + 0.45 - py) < 1.1 && Math.abs(m.z - pz) < 1.2) {
         const len = Math.hypot(d.x, d.z) || 1;
         hurtMob(m, DMG_PUNCH, d.x / len, d.z / len, 5);
@@ -1335,6 +1518,38 @@ function updateMobs(dt) {
     if (m.para > 0) spMul = 0.25;
     else if (m.slow > 0) spMul = 0.45;
 
+    if (m.kind === "serviteur") {
+      if (m.rise > 0) m.rise = Math.max(0, m.rise - dt);
+      m.ttl = (m.ttl == null ? SERV_LIFE : m.ttl) - dt;
+      if (m.ttl <= 0 || m.hp <= 0) {
+        killServiteur(m);
+        continue;
+      }
+      let best = null, bestD = 24;
+      for (let i = 0; i < mobs.length; i++) {
+        const o = mobs[i];
+        if (o.dead || !HOSTILE[o.kind]) continue;
+        const dd = Math.hypot(o.x - m.x, o.z - m.z);
+        if (dd < bestD) { bestD = dd; best = o; }
+      }
+      if (best) {
+        const bx = best.x - m.x, bz = best.z - m.z;
+        const bd = Math.hypot(bx, bz) || 1;
+        m.yaw = Math.atan2(bx, bz);
+        m.vx = (bx / bd) * SERV_SPD;
+        m.vz = (bz / bd) * SERV_SPD;
+        physics(m, 0.22, 1.15, dt);
+        if (bd < 1.25 && m.atk <= 0) {
+          m.atk = 0.85;
+          hurtMob(best, SERV_ATK, bx / bd, bz / bd, 4);
+        }
+      } else {
+        m.vx *= 0.85; m.vz *= 0.85;
+        physics(m, 0.22, 1.15, dt);
+      }
+      continue;
+    }
+
     if (m.kind === "chevreuil") {
       if (dist < 10) {
         m.yaw = Math.atan2(-dx, -dz);
@@ -1385,87 +1600,175 @@ function updateMobs(dt) {
 }
 
 function emitShotTrail(s) {
-  s.trail = (s.trail || 0);
   if (s.kind === "feu") {
+    const k = Math.min(1, (s.age || 0) / 0.9);
     parts.push({
-      x: s.x + (Math.random() - 0.5) * 0.18, y: s.y + (Math.random() - 0.5) * 0.12, z: s.z + (Math.random() - 0.5) * 0.18,
-      vx: (Math.random() - 0.5) * 1.1, vy: 0.7 + Math.random() * 1.5, vz: (Math.random() - 0.5) * 1.1,
-      r: 1, g: 0.35 + Math.random() * 0.4, b: 0.04, life: 0.28 + Math.random() * 0.18, age: 0,
-      s: 0.05 + Math.random() * 0.06, style: "ember"
+      x: s.x, y: s.y, z: s.z,
+      vx: (Math.random() - 0.5) * 0.4, vy: 1.2, vz: (Math.random() - 0.5) * 0.4,
+      r: 1, g: 0.5, b: 0.1, r1: 0.18, g1: 0.08, b1: 0.04,
+      life: 0.20, age: 0, s: 0.20, style: "trail"
     });
-    if (Math.random() < 0.45) {
-      parts.push({
-        x: s.x, y: s.y + 0.08, z: s.z,
-        vx: (Math.random() - 0.5) * 0.4, vy: 0.8 + Math.random() * 0.7, vz: (Math.random() - 0.5) * 0.4,
-        r: 0.22, g: 0.2, b: 0.18, life: 0.5 + Math.random() * 0.25, age: 0,
-        s: 0.16 + Math.random() * 0.1, style: "smoke"
-      });
-    }
-  } else if (s.kind === "glace") {
+  } else if (s.kind === "arcane") {
     parts.push({
-      x: s.x + (Math.random() - 0.5) * 0.12, y: s.y, z: s.z + (Math.random() - 0.5) * 0.12,
-      vx: (Math.random() - 0.5) * 0.5, vy: -0.15 + Math.random() * 0.25, vz: (Math.random() - 0.5) * 0.5,
-      r: 0.7, g: 0.92, b: 1, life: 0.32 + Math.random() * 0.18, age: 0,
-      s: 0.06 + Math.random() * 0.05, style: "frost"
+      x: s.x, y: s.y + 0.05 * Math.sin((s.age || 0) * 14), z: s.z,
+      vx: 0, vy: 0, vz: 0,
+      r: 0.62, g: 0.16, b: 0.78,
+      life: 0.28, age: 0, s: 0.09, style: "float"
+    });
+  } else if (s.kind === "necro") {
+    parts.push({
+      x: s.x, y: s.y + 0.04 * Math.sin((s.age || 0) * 8), z: s.z,
+      vx: 0, vy: -1.8, vz: 0,
+      r: 0.18, g: 0.70, b: 0.32,
+      life: 0.32, age: 0, s: 0.10, style: "drip"
     });
   }
 }
 function impactFeu(x, y, z) {
-  burst(x, y, z, 1, 0.85, 0.25, 16, 8, { style: "spark" });
-  burst(x, y, z, 1, 0.32, 0.05, 10, 4.2, { style: "ember" });
-  burst(x, y, z, 0.24, 0.2, 0.18, 6, 1.1, { style: "smoke" });
+  fx.push({ type: "boom", x: x, y: y, z: z, age: 0, life: 0.28 });
+  fx.push({ type: "flash", x: x, y: y, z: z, age: 0, life: 0.08, s: 0.9, r: 1, g: 0.92, b: 0.45, glow: 1 });
+  const gy = highest(x, z) + 1.02;
+  const nEm = 10 + ((Math.random() * 3) | 0);
+  for (let i = 0; i < nEm; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const rad = 0.25 + Math.random() * 1.35;
+    parts.push({
+      x: x + Math.cos(a) * rad, y: gy + 0.05, z: z + Math.sin(a) * rad,
+      vx: (Math.random() - 0.5) * 0.35, vy: -1.5, vz: (Math.random() - 0.5) * 0.35,
+      r: 0.85, g: 0.22, b: 0.04, r1: 0.18, g1: 0.06, b1: 0.02,
+      life: 0.7 + Math.random() * 0.3, age: 0,
+      s: 0.10 + Math.random() * 0.06, style: "emberg", ground: gy
+    });
+  }
 }
 function impactGlace(x, y, z) {
-  burst(x, y, z, 0.75, 0.95, 1, 14, 6.5, { style: "shard" });
-  burst(x, y, z, 0.55, 0.85, 1, 8, 2.2, { style: "frost" });
-  burst(x, y, z, 0.65, 0.88, 1, 6, 0.4, { style: "stain" });
-  addStain(x, y, z, 1.25);
-  addStain(x + (Math.random() - 0.5) * 0.5, y, z + (Math.random() - 0.5) * 0.5, 0.7);
+  const gy = highest(x, z) + 1.02;
+  fx.push({ type: "nova", x: x, y: gy, z: z, age: 0, life: 1.15 });
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + Math.random() * 0.3;
+    const rad = 0.2 + Math.random() * 0.7;
+    fx.push({
+      type: "gnd", x: x + Math.cos(a) * rad, y: gy, z: z + Math.sin(a) * rad,
+      age: 0, life: 0.9, s: 0.24, r: 0.70, g: 0.88, b: 1, glow: 0.20
+    });
+  }
+}
+function impactArcane(x, y, z) {
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    parts.push({
+      x: x + Math.cos(a) * 0.16, y: y, z: z + Math.sin(a) * 0.16,
+      vx: 0, vy: 0, vz: 0,
+      r: 0.95, g: 0.70, b: 1.00,
+      life: 0.16, age: 0, s: 0.12, style: "float"
+    });
+  }
+}
+function impactNecro(x, y, z) {
+  const gy = highest(x, z) + 1.02;
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    fx.push({
+      type: "gnd", x: x + Math.cos(a) * 0.28, y: gy, z: z + Math.sin(a) * 0.28,
+      age: 0, life: 0.8, s: 0.20, r: 0.10, g: 0.45, b: 0.22, glow: 0.15
+    });
+  }
+  spawnServiteur(x, z);
+}
+function steerArcane(s, dt) {
+  let tgt = s.target;
+  if (!tgt || tgt.dead || !HOSTILE[tgt.kind]) {
+    tgt = nearestHostileAt(s.x, s.y, s.z, 28, false);
+    s.target = tgt;
+  }
+  if (!tgt) return;
+  const tx = tgt.x - s.x, ty = (tgt.y + 0.5) - s.y, tz = tgt.z - s.z;
+  const tlen = Math.hypot(tx, ty, tz) || 1;
+  const wx = tx / tlen, wy = ty / tlen, wz = tz / tlen;
+  const vlen = Math.hypot(s.vx, s.vy, s.vz) || 1;
+  const hx = s.vx / vlen, hy = s.vy / vlen, hz = s.vz / vlen;
+  const dot = Math.max(-1, Math.min(1, hx * wx + hy * wy + hz * wz));
+  const ang = Math.acos(dot);
+  const maxTurn = 8 * dt;
+  const k = ang < 1e-4 ? 1 : Math.min(1, maxTurn / ang);
+  let nx = hx + (wx - hx) * k, ny = hy + (wy - hy) * k, nz = hz + (wz - hz) * k;
+  const nlen = Math.hypot(nx, ny, nz) || 1;
+  const spd = 11;
+  s.vx = (nx / nlen) * spd;
+  s.vy = (ny / nlen) * spd;
+  s.vz = (nz / nlen) * spd;
 }
 function updateShots(dt) {
   for (let i = shots.length - 1; i >= 0; i--) {
     const s = shots[i];
     s.life -= dt; s.age = (s.age || 0) + dt;
+    if (s.kind === "arcane") steerArcane(s, dt);
     s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
     if (s.kind === "glace") s.vy -= 1.6 * dt;
     s.trail = (s.trail || 0) + dt;
-    if (s.trail > 0.028) { s.trail = 0; emitShotTrail(s); }
+    const tint = s.kind === "feu" ? 0.025 : (s.kind === "arcane" || s.kind === "necro") ? 0.04 : 0.05;
+    if (s.kind === "feu" || s.kind === "arcane" || s.kind === "necro") {
+      if (s.trail > tint) { s.trail = 0; emitShotTrail(s); }
+    }
     let dead = s.life <= 0 || s.y < -2;
-    if (s.age > 0.14) {
+    let hitMob = null;
+    const hb = s.kind === "arcane" ? 0.72 : s.kind === "necro" ? 1.05 : 1.45;
+    const hbY = s.kind === "arcane" ? 0.8 : 1.25;
+    if (s.age > 0.12) {
       const bx = s.x | 0, by = s.y | 0, bz = s.z | 0;
       const bb = getB(bx, by, bz);
       if (bb === WOOD || bb === LEAF) {
-        damageTree(bx, by, bz, s.kind === "feu" ? DMG_FEU : DMG_GLACE);
+        damageTree(bx, by, bz, shotDmg(s.kind));
         dead = true;
       } else if (isSolid(s.x, s.y, s.z)) dead = true;
     }
     for (let j = 0; j < mobs.length; j++) {
       const m = mobs[j];
-      if (m.dead) continue;
-      if (Math.abs(m.x - s.x) < 1.45 && Math.abs(m.y + 0.5 - s.y) < 1.25 && Math.abs(m.z - s.z) < 1.45) {
-        const dmg = s.kind === "feu" ? DMG_FEU : DMG_GLACE;
+      if (m.dead || isAlly(m)) continue;
+      if (Math.abs(m.x - s.x) < hb && Math.abs(m.y + 0.5 - s.y) < hbY && Math.abs(m.z - s.z) < hb) {
+        const dmg = shotDmg(s.kind);
         const len = Math.hypot(s.vx, s.vz) || 1;
-        hurtMob(m, dmg, s.vx / len, s.vz / len, 8);
+        hurtMob(m, dmg, s.vx / len, s.vz / len, s.kind === "arcane" ? 5 : 8);
         if (s.kind === "glace") m.slow = 3;
         if (s.kind === "feu") m.burn = 4;
+        hitMob = m;
         dead = true;
         break;
       }
     }
     if (dead) {
       if (s.kind === "feu") impactFeu(s.x, s.y, s.z);
-      else impactGlace(s.x, s.y, s.z);
+      else if (s.kind === "glace") impactGlace(s.x, s.y, s.z);
+      else if (s.kind === "arcane") impactArcane(s.x, s.y, s.z);
+      else if (s.kind === "necro") impactNecro(s.x, s.y, s.z);
       shots.splice(i, 1);
     }
   }
   for (let i = bolts.length - 1; i >= 0; i--) {
-    bolts[i].life -= dt;
-    if (bolts[i].life <= 0) bolts.splice(i, 1);
+    const b = bolts[i];
+    if (b.delay > 0) { b.delay -= dt; continue; }
+    if (!b.applied) {
+      b.applied = true;
+      if (b.hit && !b.hit.dead) {
+        const dx = b.x1 - b.x0, dz = b.z1 - b.z0;
+        const len = Math.hypot(dx, dz) || 1;
+        hurtMob(b.hit, DMG_FOUDRE, dx / len, dz / len, 7);
+        b.hit.para = 2;
+      }
+    }
+    if (b.flash > 0) b.flash -= dt;
+    if (b.life > 0) b.life -= dt;
+    else b.after -= dt;
+    if (b.life <= 0 && b.after <= 0) bolts.splice(i, 1);
   }
   if (boltFlash > 0) boltFlash = Math.max(0, boltFlash - dt);
   for (let i = stains.length - 1; i >= 0; i--) {
     stains[i].age += dt;
     if (stains[i].age > stains[i].life) stains.splice(i, 1);
+  }
+  for (let i = fx.length - 1; i >= 0; i--) {
+    fx[i].age += dt;
+    if (fx[i].age > fx[i].life) fx.splice(i, 1);
   }
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i];
@@ -1473,12 +1776,19 @@ function updateShots(dt) {
     const st = p.style || "puff";
     if (st === "smoke") { p.vy += 3.2 * dt; p.vx *= 0.96; p.vz *= 0.96; }
     else if (st === "ember") p.vy -= 5 * dt;
+    else if (st === "emberg") {
+      p.vy = -1.5;
+      if (p.ground != null && p.y < p.ground) p.y = p.ground;
+    }
     else if (st === "spark") p.vy -= 2.2 * dt;
     else if (st === "frost") p.vy -= 3.5 * dt;
     else if (st === "shard") p.vy -= 9 * dt;
     else if (st === "stain") { p.vx *= 0.4; p.vz *= 0.4; p.vy = 0; }
+    else if (st === "drip") { p.vy = -1.8; }
+    else if (st === "float" || st === "trail") { /* trail vy already set */ }
     else p.vy -= 10 * dt;
     p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    if (st === "drip" && p.vy > 0) p.vy = -1.8;
     if (p.age > p.life) parts.splice(i, 1);
   }
 }
@@ -1531,7 +1841,7 @@ function drawMage(x, y, z, face, bob, flash) {
   const rhx = x + rx * 0.42 + fx * 0.16, rhz = z + rz * 0.42 + fz * 0.16;
   drawCube(rhx, y + 0.54 + bob - swing * 0.45, rhz, 0.14, 0.16, 0.14, face, skinR, skinG, skinB, f * 0.2);
   const gemKind = player.cls || lastSpell;
-  const gem = gemKind === "feu" ? [1, 0.35, 0.1] : gemKind === "glace" ? [0.4, 0.9, 1] : gemKind === "foudre" ? [0.8, 0.5, 1] : [0.85, 0.72, 0.28];
+  const gem = gemKind === "feu" ? [1, 0.35, 0.1] : gemKind === "glace" ? [0.4, 0.9, 1] : gemKind === "foudre" ? [0.40, 0.65, 1.00] : gemKind === "arcane" ? [0.88, 0.34, 0.99] : gemKind === "necro" ? [0.22, 0.92, 0.42] : [0.85, 0.72, 0.28];
   const sx = x + rx * 0.42, sz = z + rz * 0.42;
   drawCube(sx, y + 0.7 + bob, sz, 0.1, 1.05, 0.1, face, 0.35, 0.2, 0.1, 0);
   drawCube(sx, y + 1.28 + bob, sz, 0.2, 0.2, 0.2, face, gem[0], gem[1], gem[2], 0.35);
@@ -1643,49 +1953,112 @@ function drawSlime(m) {
 }
 
 function drawFireShot(s) {
-  const flick = 0.72 + Math.sin(s.age * 32 + s.x * 4) * 0.28;
-  const flick2 = 0.7 + Math.sin(s.age * 41 + s.z * 5) * 0.3;
-  const yaw = Math.atan2(s.vx, s.vz);
-  drawCube(s.x, s.y + 0.06, s.z, 0.42 * flick, 0.5 * flick2, 0.36, yaw, 1, 0.28, 0.04, 0.55);
-  drawCube(s.x, s.y + 0.02, s.z, 0.28 * flick2, 0.34, 0.26, yaw, 1, 0.55, 0.1, 0.75);
-  drawCube(s.x, s.y + 0.08 * flick, s.z, 0.16, 0.22 * flick, 0.16, yaw, 1, 0.92, 0.55, 0.95);
-  drawCube(s.x + Math.cos(s.age * 14) * 0.12, s.y + 0.16 * flick, s.z + Math.sin(s.age * 14) * 0.12, 0.1, 0.18 * flick2, 0.1, yaw, 1, 0.4, 0.05, 0.5);
+  const flick = 0.08 * Math.sin((s.age || 0) * 36);
+  const heart = 0.50 + flick;
+  drawCube(s.x, s.y, s.z, 0.62, 0.62, 0.62, 0, 1.00, 0.35, 0.12, 0.55);
+  drawCube(s.x, s.y, s.z, heart, heart, heart, 0, 1.00, 0.82, 0.18, 0.90);
 }
 function drawIceShot(s) {
-  const yaw = Math.atan2(s.vx, s.vz);
+  const yaw = (s.age || 0) * 10;
+  drawCube(s.x, s.y, s.z, 0.28, 0.28, 0.28, yaw, 0.85, 0.97, 1.00, 0.65);
   const len = Math.hypot(s.vx, s.vz) || 1;
-  drawCube(s.x, s.y, s.z, 0.14, 0.14, 0.78, yaw, 0.7, 0.92, 1, 0.72);
-  drawCube(s.x, s.y, s.z, 0.28, 0.08, 0.42, yaw, 0.45, 0.82, 1, 0.4);
-  drawCube(s.x, s.y + 0.02, s.z, 0.08, 0.22, 0.32, yaw, 0.85, 0.97, 1, 0.55);
-  const tx = s.x + (s.vx / len) * 0.42, tz = s.z + (s.vz / len) * 0.42;
-  drawCube(tx, s.y, tz, 0.1, 0.1, 0.2, yaw, 1, 1, 1, 0.9);
+  const tx = s.x + (s.vx / len) * 0.22, tz = s.z + (s.vz / len) * 0.22;
+  drawCube(tx, s.y, tz, 0.12, 0.12, 0.40, yaw, 0.35, 0.83, 1.00, 0.55);
 }
-function drawBoltLine(x0, y0, z0, x1, y1, z1, thick, seed, lifeK) {
-  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+function drawArcaneShot(s) {
+  const wy = s.y + 0.05 * Math.sin((s.age || 0) * 14);
+  drawCube(s.x, wy, s.z, 0.28, 0.28, 0.28, 0, 0.98, 0.82, 1.00, 0.35);
+  drawCube(s.x, wy, s.z, 0.20, 0.20, 0.20, 0, 0.88, 0.34, 0.99, 0.85);
+}
+function drawNecroShot(s) {
+  const wy = s.y + 0.04 * Math.sin((s.age || 0) * 8);
+  drawCube(s.x, wy, s.z, 0.42, 0.42, 0.42, 0, 0.12, 0.45, 0.22, 0.25);
+  drawCube(s.x, wy, s.z, 0.32, 0.32, 0.32, 0, 0.22, 0.92, 0.42, 0.80);
+}
+function drawBoltSegs(b, after) {
+  const dx = b.x1 - b.x0, dy = b.y1 - b.y0, dz = b.z1 - b.z0;
   const len = Math.hypot(dx, dy, dz) || 1;
-  const steps = Math.max(5, (len / 0.3) | 0);
+  const steps = Math.max(4, (len / 0.55) | 0);
+  const sl = Math.hypot(dx, dz) || 1;
+  const sx = -dz / sl, sz = dx / sl;
+  const seed = b.seed || 1;
+  const thick = 0.055;
+  const or = after ? 0.25 : 0.28, og = after ? 0.48 : 0.52, ob = after ? 0.95 : 1.00;
+  const glowO = after ? 0.35 : 0.55;
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
-    const jx = (hash(i + seed, 3) - 0.5) * 0.62;
-    const jy = (hash(i + seed, 5) - 0.5) * 0.28;
-    const jz = (hash(i + seed, 8) - 0.5) * 0.62;
-    const x = x0 + dx * t + jx, y = y0 + dy * t + jy, z = z0 + dz * t + jz;
-    const pulse = 0.65 + 0.35 * Math.sin(i * 2.3 + seed);
-    drawCube(x, y, z, thick * 1.7, thick * 1.7, thick * 1.7, 0, 0.7, 0.42, 1, 0.5 * pulse * lifeK);
-    drawCube(x, y, z, thick * 0.72, thick * 0.72, thick * 0.72, 0, 1, 0.96, 1, 0.92 * lifeK);
+    const side = (i % 2 ? 1 : -1) * 0.22 * (0.55 + hash(i + seed, 3));
+    const yj = (hash(i + seed, 7) - 0.5) * 0.28;
+    const x = b.x0 + dx * t + sx * side;
+    const y = b.y0 + dy * t + yj;
+    const z = b.z0 + dz * t + sz * side;
+    drawCube(x, y, z, thick * 1.25, thick * 1.25, thick * 1.25, 0, or, og, ob, glowO);
+    if (!after) drawCube(x, y, z, thick * 0.55, thick * 0.55, thick * 0.55, 0, 0.85, 0.95, 1.00, 1.0);
   }
 }
 function drawLightning(b) {
-  const lifeK = Math.max(0.25, b.life / 0.4);
-  drawBoltLine(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, 0.16, b.seed || 1, lifeK);
-  const forks = b.forks || [];
-  for (let i = 0; i < forks.length; i++) {
-    const f = forks[i];
-    drawBoltLine(f.x0, f.y0, f.z0, f.x1, f.y1, f.z1, 0.09, (b.seed || 1) + 17 + i * 9, lifeK * 0.85);
-  }
-  drawCube(b.x0, b.y0, b.z0, 0.28, 0.28, 0.28, 0, 1, 0.95, 1, 0.85 * lifeK);
-  drawCube(b.x1, b.y1, b.z1, 0.42 + 0.35 * lifeK, 0.42 + 0.35 * lifeK, 0.42 + 0.35 * lifeK, 0, 1, 1, 1, 0.95 * lifeK);
+  if (b.delay > 0) return;
+  if (b.life > 0) drawBoltSegs(b, false);
+  else drawBoltSegs(b, true);
+  const k = b.flash > 0 ? Math.max(0, b.flash / 0.07) : (b.life > 0 ? 1 : Math.max(0, b.after / 0.16));
+  drawCube(b.x0, b.y0, b.z0, 0.18 * k, 0.18 * k, 0.18 * k, 0, 0.90, 0.96, 1.00, 0.9 * k);
+  drawCube(b.x1, b.y1, b.z1, 0.28 * k, 0.28 * k, 0.28 * k, 0, 0.90, 0.96, 1.00, 1.0 * k);
 }
+function drawFx(f) {
+  const t = Math.min(1, f.age / Math.max(0.001, f.life));
+  if (f.type === "boom") {
+    const rad = 0.3 + 1.6 * t;
+    const sz = 0.32 + (0.12 - 0.32) * t;
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      drawCube(f.x + Math.cos(a) * rad, f.y, f.z + Math.sin(a) * rad, sz, sz, sz, 0, 1.00, 0.40, 0.08, 0.8);
+    }
+  } else if (f.type === "flash") {
+    const sz = f.s || 0.9;
+    drawCube(f.x, f.y, f.z, sz, sz, sz, 0, f.r, f.g, f.b, f.glow);
+  } else if (f.type === "nova") {
+    const expand = Math.min(1, f.age / 0.35);
+    const rad = 0.2 + 1.4 * expand;
+    let y = f.y + 0.08;
+    if (f.age > 0.80) y += -2 * (f.age - 0.80);
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      drawCube(f.x + Math.cos(a) * rad, y, f.z + Math.sin(a) * rad, 0.18, 0.28, 0.18, 0, 0.55, 0.82, 1.00, 0.40);
+    }
+  } else if (f.type === "gnd") {
+    const k = 1 - t;
+    drawCube(f.x, f.y, f.z, f.s, 0.06, f.s, 0, f.r, f.g, f.b, (f.glow || 0.2) * k);
+  }
+}
+function drawServiteur(m) {
+  const k = 0.72;
+  const rise = m.rise > 0 ? (m.rise / 0.35) : 0;
+  const yOff = -0.5 * rise + 0.04 * Math.sin(m.hop * 3);
+  const sc = 0.55 + 0.45 * (1 - rise);
+  const x = m.x, y = m.y + yOff, z = m.z;
+  const yaw = m.yaw;
+  const s = Math.sin(yaw), c = Math.cos(yaw);
+  const r = 0.62, g = 0.78, b = 0.52, glow = 0.12;
+  const sk = k * sc;
+  drawCube(x + c * 0.1 * k, y + 0.32 * k, z - s * 0.1 * k, 0.1 * sk, 0.64 * sk, 0.1 * sk, yaw, r, g, b, glow);
+  drawCube(x - c * 0.1 * k, y + 0.32 * k, z + s * 0.1 * k, 0.1 * sk, 0.64 * sk, 0.1 * sk, yaw, r, g, b, glow);
+  drawCube(x, y + 0.68 * k, z, 0.28 * sk, 0.12 * sk, 0.18 * sk, yaw, r, g, b, glow);
+  drawCube(x, y + 0.88 * k, z, 0.36 * sk, 0.08 * sk, 0.22 * sk, yaw, r, g, b, glow);
+  drawCube(x, y + 1.00 * k, z, 0.32 * sk, 0.08 * sk, 0.20 * sk, yaw, r, g, b, glow);
+  drawCube(x, y + 1.12 * k, z, 0.30 * sk, 0.08 * sk, 0.18 * sk, yaw, r, g, b, glow);
+  drawCube(x, y + 1.42 * k, z, 0.32 * sk, 0.32 * sk, 0.32 * sk, yaw, r * 1.05, g * 1.02, b * 0.95, glow);
+  drawCube(x + c * 0.08 * k, y + 1.48 * k, z - s * 0.08 * k, 0.07 * k, 0.07 * k, 0.07 * k, yaw, 0.22, 0.92, 0.42, 0.75);
+  drawCube(x - c * 0.08 * k, y + 1.48 * k, z + s * 0.08 * k, 0.07 * k, 0.07 * k, 0.07 * k, yaw, 0.22, 0.92, 0.42, 0.75);
+  drawCube(x, y + 1.00 * k, z + s * 0.10 * k, 0.10, 0.10, 0.10, yaw, 0.22, 0.92, 0.42, 0.45);
+  const armSz = 0.38 * k;
+  drawCube(x + c * 0.28 * k + s * 0.14 * k, y + 0.95 * k, z - s * 0.28 * k + c * 0.14 * k, 0.10 * k, 0.10 * k, armSz, yaw, r, g, b, glow);
+  drawCube(x - c * 0.28 * k + s * 0.14 * k, y + 0.95 * k, z + s * 0.28 * k + c * 0.14 * k, 0.10 * k, 0.10 * k, armSz, yaw, r, g, b, glow);
+  const t = m.hop;
+  drawCube(x + Math.cos(t * 2.4) * 0.45, y + 0.85 * k + Math.sin(t * 1.7) * 0.08, z + Math.sin(t * 2.4) * 0.45, 0.07, 0.07, 0.07, 0, 0.22, 0.92, 0.42, 0.70);
+  drawCube(x + Math.cos(t * 2.4 + 2.09) * 0.42, y + 0.70 * k, z + Math.sin(t * 2.4 + 2.09) * 0.42, 0.07, 0.07, 0.07, 0, 0.22, 0.92, 0.42, 0.70);
+  drawCube(x + Math.cos(t * 2.4 + 4.18) * 0.40, y + 1.05 * k, z + Math.sin(t * 2.4 + 4.18) * 0.40, 0.07, 0.07, 0.07, 0, 0.22, 0.92, 0.42, 0.70);
+}
+
 function render() {
   const sky = skyColors();
   const flashK = boltFlash > 0 ? Math.min(1, boltFlash * 5.5) : 0;
@@ -1724,14 +2097,18 @@ function render() {
     if (m.kind === "wolf") drawWolf(m);
     else if (m.kind === "chevreuil") drawDeer(m);
     else if (m.kind === "zombie") drawZombie(m);
+    else if (m.kind === "serviteur") drawServiteur(m);
     else if (m.kind === "squelette") drawSkeleton(m);
     else drawSlime(m);
   }
   for (const s of shots) {
     if (s.kind === "feu") drawFireShot(s);
-    else drawIceShot(s);
+    else if (s.kind === "glace") drawIceShot(s);
+    else if (s.kind === "arcane") drawArcaneShot(s);
+    else if (s.kind === "necro") drawNecroShot(s);
   }
   for (const b of bolts) drawLightning(b);
+  for (const f of fx) drawFx(f);
   for (const stn of stains) {
     const k = 1 - stn.age / stn.life;
     drawCube(stn.x, stn.y, stn.z, stn.s * (0.7 + 0.3 * k), 0.06, stn.s * (0.7 + 0.3 * k), 0, 0.55, 0.82, 1, 0.22 * k);
@@ -1747,7 +2124,13 @@ function render() {
       glow = 0.5 * k; yaw = Math.atan2(p.vx, p.vz);
       sx = p.s * 0.45 * k; sy = p.s * 0.45 * k; sz = p.s * 2.4 * k;
     } else if (st === "stain") { glow = 0.18 * k; sy = p.s * 0.15 * k; sx = p.s * 1.4 * k; sz = sx; }
-    drawCube(p.x, p.y, p.z, sx, sy, sz, yaw, p.r, p.g, p.b, glow);
+    let rr = p.r, gg = p.g, bb = p.b;
+    if (p.r1 != null) { rr = p.r + (p.r1 - p.r) * (1 - k); gg = p.g + (p.g1 - p.g) * (1 - k); bb = p.b + (p.b1 - p.b) * (1 - k); }
+    if (st === "trail") { glow = 0.45 * k; }
+    else if (st === "float") glow = 0.25 * k;
+    else if (st === "drip") glow = 0.20 * k;
+    else if (st === "emberg") glow = 0.35 * k;
+    drawCube(p.x, p.y, p.z, sx, sy, sz, yaw, rr, gg, bb, glow);
   }
 }
 
@@ -1796,10 +2179,10 @@ function updateHUD() {
   if (xpI) xpI.style.transform = "scaleX(" + Math.max(0, Math.min(1, xpFrac)) + ")";
   if (lvlLab) lvlLab.textContent = "N." + player.level;
   clockEl.textContent = isNight() ? "☾" : "☀";
-  const kind = player.cls;
-  const cost = kind === "feu" ? 26 : kind === "glace" ? 22 : kind === "foudre" ? 32 : 26;
   const sortBtn = $("btn-sort");
-  if (sortBtn) sortBtn.classList.toggle("off", !kind || player.mana < cost);
+  if (sortBtn) sortBtn.classList.toggle("off", !player.cls || player.mana < spellCost(player.cls));
+  const sort2 = $("btn-sort2");
+  if (sort2) sort2.classList.toggle("off", !player.cls2 || player.mana < spellCost(player.cls2));
   const bn = $("bois-n"); if (bn) bn.textContent = String(player.bois | 0);
   const vn = $("viande-n"); if (vn) vn.textContent = String(player.viande | 0);
   if (toastT > 0) {
@@ -1820,6 +2203,7 @@ function update(dt) {
     player.flash = Math.max(0, player.flash - dt);
     player.inv = Math.max(0, player.inv - dt);
     spellCD = Math.max(0, spellCD - dt);
+    spellCD2 = Math.max(0, spellCD2 - dt);
     punchCD = Math.max(0, punchCD - dt);
     tryEat(dt);
     if (meshDirty) { buildWorldMesh(); meshDirty = false; }
@@ -1903,7 +2287,8 @@ window.addEventListener("keydown", (e) => {
   keys[e.code] = true;
   if (e.code === "Space") { e.preventDefault(); jump(); }
   if (e.code === "KeyF") { e.preventDefault(); punch(); }
-  if (e.code === "KeyE") { e.preventDefault(); if (player.cls) cast(player.cls); }
+  if (e.code === "KeyE") { e.preventDefault(); if (player.cls) cast(player.cls, 1); }
+  if (e.code === "KeyR") { e.preventDefault(); if (player.cls2) cast(player.cls2, 2); }
 }, { passive: false });
 window.addEventListener("keyup", (e) => { keys[e.code] = false; });
 
@@ -1976,35 +2361,57 @@ window.addEventListener("mousemove", (e) => {
 });
 window.addEventListener("mouseup", onUp);
 
+function paintSort(btn, cls) {
+  if (!btn) return;
+  btn.classList.remove("feu", "glace", "foudre", "arcane", "necro");
+  if (cls) {
+    btn.classList.add(cls);
+    btn.textContent = spellLabel(cls);
+  } else {
+    btn.textContent = "—";
+  }
+}
 function applyClassUI() {
   lastSpell = player.cls || lastSpell;
-  const sort = $("btn-sort");
-  if (sort) {
-    sort.classList.remove("feu", "glace", "foudre");
-    if (player.cls) sort.classList.add(player.cls);
-  }
-  const pick = document.querySelectorAll(".cls-btn");
+  paintSort($("btn-sort"), player.cls);
+  paintSort($("btn-sort2"), player.cls2);
+  const pick = document.querySelectorAll("#class-pick .cls-btn");
   for (let i = 0; i < pick.length; i++) pick[i].classList.toggle("on", pick[i].dataset.cls === player.cls);
+  const pick2 = document.querySelectorAll("#class-pick2 .cls-btn");
+  for (let i = 0; i < pick2.length; i++) pick2[i].classList.toggle("on", pick2[i].dataset.cls === player.cls2);
   const play = $("btn-play");
-  if (play) play.disabled = !player.cls;
+  if (play) play.disabled = !player.cls || !player.cls2;
 }
 
-function pickClass(cls) {
-  if (cls !== "feu" && cls !== "glace" && cls !== "foudre") return;
-  player.cls = cls;
-  lastSpell = cls;
+function pickClass(cls, slot) {
+  if (cls !== "feu" && cls !== "glace" && cls !== "foudre" && cls !== "arcane" && cls !== "necro") return;
+  slot = slot === 2 ? 2 : 1;
+  if (slot === 2) {
+    if (cls === player.cls) { beep(110, 0.08, 0.03, "sine"); return; }
+    player.cls2 = cls;
+  } else {
+    player.cls = cls;
+    if (player.cls2 === cls) player.cls2 = null;
+    lastSpell = cls;
+  }
   applyClassUI();
-  beep(cls === "feu" ? 240 : cls === "glace" ? 500 : 880, 0.07, 0.04, "triangle");
+  const f = cls === "feu" ? 240 : cls === "glace" ? 500 : cls === "foudre" ? 880 : cls === "arcane" ? 640 : 180;
+  beep(f, 0.07, 0.04, "triangle");
 }
 
-const classPick = $("class-pick");
-if (classPick) classPick.addEventListener("click", (e) => {
-  const b = e.target.closest && e.target.closest(".cls-btn");
-  if (b) pickClass(b.dataset.cls);
-});
+function bindPick(id, slot) {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest(".cls-btn");
+    if (b) pickClass(b.dataset.cls, slot);
+  });
+}
+bindPick("class-pick", 1);
+bindPick("class-pick2", 2);
 
 $("btn-play").addEventListener("click", () => {
-  if (!player.cls) return;
+  if (!player.cls || !player.cls2) return;
   applyClassUI();
   beep(330, 0.08, 0.04, "triangle");
   homeEl.classList.add("hidden");
@@ -2021,7 +2428,8 @@ $("btn-retry").addEventListener("click", () => {
 });
 $("btn-saut").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); jump(); });
 $("btn-frap").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); punch(); });
-$("btn-sort").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (player.cls) cast(player.cls); });
+$("btn-sort").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (player.cls) cast(player.cls, 1); });
+$("btn-sort2").addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (player.cls2) cast(player.cls2, 2); });
 
 window.addEventListener("resize", resize);
 window.addEventListener("orientationchange", () => setTimeout(resize, 80));
@@ -2036,7 +2444,8 @@ try {
   spawnWildlife();
   camX = player.x + 8; camY = player.y + 5; camZ = player.z + 9;
   if (/[?&]play\b/.test(location.search)) {
-    if (!player.cls) pickClass("feu");
+    if (!player.cls) pickClass("feu", 1);
+    if (!player.cls2) pickClass("glace", 2);
     applyClassUI();
     homeEl.classList.add("hidden");
     playUI.classList.remove("hidden");
