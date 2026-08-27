@@ -4851,9 +4851,9 @@ function render() {
 function updateCamera(dt) {
   const fy = player.yaw;
   const backX = Math.sin(fy), backZ = Math.cos(fy);
-  let dist = 8;
+  let dist = 4.4;
   let tx = player.x - backX * dist;
-  let ty = player.y + 2.35 + player.pitch * 1.4;
+  let ty = player.y + 2.15 + player.pitch * 0.85;
   let tz = player.z - backZ * dist;
   if (mode === "home") {
     const t = performance.now() / 1000;
@@ -4917,10 +4917,16 @@ function updateCamera(dt) {
     camY += pdy / plen * 0.2;
     camZ += pdz / plen * 0.2;
   }
-  const lx = player.x;
-  const ly = player.y + 1.05;
-  const lz = player.z;
-  lookAt(view, camX, camY, camZ, lx, ly, lz);
+  if (mode === "home") {
+    lookAt(view, camX, camY, camZ, player.x, player.y + 1.05, player.z);
+  } else {
+    const ld = lookDir();
+    const aim = 16;
+    lookAt(view, camX, camY, camZ,
+      player.x + ld.x * aim,
+      player.y + 1.05 + ld.y * aim,
+      player.z + ld.z * aim);
+  }
 }
 
 function updateHUD() {
